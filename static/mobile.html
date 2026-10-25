@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SignBridge Extended — Mobile APK & Remote Camera</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#08090D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Google Fonts: Space Grotesk, Plus Jakarta Sans, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg-void: #08090D;
+      --glass-base: rgba(16, 20, 31, 0.60);
+      --glass-elevated: rgba(28, 35, 54, 0.40);
+      --border-specular: rgba(255, 255, 255, 0.12);
+      --border-highlight: rgba(255, 255, 255, 0.25);
+      --liquid-cyan: #00F0FF;
+      --liquid-amber: #FFB800;
+      --liquid-emerald: #00FF9D;
+      --liquid-rose: #FF3366;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      height: 100dvh;
+      width: 100vw;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(0, 240, 255, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 80% 90%, rgba(0, 255, 157, 0.07) 0%, transparent 45%);
+    }
+
+    /* Capa 1: Visualizador de Cámara (HUD Principal) */
+    .glass-layer-1 {
+      background: rgba(10, 14, 23, 0.45);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
+      border: 1px solid var(--border-specular);
+      border-radius: 24px;
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    /* Capa 2: Paneles de Control y Métricas Flotantes */
+    .glass-layer-2 {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
+        rgba(18, 22, 34, 0.75);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--border-specular);
+      border-top: 1px solid var(--border-highlight);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.15), 0 8px 28px rgba(0, 0, 0, 0.45);
+      border-radius: 20px;
+    }
+
+    /* Capa 3: Modales Flotantes */
+    .glass-layer-3 {
+      background: rgba(8, 11, 18, 0.88);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 28px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+    }
+
+    .tabular-nums-metric {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .safe-top {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+    }
+
+    .safe-bottom {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    .stability-ring-circle {
+      transition: stroke-dashoffset 0.12s linear, stroke 0.25s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Retícula táctil para Touchpad */
+    .touchpad-grid {
+      background-image:
+        linear-gradient(to right, rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 9999px; }
+  </style>
+</head>
+
+<body class="relative flex flex-col justify-between p-2.5 sm:p-3.5 safe-top">
+
+  <!-- LIENZO DE FONDO: Video de Cámara Móvil o Espejo IA del PC -->
+  <div class="fixed inset-0 bg-[#08090D] flex items-center justify-center z-0 overflow-hidden">
+    <!-- Video directo de la cámara del celular -->
+    <video id="mobileVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
+    <!-- Imagen espejo con el esqueleto 3D procesado por el PC -->
+    <img id="pcMirrorFeed" class="hidden w-full h-full object-contain bg-[#08090D]" alt="Esqueleto IA PC" />
+    <!-- Canvas interno de compresión JPEG para enviar por WebSocket -->
+    <canvas id="mobileCanvas" width="480" height="360" class="hidden"></canvas>
+    <!-- Input nativo de cámara para Android HTTP fallback -->
+    <input id="nativeCameraInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleNativePhotoFrame(event)" />
+  </div>
+
+  <!-- HEADER SUPERIOR FLOTANTE: Estado de Conexión + Anillo de Estabilidad Temporal + Config APK -->
+  <header class="relative z-20 glass-layer-2 px-3.5 py-2.5 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-[#00F0FF]/15 border border-[#00F0FF]/40 shrink-0">
+        <i data-lucide="smartphone" class="w-5 h-5 text-[#00F0FF]"></i>
+        <span id="wsDot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#00FF9D] border-2 border-[#08090D] animate-pulse"></span>
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="tabular-nums-metric text-sm text-[#F8FAFC] truncate">SIGNBRIDGE APK</span>
+          <span id="pcSourcePill" class="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/30">
+            ENLACE OK
+          </span>
+        </div>
+        <div id="wsStatusText" class="text-[11px] text-[#94A3B8] truncate" style="font-family: 'JetBrains Mono', monospace;">
+          Conectando con PC...
+        </div>
+      </div>
+    </div>
+
+    <!-- Anillo de Estabilidad Temporal Compacto + Gesto Activo -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center gap-2 px-2.5 py-1 rounded-2xl bg-black/50 border border-white/15">
+        <div class="relative w-9 h-9 flex items-center justify-center">
+          <svg class="w-9 h-9" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="16" stroke="rgba(255,255,255,0.12)" stroke-width="3.5" fill="transparent" />
+            <circle
+              id="mobRingCircle"
+              class="stability-ring-circle"
+              cx="20" cy="20" r="16"
+              stroke="#00F0FF"
+              stroke-width="3.5"
+              stroke-linecap="round"
+              fill="transparent"
+              stroke-dasharray="100.53"
+              stroke-dashoffset="100.53"
+            />
+          </svg>
+          <span id="mobGestureBadge" class="absolute tabular-nums-metric text-xs text-[#00F0FF]">G0</span>
+        </div>
+        <div class="pr-1">
+          <div id="mobGestureLabel" class="font-bold text-[11px] leading-tight text-[#F8FAFC]">ESPERANDO</div>
+          <div id="mobConfBadge" class="font-mono text-[10px] text-[#94A3B8]">0% conf</div>
+        </div>
+      </div>
+
+      <!-- Botón Configurar IP Servidor (Para APK) -->
+      <button
+        onclick="openServerModal()"
+        title="Configurar IP del PC para la APK"
+        class="min-w-[44px] min-h-[44px] rounded-2xl bg-white/5 hover:bg-white/15 border border-white/15 flex items-center justify-center text-[#94A3B8] active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="wifi" class="w-4 h-4 text-[#00F0FF]"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR CENTRAL DINÁMICO SEGÚN PESTAÑA ACTIVA -->
+  <main class="relative z-10 flex-1 flex flex-col justify-between my-2.5 overflow-y-auto">
+
+    <!-- ========================================================================= -->
+    <!-- VISTA 1: MODO CONTROL CÁMARA (Usar el Celular como Cámara del PC)         -->
+    <!-- ========================================================================= -->
+    <section id="tabView_CAMERA" class="flex-1 flex flex-col justify-between gap-2.5">
+
+      <!-- Controles Superiores de Lente y Vista Esqueleto IA -->
+      <div class="flex items-center justify-between gap-2">
+        <button
+          onclick="toggleMirrorView()"
+          id="btnToggleViewMode"
+          class="min-h-[48px] px-3.5 py-2 rounded-2xl glass-layer-2 text-xs font-semibold flex items-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150"
+        >
+          <i data-lucide="scan-face" class="w-4 h-4"></i>
+          <span id="lblViewMode">Vista: Esqueleto IA PC</span>
+        </button>
+
+        <button
+          onclick="switchCameraFacing()"
+          class="min-h-[48px] px-3.5 py-2 rounded-2xl glass-layer-2 text-xs font-semibold flex items-center gap-2 text-[#F8FAFC] active:scale-95 transition-transform duration-150"
+        >
+          <i data-lucide="refresh-cw" class="w-4 h-4 text-[#00FF9D]"></i>
+          <span id="lblLensFacing">Lente: Trasero</span>
+        </button>
+      </div>
+
+      <!-- Aviso / Puente de Cámara si el navegador HTTP móvil restringe getUserMedia antes de instalar APK -->
+      <div id="httpCameraNotice" class="hidden glass-layer-2 p-3.5 border border-[#FFB800]/50 text-xs space-y-2 my-auto">
+        <div class="flex items-center gap-2 text-[#FFB800] font-bold">
+          <i data-lucide="shield-alert" class="w-5 h-5 shrink-0"></i>
+          <span>Cámara en Navegador HTTP vs APK</span>
+        </div>
+        <p class="text-[11px] text-[#94A3B8] leading-relaxed">
+          Chrome móvil restringe el video continuo en direcciones <code class="text-[#F8FAFC]">http://</code> locales fuera de la APK compilada.
+          Mientras tanto, hemos activado el <strong class="text-[#00F0FF]">Visor Espejo IA en Vivo</strong> y puedes usar la cámara nativa o el modo Touchpad:
+        </p>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button
+            onclick="document.getElementById('nativeCameraInput').click()"
+            class="flex-1 min-h-[48px] px-3 py-2 rounded-xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 text-[#00F0FF] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform duration-150"
+          >
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>Capturar con Cámara OS</span>
+          </button>
+          <button
+            onclick="switchMobileTab('CONTROL')"
+            class="flex-1 min-h-[48px] px-3 py-2 rounded-xl bg-[#00FF9D]/20 border border-[#00FF9D]/50 text-[#00FF9D] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform duration-150"
+          >
+            <i data-lucide="hand" class="w-4 h-4"></i>
+            <span>Ir a Mando / Touchpad</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta Inferior de Control de Cámara del Celular hacia el PC -->
+      <div class="glass-layer-2 p-3.5 mt-auto space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold uppercase tracking-wider text-[#00F0FF]">
+              Modo Control de Cámara al PC
+            </div>
+            <div id="camControlSubtext" class="text-[11px] text-[#94A3B8]">
+              Al activarlo, el PC usará este celular como fuente de visión principal
+            </div>
+          </div>
+          <span id="fpsMobileBadge" class="font-mono text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[#00FF9D]">
+            LIVE
+          </span>
+        </div>
+
+        <!-- BOTÓN PRINCIPAL: ACTIVAR / DESACTIVAR MODO CÁMARA DEL CELULAR EN EL PC -->
+        <button
+          id="btnActivateCamControl"
+          onclick="toggleMobileCameraControlMode()"
+          class="w-full min-h-[54px] px-4 py-3 rounded-2xl border border-[#00FF9D]/60 bg-gradient-to-r from-[#00FF9D]/25 to-[#00F0FF]/20 text-[#00FF9D] font-bold text-sm flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(0,255,157,0.25)] active:scale-95 transition-all duration-150"
+        >
+          <i data-lucide="video" class="w-5 h-5"></i>
+          <span id="lblActivateCamControl">USAR CELULAR COMO CÁMARA DEL PC: ACTIVO</span>
+        </button>
+
+        <!-- Fila Rápida: Puntero Mouse PC + Cambio de Motor IA -->
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            id="btnCamTabPointer"
+            onclick="toggleMobilePointer()"
+            class="min-h-[48px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150"
+          >
+            <i data-lucide="navigation" class="w-4 h-4 text-[#00F0FF]"></i>
+            <span id="lblCamTabPointer">Puntero PC: OFF</span>
+          </button>
+
+          <button
+            id="btnCamTabEngine"
+            onclick="toggleRemoteEngine()"
+            class="min-h-[48px] px-3 py-2 rounded-xl border border-[#FFB800]/40 bg-[#FFB800]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#FFB800] active:scale-95 transition-transform duration-150"
+          >
+            <i data-lucide="cpu" class="w-4 h-4"></i>
+            <span id="lblCamTabEngine">Motor: OFFLINE</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VISTA 2: MANDO DE GESTOS & TOUCHPAD TÁCTIL (Modo Control Remoto)          -->
+    <!-- ========================================================================= -->
+    <section id="tabView_CONTROL" class="hidden flex-1 flex flex-col justify-between gap-2.5">
+
+      <!-- Touchpad Háptico para Dirigir el Mouse del PC desde la Pantalla del Celular -->
+      <div
+        id="mobileTouchpad"
+        class="glass-layer-1 touchpad-grid relative flex-1 min-h-[180px] p-3.5 flex flex-col justify-between overflow-hidden border border-[#00F0FF]/35"
+      >
+        <div class="flex items-center justify-between pointer-events-none">
+          <span class="font-mono text-[11px] text-[#00F0FF] font-semibold flex items-center gap-1.5">
+            <i data-lucide="move" class="w-3.5 h-3.5"></i>
+            TOUCHPAD DE PUNTERO PC (DESLIZA EL DEDO)
+          </span>
+          <span class="font-mono text-[10px] text-[#94A3B8]">1 Toque = Clic Izq</span>
+        </div>
+
+        <!-- Indicador visual donde apoya el dedo -->
+        <div
+          id="touchCursorDot"
+          class="hidden absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-2 border-[#00F0FF] bg-[#00F0FF]/20 shadow-[0_0_20px_#00F0FF] pointer-events-none transition-transform duration-75"
+        ></div>
+
+        <div class="my-auto text-center pointer-events-none opacity-60">
+          <div class="text-xs font-bold text-[#F8FAFC]" style="font-family: 'Space Grotesk', sans-serif;">
+            ÁREA HÁPTICA DE CONTROL DE MOUSE
+          </div>
+          <div class="text-[11px] text-[#94A3B8] mt-0.5">
+            Alcanza todas las esquinas de Windows (incluyendo el botón Inicio)
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#94A3B8] pointer-events-none">
+          <span id="touchCoordsLabel">X: 0.50 | Y: 0.50</span>
+          <span class="text-[#00FF9D]">RANGO AMPLIADO 1.30x</span>
+        </div>
+      </div>
+
+      <!-- Catálogo de Botones de Gesto y Acciones Directas (Mínimo 48x48px) -->
+      <div class="glass-layer-2 p-3 space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-[#00F0FF]" style="font-family: 'Space Grotesk', sans-serif;">
+            Catálogo de Gestos & Periféricos
+          </span>
+          <button
+            onclick="toggleMobilePointer()"
+            id="btnCtrlTabPointer"
+            class="px-2.5 py-1 rounded-full bg-white/5 border border-white/15 font-mono text-[11px] text-[#94A3B8]"
+          >
+            Puntero Cámara: OFF
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <!-- G5: Clic Izquierdo -->
+          <button
+            onclick="sendRemoteGesture('G5')"
+            class="min-h-[54px] p-2.5 rounded-2xl bg-[#00FF9D]/15 border border-[#00FF9D]/45 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
+          >
+            <div class="flex items-center justify-between w-full">
+              <span class="font-bold text-[#00FF9D]">G5 • Clic Izquierdo</span>
+              <i data-lucide="mouse-pointer" class="w-4 h-4 text-[#00FF9D]"></i>
+            </div>
+            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Pellizco Índice+Pulgar</span>
+          </button>
+
+          <!-- G1: Clic Derecho -->
+          <button
+            onclick="sendRemoteGesture('G1')"
+            class="min-h-[54px] p-2.5 rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/45 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
+          >
+            <div class="flex items-center justify-between w-full">
+              <span class="font-bold text-[#00F0FF]">G1 • Clic Derecho</span>
+              <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-[#00F0FF]"></i>
+            </div>
+            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Paz (Índice + Medio)</span>
+          </button>
+
+          <!-- G2: Scroll Arriba -->
+          <button
+            onclick="sendRemoteGesture('G2')"
+            class="min-h-[54px] p-2.5 rounded-2xl bg-white/5 border border-white/15 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
+          >
+            <div class="flex items-center justify-between w-full">
+              <span class="font-bold text-[#F8FAFC]">G2 • Scroll Arriba</span>
+              <i data-lucide="arrow-up-circle" class="w-4 h-4 text-[#00F0FF]"></i>
+            </div>
+            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Índice Extendido (+350)</span>
+          </button>
+
+          <!-- G3: Scroll Abajo -->
+          <button
+            onclick="sendRemoteGesture('G3')"
+            class="min-h-[54px] p-2.5 rounded-2xl bg-white/5 border border-white/15 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
+          >
+            <div class="flex items-center justify-between w-full">
+              <span class="font-bold text-[#F8FAFC]">G3 • Scroll Abajo</span>
+              <i data-lucide="arrow-down-circle" class="w-4 h-4 text-[#00F0FF]"></i>
+            </div>
+            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Puño Cerrado (-350)</span>
+          </button>
+        </div>
+
+        <!-- G4: Llamada de Asistencia Prioritaria -->
+        <button
+          onclick="sendRemoteGesture('G4')"
+          class="w-full min-h-[50px] px-3.5 py-2.5 rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/50 flex items-center justify-between text-xs font-bold text-[#FFB800] active:scale-95 transition-transform duration-150"
+        >
+          <span class="flex items-center gap-2">
+            <i data-lucide="siren" class="w-4 h-4"></i>
+            <span>G4 • LLAMADA DE ASISTENCIA (SOS)</span>
+          </span>
+          <span class="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#FFB800]/20">3 Dedos / Shaka</span>
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- BARRA INFERIOR FLOTANTE VIDRIADA (Safe-Area-Inset-Bottom, Botones >= 48x48px) -->
+  <footer class="relative z-20 glass-layer-2 px-2.5 py-2 safe-bottom grid grid-cols-4 gap-1.5">
+    <button
+      id="navBtnCamera"
+      onclick="switchMobileTab('CAMERA')"
+      class="min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150"
+    >
+      <i data-lucide="camera" class="w-5 h-5"></i>
+      <span class="text-[10px]">Modo Cámara</span>
+    </button>
+
+    <button
+      id="navBtnControl"
+      onclick="switchMobileTab('CONTROL')"
+      class="min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150"
+    >
+      <i data-lucide="gamepad-2" class="w-5 h-5"></i>
+      <span class="text-[10px]">Mando & Mouse</span>
+    </button>
+
+    <button
+      id="navBtnEngine"
+      onclick="toggleRemoteEngine()"
+      class="min-h-[52px] rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/40 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#FFB800] active:scale-95 transition-all duration-150"
+    >
+      <i data-lucide="cpu" class="w-5 h-5"></i>
+      <span id="lblMobileEngine" class="text-[10px]">OFFLINE</span>
+    </button>
+
+    <button
+      onclick="openServerModal()"
+      class="min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#F8FAFC] active:scale-95 transition-all duration-150"
+    >
+      <i data-lucide="settings-2" class="w-5 h-5 text-[#00FF9D]"></i>
+      <span class="text-[10px]">IP / APK</span>
+    </button>
+  </footer>
+
+  <!-- MODAL CAPA 3: Configuración de IP del Servidor PC (Para APK Autónoma) -->
+  <div id="modalServerConfig" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-layer-3 max-w-sm w-full p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/40 flex items-center justify-center text-[#00F0FF]">
+            <i data-lucide="server" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-[#F8FAFC]" style="font-family: 'Space Grotesk', sans-serif;">
+              Enlace de Red APK ↔ PC
+            </h3>
+            <p class="text-[11px] text-[#94A3B8]">Dirección IP local del servidor Python</p>
+          </div>
+        </div>
+        <button onclick="closeServerModal()" class="min-w-[44px] min-h-[44px] rounded-full bg-white/5 flex items-center justify-center text-[#94A3B8]">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <label class="block text-[#94A3B8] font-semibold">Host / IP del PC (Puerto 8000):</label>
+        <input
+          id="inputServerHost"
+          type="text"
+          placeholder="192.168.101.12:8000"
+          class="w-full px-3.5 py-3 rounded-xl bg-[#08090D] border border-white/20 text-[#F8FAFC] font-mono text-sm focus:outline-none focus:border-[#00F0FF]"
+        />
+        <p class="text-[11px] text-[#94A3B8]">
+          En la APK de Android, ingresa aquí la IP local que aparece en la tarjeta QR de tu PC.
+        </p>
+      </div>
+
+      <div class="flex gap-2 pt-1">
+        <a
+          href="/"
+          class="flex-1 min-h-[48px] rounded-full border border-white/15 bg-white/5 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#F8FAFC]"
+        >
+          <i data-lucide="monitor" class="w-4 h-4"></i>
+          <span>Abrir HUD PC</span>
+        </a>
+        <button
+          onclick="saveServerHost()"
+          class="flex-1 min-h-[48px] rounded-full bg-[#00F0FF]/20 border border-[#00F0FF]/60 text-xs font-bold text-[#00F0FF] active:scale-95 transition-transform duration-150"
+        >
+          Conectar Ahora
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let wsMobile = null;
+    let facingMode = 'environment';
+    let currentStream = null;
+    let currentMode = 'OFFLINE';
+    let mobileCamControlActive = true;
+    let mobPointerActive = false;
+    let showPcMirror = false;
+    let activeTab = 'CAMERA';
+    const MOB_RING_CIRC = 100.53;
+
+    // Determinar el host del servidor PC (soporta navegador web directo o APK Capacitor)
+    function getServerHost() {
+      const saved = localStorage.getItem('signbridge_server_host');
+      if (saved && saved.trim()) return saved.trim();
+      if (window.location.host && !window.location.host.startsWith('localhost')) {
+        return window.location.host;
+      }
+      return window.location.host || '192.168.101.12:8000';
+    }
+
+    function getApiBaseUrl() {
+      const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      return `${proto}//${getServerHost()}`;
+    }
+
+    async function startMobileCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach((t) => t.stop());
+        currentStream = null;
+      }
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Contexto HTTP sin getUserMedia directo');
+        }
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+        const video = document.getElementById('mobileVideo');
+        video.srcObject = currentStream;
+        await video.play();
+        document.getElementById('httpCameraNotice').classList.add('hidden');
+        document.getElementById('fpsMobileBadge').textContent = 'CAM 30 FPS';
+      } catch (err) {
+        // Activar automáticamente el espejo IA del PC y mostrar opciones para HTTP
+        showPcMirror = true;
+        document.getElementById('mobileVideo').classList.add('hidden');
+        document.getElementById('pcMirrorFeed').classList.remove('hidden');
+        document.getElementById('httpCameraNotice').classList.remove('hidden');
+        document.getElementById('fpsMobileBadge').textContent = 'ESPEJO IA';
+      }
+    }
+
+    function connectMobileWS() {
+      const host = getServerHost();
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      document.getElementById('inputServerHost').value = host;
+
+      try {
+        wsMobile = new WebSocket(`${proto}//${host}/ws/mobile`);
+      } catch (e) {
+        setTimeout(connectMobileWS, 2000);
+        return;
+      }
+
+      wsMobile.onopen = () => {
+        document.getElementById('wsDot').className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#00FF9D] border-2 border-[#08090D] animate-pulse';
+        document.getElementById('wsStatusText').textContent = `Conectado a ${host}`;
+        // Al abrir desde el celular, si el modo control cámara está activo, avisar al PC
+        if (mobileCamControlActive) {
+          wsMobile.send(JSON.stringify({ type: 'ACTIVATE_MOBILE_CAM', enabled: true }));
+        }
+      };
+
+      wsMobile.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        const gid = data.stabilized_id || 'G0';
+        const conf = Math.round((data.confidence || 0) * 100);
+        const prog = Number(data.ring_progress || 0);
+
+        document.getElementById('mobGestureBadge').textContent = gid;
+        document.getElementById('mobGestureLabel').textContent = data.short_label || gid;
+        document.getElementById('mobConfBadge').textContent = `${conf}% conf`;
+
+        const offset = MOB_RING_CIRC * (1 - Math.min(1, Math.max(0, prog)));
+        const ring = document.getElementById('mobRingCircle');
+        ring.style.strokeDashoffset = offset.toFixed(2);
+        ring.style.stroke = gid === 'G0' ? '#FF3366' : '#00FF9D';
+
+        if (data.mode) {
+          currentMode = data.mode;
+          updateEngineButtonsUI(currentMode);
+        }
+
+        if (data.pointer_enabled !== undefined) {
+          mobPointerActive = Boolean(data.pointer_enabled);
+          updatePointerButtonsUI(mobPointerActive);
+        }
+
+        if (data.mobile_cam_active !== undefined) {
+          mobileCamControlActive = Boolean(data.mobile_cam_active);
+          updateCamControlButtonUI(mobileCamControlActive);
+        }
+
+        // Mostrar feed procesado del PC si estamos en modo Espejo IA o sin cámara directa
+        if ((showPcMirror || !currentStream) && data.hud_frame_b64) {
+          const mirrorImg = document.getElementById('pcMirrorFeed');
+          mirrorImg.src = `data:image/jpeg;base64,${data.hud_frame_b64}`;
+        }
+      };
+
+      wsMobile.onclose = () => {
+        document.getElementById('wsDot').className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#FF3366] border-2 border-[#08090D]';
+        document.getElementById('wsStatusText').textContent = 'Reconectando con PC...';
+        setTimeout(connectMobileWS, 1500);
+      };
+    }
+
+    // Bucle de transmisión de fotogramas de la cámara del celular al PC
+    setInterval(() => {
+      const video = document.getElementById('mobileVideo');
+      const canvas = document.getElementById('mobileCanvas');
+      if (
+        mobileCamControlActive &&
+        wsMobile &&
+        wsMobile.readyState === WebSocket.OPEN &&
+        currentStream &&
+        video.readyState >= 2
+      ) {
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob && wsMobile.readyState === WebSocket.OPEN) {
+            wsMobile.send(blob);
+          }
+        }, 'image/jpeg', 0.72);
+      } else if (wsMobile && wsMobile.readyState === WebSocket.OPEN && !currentStream) {
+        // Mantener latido de telemetría para recibir el espejo IA del PC
+        wsMobile.send(JSON.stringify({ type: 'PING' }));
+      }
+    }, 85);
+
+    // Activar / Desactivar el uso del celular como cámara principal del PC
+    function toggleMobileCameraControlMode() {
+      mobileCamControlActive = !mobileCamControlActive;
+      updateCamControlButtonUI(mobileCamControlActive);
+      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+        wsMobile.send(JSON.stringify({
+          type: 'ACTIVATE_MOBILE_CAM',
+          enabled: mobileCamControlActive,
+        }));
+      }
+      fetch(`${getApiBaseUrl()}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_source: mobileCamControlActive ? 'MOBILE' : 'AUTO' }),
+      }).catch(() => {});
+    }
+
+    function updateCamControlButtonUI(active) {
+      const btn = document.getElementById('btnActivateCamControl');
+      const lbl = document.getElementById('lblActivateCamControl');
+      const pill = document.getElementById('pcSourcePill');
+      if (active) {
+        btn.className = 'w-full min-h-[54px] px-4 py-3 rounded-2xl border border-[#00FF9D]/60 bg-gradient-to-r from-[#00FF9D]/25 to-[#00F0FF]/20 text-[#00FF9D] font-bold text-sm flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(0,255,157,0.25)] active:scale-95 transition-all duration-150';
+        lbl.textContent = 'USAR CELULAR COMO CÁMARA DEL PC: ACTIVO';
+        pill.textContent = 'CAM MÓVIL EN PC';
+        pill.className = 'font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/30';
+      } else {
+        btn.className = 'w-full min-h-[54px] px-4 py-3 rounded-2xl border border-white/15 bg-white/5 text-[#94A3B8] font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition-all duration-150';
+        lbl.textContent = 'ACTIVAR CELULAR COMO CÁMARA DEL PC';
+        pill.textContent = 'STANDBY';
+        pill.className = 'font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-[#94A3B8] border border-white/15';
+      }
+    }
+
+    function toggleMirrorView() {
+      showPcMirror = !showPcMirror;
+      const video = document.getElementById('mobileVideo');
+      const mirror = document.getElementById('pcMirrorFeed');
+      const lbl = document.getElementById('lblViewMode');
+      if (showPcMirror) {
+        video.classList.add('hidden');
+        mirror.classList.remove('hidden');
+        lbl.textContent = 'Vista: Esqueleto IA PC';
+      } else {
+        mirror.classList.add('hidden');
+        video.classList.remove('hidden');
+        lbl.textContent = 'Vista: Lente Directo';
+      }
+    }
+
+    function switchCameraFacing() {
+      facingMode = facingMode === 'user' ? 'environment' : 'user';
+      document.getElementById('lblLensFacing').textContent =
+        facingMode === 'user' ? 'Lente: Frontal' : 'Lente: Trasero';
+      showPcMirror = false;
+      document.getElementById('pcMirrorFeed').classList.add('hidden');
+      document.getElementById('mobileVideo').classList.remove('hidden');
+      startMobileCamera();
+    }
+
+    function handleNativePhotoFrame(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+          wsMobile.send(JSON.stringify({
+            type: 'FRAME',
+            data: reader.result,
+            auto_switch: true,
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function switchMobileTab(tab) {
+      activeTab = tab;
+      const camSection = document.getElementById('tabView_CAMERA');
+      const ctrlSection = document.getElementById('tabView_CONTROL');
+      const navCam = document.getElementById('navBtnCamera');
+      const navCtrl = document.getElementById('navBtnControl');
+
+      if (tab === 'CAMERA') {
+        camSection.classList.remove('hidden');
+        ctrlSection.classList.add('hidden');
+        navCam.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
+        navCtrl.className = 'min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150';
+      } else {
+        camSection.classList.add('hidden');
+        ctrlSection.classList.remove('hidden');
+        navCtrl.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
+        navCam.className = 'min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150';
+      }
+    }
+
+    function toggleMobilePointer() {
+      mobPointerActive = !mobPointerActive;
+      updatePointerButtonsUI(mobPointerActive);
+      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+        wsMobile.send(JSON.stringify({ type: 'SET_POINTER', enabled: mobPointerActive }));
+      }
+      fetch(`${getApiBaseUrl()}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pointer_enabled: mobPointerActive }),
+      }).catch(() => {});
+    }
+
+    function updatePointerButtonsUI(enabled) {
+      const btnCam = document.getElementById('btnCamTabPointer');
+      const lblCam = document.getElementById('lblCamTabPointer');
+      const btnCtrl = document.getElementById('btnCtrlTabPointer');
+      if (enabled) {
+        btnCam.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#00F0FF]/60 bg-[#00F0FF]/20 text-xs font-semibold flex items-center justify-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150';
+        lblCam.textContent = 'Puntero PC: ON';
+        btnCtrl.textContent = 'Puntero Cámara: ON';
+        btnCtrl.className = 'px-2.5 py-1 rounded-full bg-[#00F0FF]/20 border border-[#00F0FF]/50 font-mono text-[11px] text-[#00F0FF]';
+      } else {
+        btnCam.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150';
+        lblCam.textContent = 'Puntero PC: OFF';
+        btnCtrl.textContent = 'Puntero Cámara: OFF';
+        btnCtrl.className = 'px-2.5 py-1 rounded-full bg-white/5 border border-white/15 font-mono text-[11px] text-[#94A3B8]';
+      }
+    }
+
+    function sendRemoteGesture(gid) {
+      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+        wsMobile.send(JSON.stringify({ type: 'TRIGGER', gesture_id: gid }));
+      }
+      fetch(`${getApiBaseUrl()}/api/trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gesture_id: gid }),
+      }).catch(() => {});
+    }
+
+    function toggleRemoteEngine() {
+      const next = currentMode === 'OFFLINE' ? 'ONLINE' : 'OFFLINE';
+      currentMode = next;
+      updateEngineButtonsUI(next);
+      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+        wsMobile.send(JSON.stringify({ type: 'SET_MODE', mode: next }));
+      }
+    }
+
+    function updateEngineButtonsUI(mode) {
+      document.getElementById('lblMobileEngine').textContent = mode;
+      document.getElementById('lblCamTabEngine').textContent = `Motor: ${mode}`;
+      const navBtn = document.getElementById('navBtnEngine');
+      const camBtn = document.getElementById('btnCamTabEngine');
+      if (mode === 'ONLINE') {
+        navBtn.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
+        camBtn.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#00F0FF]/50 bg-[#00F0FF]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150';
+      } else {
+        navBtn.className = 'min-h-[52px] rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/40 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#FFB800] active:scale-95 transition-all duration-150';
+        camBtn.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#FFB800]/40 bg-[#FFB800]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#FFB800] active:scale-95 transition-transform duration-150';
+      }
+    }
+
+    // Lógica del Touchpad Háptico para mover el cursor del PC desde la pantalla del celular
+    const pad = document.getElementById('mobileTouchpad');
+    const dot = document.getElementById('touchCursorDot');
+    let touchStartTs = 0;
+    let touchMoved = false;
+
+    function handlePadMove(clientX, clientY) {
+      const rect = pad.getBoundingClientRect();
+      const nx = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const ny = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+
+      dot.style.left = `${nx * 100}%`;
+      dot.style.top = `${ny * 100}%`;
+      dot.classList.remove('hidden');
+      document.getElementById('touchCoordsLabel').textContent = `X: ${nx.toFixed(2)} | Y: ${ny.toFixed(2)}`;
+
+      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
+        wsMobile.send(JSON.stringify({ type: 'TOUCH_MOVE', x: nx, y: ny, pinch: false }));
+      }
+    }
+
+    pad.addEventListener('touchstart', (e) => {
+      touchStartTs = Date.now();
+      touchMoved = false;
+      const t = e.touches[0];
+      handlePadMove(t.clientX, t.clientY);
+    }, { passive: true });
+
+    pad.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      touchMoved = true;
+      const t = e.touches[0];
+      handlePadMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    pad.addEventListener('touchend', () => {
+      dot.classList.add('hidden');
+      // Si fue un toque rápido (< 220ms) sin arrastrar, disparar Clic Izquierdo (G5)
+      if (!touchMoved && (Date.now() - touchStartTs) < 220) {
+        sendRemoteGesture('G5');
+      }
+    });
+
+    // Soporte de mouse para probar el touchpad móvil desde la ventana de previsualización en PC
+    let mouseDownOnPad = false;
+    pad.addEventListener('mousedown', (e) => {
+      mouseDownOnPad = true;
+      touchStartTs = Date.now();
+      touchMoved = false;
+      handlePadMove(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!mouseDownOnPad) return;
+      touchMoved = true;
+      handlePadMove(e.clientX, e.clientY);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!mouseDownOnPad) return;
+      mouseDownOnPad = false;
+      dot.classList.add('hidden');
+      if (!touchMoved && (Date.now() - touchStartTs) < 220) {
+        sendRemoteGesture('G5');
+      }
+    });
+
+    function openServerModal() {
+      document.getElementById('inputServerHost').value = getServerHost();
+      document.getElementById('modalServerConfig').classList.remove('hidden');
+    }
+
+    function closeServerModal() {
+      document.getElementById('modalServerConfig').classList.add('hidden');
+    }
+
+    function saveServerHost() {
+      const val = document.getElementById('inputServerHost').value.trim();
+      if (val) {
+        localStorage.setItem('signbridge_server_host', val);
+      }
+      closeServerModal();
+      if (wsMobile) {
+        wsMobile.close();
+      }
+      connectMobileWS();
+    }
+
+    connectMobileWS();
+    startMobileCamera();
+  </script>
+</body>
+</html>

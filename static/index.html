@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>SignBridge Extended — Liquid Glassmorphic HUD</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#08090D" />
+
+  <!-- Google Fonts: Space Grotesk, Plus Jakarta Sans, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+
+  <!-- TailwindCSS CDN + Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Space Grotesk"', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            void: '#08090D',
+            cyanLiquid: '#00F0FF',
+            amberLiquid: '#FFB800',
+            emeraldLiquid: '#00FF9D',
+            roseLiquid: '#FF3366',
+            textPrimary: '#F8FAFC',
+            textSecondary: '#94A3B8',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg-void: #08090D;
+      --glass-base: rgba(16, 20, 31, 0.60);
+      --glass-elevated: rgba(28, 35, 54, 0.40);
+      --border-specular: rgba(255, 255, 255, 0.12);
+      --border-highlight: rgba(255, 255, 255, 0.25);
+      --liquid-cyan: #00F0FF;
+      --liquid-amber: #FFB800;
+      --liquid-emerald: #00FF9D;
+      --liquid-rose: #FF3366;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 14% 18%, rgba(0, 240, 255, 0.08) 0%, transparent 38%),
+        radial-gradient(circle at 86% 82%, rgba(255, 184, 0, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(16, 20, 31, 0.95) 0%, #08090D 100%);
+    }
+
+    .tabular-nums-metric {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Capa 1: Visualizador de Cámara (HUD Principal) */
+    .glass-layer-1 {
+      background: rgba(10, 14, 23, 0.45);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
+      border: 1px solid var(--border-specular);
+      border-radius: 24px;
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    /* Capa 2: Paneles de Control y Métricas Flotantes */
+    .glass-layer-2 {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
+        rgba(18, 22, 34, 0.70);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--border-specular);
+      border-top: 1px solid var(--border-highlight);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.15), 0 10px 30px -5px rgba(0, 0, 0, 0.4);
+      border-radius: 20px;
+    }
+
+    /* Capa 3: Modales Flotantes y Vista QR de Emparejamiento */
+    .glass-layer-3 {
+      background: rgba(8, 11, 18, 0.85);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 28px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 240, 255, 0.12);
+    }
+
+    /* Switch Líquido Dual (Offline vs Online) con cubic-bezier(0.16, 1, 0.3, 1) */
+    .liquid-switch-track {
+      position: relative;
+      background: rgba(12, 16, 26, 0.82);
+      border: 1px solid var(--border-specular);
+      border-top: 1px solid var(--border-highlight);
+      border-radius: 9999px;
+      padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.65);
+    }
+
+    .liquid-switch-thumb {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      width: calc(50% - 4px);
+      border-radius: 9999px;
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                  background 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 0;
+    }
+
+    .liquid-switch-thumb.mode-offline {
+      transform: translateX(0%);
+      background: linear-gradient(135deg, rgba(255, 184, 0, 0.28) 0%, rgba(255, 184, 0, 0.10) 100%);
+      border: 1px solid rgba(255, 184, 0, 0.65);
+      box-shadow: 0 0 22px rgba(255, 184, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    }
+
+    .liquid-switch-thumb.mode-online {
+      transform: translateX(100%);
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.28) 0%, rgba(0, 240, 255, 0.10) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.70);
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.40), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    }
+
+    /* Anillo de Estabilidad Temporal */
+    .stability-ring-circle {
+      transition: stroke-dashoffset 0.12s linear, stroke 0.25s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    @keyframes emeraldPulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.75), inset 0 0 25px rgba(0, 255, 157, 0.35); }
+      70% { box-shadow: 0 0 0 22px rgba(0, 255, 157, 0), inset 0 0 10px rgba(0, 255, 157, 0.1); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 255, 157, 0), inset 0 0 0 rgba(0, 255, 157, 0); }
+    }
+
+    .emerald-pulse-active {
+      animation: emeraldPulse 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+      border-color: var(--liquid-emerald) !important;
+    }
+
+    .safe-bottom-bar {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    /* Scrollbar sutil */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(8, 9, 13, 0.4); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 9999px; }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-5 pb-24 lg:pb-6 selection:bg-cyanLiquid/20 selection:text-cyanLiquid">
+
+  <!-- HEADER SUPERIOR: Identidad + Switch Líquido Dual + Acciones Rápidas -->
+  <header class="glass-layer-2 px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 z-20">
+    <!-- Logo & Estado del Sistema -->
+    <div class="flex items-center gap-3">
+      <div id="brandOrb" class="w-11 h-11 rounded-2xl flex items-center justify-center border border-amberLiquid/50 bg-amberLiquid/10 shadow-[0_0_20px_rgba(255,184,0,0.25)] transition-all duration-300">
+        <i data-lucide="hand-metal" class="w-6 h-6 text-amberLiquid" id="brandIcon"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-display font-bold text-lg md:text-xl tracking-tight text-textPrimary">
+            SIGNBRIDGE <span class="text-xs font-mono px-2 py-0.5 rounded-full border border-white/15 bg-white/5 text-cyanLiquid">EXTENDED v2.0</span>
+          </h1>
+        </div>
+        <p class="text-xs text-textSecondary flex items-center gap-2 font-mono">
+          <span id="wsStatusDot" class="w-2 h-2 rounded-full bg-emeraldLiquid animate-pulse"></span>
+          <span id="engineSubtitle">PIPELINE 63D • BUFFER CIRCULAR N=8 • UMBRAL ≥ 0.85</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- COMPONENTE CLAVE 1: Interruptor de Modo Dual (Switch Líquido Offline vs Online) -->
+    <div class="liquid-switch-track w-full sm:w-auto min-w-[330px] md:min-w-[410px]" role="group" aria-label="Selector de motor de inferencia">
+      <div id="modeSwitchThumb" class="liquid-switch-thumb mode-offline"></div>
+
+      <button
+        id="btnModeOffline"
+        onclick="switchInferenceMode('OFFLINE')"
+        class="relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-amberLiquid"
+      >
+        <i data-lucide="cpu" class="w-4 h-4"></i>
+        <span>OFFLINE (YOLO / TF-LITE)</span>
+      </button>
+
+      <button
+        id="btnModeOnline"
+        onclick="switchInferenceMode('ONLINE')"
+        class="relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-textSecondary hover:text-textPrimary"
+      >
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span>ONLINE (GEMINI 3 API)</span>
+      </button>
+    </div>
+
+    <!-- Controles de Hardware, API Key y Emparejamiento QR -->
+    <div class="flex items-center gap-2">
+      <!-- Toggle Dirigir Mouse con el Dedo Índice -->
+      <button
+        id="btnTogglePointer"
+        onclick="togglePointerMode()"
+        title="Controlar el cursor de Windows con el dedo índice (Pellizco = Clic Izquierdo)"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-textSecondary text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="navigation" class="w-4 h-4"></i>
+        <span id="labelTogglePointer">PUNTERO: OFF</span>
+      </button>
+
+      <!-- Toggle Emulación OS (pyautogui) -->
+      <button
+        id="btnToggleOS"
+        onclick="toggleHardwareOS()"
+        title="Habilitar/Pausar ejecución física en Sistema Operativo (pyautogui)"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-emeraldLiquid/40 bg-emeraldLiquid/10 text-emeraldLiquid text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i>
+        <span id="labelToggleOS">OS ACTIVO</span>
+      </button>
+
+      <!-- Botón Ventana Flotante Mini -->
+      <button
+        onclick="openMiniWindow()"
+        title="Abrir cámara en ventana flotante pequeña para usar sobre otras aplicaciones"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="app-window" class="w-4 h-4"></i>
+        <span>Ventana Flotante</span>
+      </button>
+
+      <!-- Botón Visualizar Interfaz Móvil / APK desde el PC -->
+      <button
+        onclick="openMobilePreviewWindow()"
+        title="Visualizar y probar la interfaz móvil (APK) directamente en el PC aunque no esté conectado el celular"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-amberLiquid/45 bg-amberLiquid/15 hover:bg-amberLiquid/25 text-amberLiquid text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="smartphone" class="w-4 h-4"></i>
+        <span>Vista Móvil APK</span>
+      </button>
+
+      <!-- Botón Configurar Gemini API Key -->
+      <button
+        onclick="openModal('modalGemini')"
+        title="Configurar API Key de Gemini"
+        class="min-h-[48px] min-w-[48px] px-3 py-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-textPrimary text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="key-round" class="w-4 h-4 text-cyanLiquid"></i>
+        <span class="hidden xl:inline">API Key</span>
+      </button>
+
+      <!-- Botón Abrir Modal QR (Cámara Remota Móvil) -->
+      <button
+        onclick="openQRModal()"
+        class="min-h-[48px] px-4 py-2 rounded-full border border-cyanLiquid/45 bg-cyanLiquid/15 hover:bg-cyanLiquid/25 text-cyanLiquid text-xs font-semibold flex items-center gap-2 shadow-[0_0_20px_rgba(0,240,255,0.2)] active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="qr-code" class="w-4 h-4"></i>
+        <span>Cámara QR Móvil</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- GRID PRINCIPAL DEL HUD -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+
+    <!-- COLUMNA IZQUIERDA / CENTRAL (7 cols): Capa 1 Visualizador de Cámara + Anillo de Estabilidad Temporal -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- CAPA 1: Visualizador de Cámara (HUD Principal) -->
+      <div id="hudViewportCard" class="glass-layer-1 relative flex-1 min-h-[380px] md:min-h-[470px] overflow-hidden flex flex-col justify-between p-4 transition-all duration-300">
+
+        <!-- Video / Canvas de Transmisión en Vivo -->
+        <div class="absolute inset-0 flex items-center justify-center bg-void/80">
+          <img
+            id="hudVideoStream"
+            alt="SignBridge Live Vision Feed"
+            class="w-full h-full object-contain"
+            src=""
+          />
+          <!-- Video oculto si el usuario activa la webcam directo desde el navegador -->
+          <video id="browserWebcamVideo" class="hidden" playsinline muted></video>
+          <canvas id="browserWebcamCanvas" class="hidden" width="640" height="480"></canvas>
+        </div>
+
+        <!-- Overlay Superior del Visor: Telemetría de Latencia, FPS y Fuente -->
+        <div class="relative z-10 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-mono">
+              <span id="sourceIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-cyanLiquid"></span>
+              <span id="hudSourceLabel" class="text-textPrimary font-semibold">SIMULATOR_3D</span>
+            </div>
+
+            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
+              <i data-lucide="gauge" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
+              <span id="hudFpsValue" class="tabular-nums-metric text-textPrimary">30.0</span>
+              <span class="text-textSecondary">FPS</span>
+            </div>
+
+            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-amberLiquid"></i>
+              <span id="hudLatencyValue" class="tabular-nums-metric text-textPrimary">12.4</span>
+              <span class="text-textSecondary">ms</span>
+            </div>
+          </div>
+
+          <!-- Selector de Fuente de Video + Botón PiP -->
+          <div class="glass-layer-2 p-1 rounded-full flex flex-wrap items-center gap-1 text-xs">
+            <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2.5 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150">Auto</button>
+            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Webcam PC</button>
+            <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
+              <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
+              <span>Cámara Móvil</span>
+            </button>
+            <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Cam Navegador</button>
+            <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Simulador 3D</button>
+            <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1">
+              <i data-lucide="picture-in-picture-2" class="w-3.5 h-3.5"></i>
+              <span>PiP</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Alerta de Llamada de Asistencia Flotante (G4) -->
+        <div id="assistanceBanner" class="hidden relative z-20 mx-auto my-auto glass-layer-3 px-6 py-4 border-2 border-amberLiquid text-center max-w-md animate-bounce">
+          <div class="flex items-center justify-center gap-2 text-amberLiquid font-display font-bold text-lg">
+            <i data-lucide="siren" class="w-6 h-6"></i>
+            <span>¡LLAMADA DE ASISTENCIA ACTIVADA (G4)!</span>
+          </div>
+          <p class="text-xs text-textSecondary mt-1">Señal prioritaria confirmada tras estabilización N=8.</p>
+        </div>
+
+        <!-- Overlay Inferior del Visor: COMPONENTE CLAVE 2 (Anillo de Estabilidad Temporal) + Coordenadas 3D -->
+        <div class="relative z-10 flex flex-wrap items-end justify-between gap-3 mt-auto pt-12">
+
+          <!-- Anillo de Estabilidad Temporal + Etiqueta de Gesto Detectado -->
+          <div id="gestureBadgeContainer" class="glass-layer-2 p-3 pr-5 flex items-center gap-3.5 transition-all duration-300">
+            <div class="relative w-16 h-16 flex items-center justify-center">
+              <svg class="w-16 h-16" viewBox="0 0 68 68">
+                <circle
+                  cx="34" cy="34" r="28"
+                  stroke="rgba(255, 255, 255, 0.12)"
+                  stroke-width="5"
+                  fill="rgba(8, 9, 13, 0.65)"
+                />
+                <circle
+                  id="stabilityRingCircle"
+                  class="stability-ring-circle"
+                  cx="34" cy="34" r="28"
+                  stroke="#00F0FF"
+                  stroke-width="5"
+                  stroke-linecap="round"
+                  fill="transparent"
+                  stroke-dasharray="175.93"
+                  stroke-dashoffset="175.93"
+                />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span id="hudGestureId" class="tabular-nums-metric text-base text-cyanLiquid">G1</span>
+                <span id="hudRingPercent" class="font-mono text-[10px] text-textSecondary">0%</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="hudGestureShortLabel" class="font-display font-bold text-base md:text-lg tracking-tight text-textPrimary">
+                  CLIC DERECHO
+                </span>
+                <span id="hudConfidencePill" class="font-mono text-xs px-2 py-0.5 rounded-full bg-cyanLiquid/15 border border-cyanLiquid/40 text-cyanLiquid">
+                  95.0%
+                </span>
+              </div>
+              <p id="hudGestureName" class="text-xs text-textSecondary mt-0.5">
+                Paz / Victoria (Índice + Medio)
+              </p>
+              <p id="hudActionCommand" class="font-mono text-[11px] text-emeraldLiquid mt-1 flex items-center gap-1">
+                <i data-lucide="terminal" class="w-3 h-3"></i>
+                <span>pyautogui.rightClick()</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Coordenadas 3D en Tiempo Real (JetBrains Mono) -->
+          <div class="glass-layer-2 px-3.5 py-2.5 font-mono text-xs flex flex-col gap-1 min-w-[235px]">
+            <div class="flex items-center justify-between text-[11px] text-textSecondary border-b border-white/10 pb-1">
+              <span>TELEMETRÍA 3D (21 LANDMARKS)</span>
+              <span id="hudVectorNorm" class="text-cyanLiquid">||V||=1.00</span>
+            </div>
+            <div class="flex justify-between gap-3">
+              <span class="text-textSecondary">MUÑECA [0]:</span>
+              <span id="coordWrist" class="text-textPrimary">(0.50, 0.78, 0.00)</span>
+            </div>
+            <div class="flex justify-between gap-3">
+              <span class="text-textSecondary">ÍNDICE [8]:</span>
+              <span id="coordIndex" class="text-cyanLiquid">(0.40, 0.29, -0.04)</span>
+            </div>
+            <div class="flex justify-between gap-3">
+              <span class="text-textSecondary">MEDIO [12]:</span>
+              <span id="coordMiddle" class="text-amberLiquid">(0.51, 0.25, -0.04)</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Barra Interactiva de Prueba de Gestos 3D (Para probar el Pipeline en Vivo o sin cámara) -->
+      <div class="glass-layer-2 p-3.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="hand" class="w-4 h-4 text-cyanLiquid"></i>
+          <span class="text-xs font-semibold text-textSecondary">POSE EN SIMULADOR / DISPARO RÁPIDO:</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="selectSimulatedGesture('G0')" id="simBtnG0" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-roseLiquid/40 bg-roseLiquid/10 text-roseLiquid active:scale-95 transition-transform duration-150">
+            G0 • Mano Abierta (Rechazo)
+          </button>
+          <button onclick="selectSimulatedGesture('G1')" id="simBtnG1" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-cyanLiquid/50 bg-cyanLiquid/20 text-cyanLiquid active:scale-95 transition-transform duration-150">
+            G1 • Clic Derecho (Paz)
+          </button>
+          <button onclick="selectSimulatedGesture('G2')" id="simBtnG2" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 bg-white/5 text-textPrimary hover:border-cyanLiquid/40 active:scale-95 transition-transform duration-150">
+            G2 • Scroll Arriba (Índice)
+          </button>
+          <button onclick="selectSimulatedGesture('G3')" id="simBtnG3" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 bg-white/5 text-textPrimary hover:border-cyanLiquid/40 active:scale-95 transition-transform duration-150">
+            G3 • Scroll Abajo (Puño)
+          </button>
+          <button onclick="selectSimulatedGesture('G4')" id="simBtnG4" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-amberLiquid/40 bg-amberLiquid/10 text-amberLiquid active:scale-95 transition-transform duration-150">
+            G4 • Asistencia (3 Dedos)
+          </button>
+          <button onclick="selectSimulatedGesture('G5')" id="simBtnG5" class="min-h-[42px] px-3 py-1.5 rounded-full text-xs font-semibold border border-emeraldLiquid/50 bg-emeraldLiquid/15 text-emeraldLiquid active:scale-95 transition-transform duration-150">
+            G5 • Clic Izquierdo (Pellizco)
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- COLUMNA DERECHA (5 cols): Capa 2 Paneles de Control, Matriz de Gestos, Buffer N=8 y QR -->
+    <aside class="lg:col-span-5 flex flex-col gap-4">
+
+      <!-- Panel 1: Estado de Estabilización Temporal (Buffer Circular N=8) & Dedos Extendidos -->
+      <div class="glass-layer-2 p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emeraldLiquid"></i>
+            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+              Estabilización Temporal & Vector 63D
+            </h2>
+          </div>
+          <span id="bufferStatusLabel" class="font-mono text-xs text-emeraldLiquid">N = 8 / 8 FRAMES</span>
+        </div>
+
+        <!-- Slots visuales del Buffer Circular N=8 -->
+        <div id="bufferSlotsContainer" class="grid grid-cols-8 gap-1.5">
+          <!-- Renderizado dinámico JS -->
+        </div>
+
+        <!-- Estado biomecánico de los 5 dedos -->
+        <div class="grid grid-cols-5 gap-1.5 pt-1">
+          <div id="fingerPill_thumb" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+            <div class="text-textSecondary text-[10px]">PULGAR [4]</div>
+            <div class="font-bold mt-0.5">PLEGADO</div>
+          </div>
+          <div id="fingerPill_index" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+            <div class="text-textSecondary text-[10px]">ÍNDICE [8]</div>
+            <div class="font-bold mt-0.5">ACTIVO</div>
+          </div>
+          <div id="fingerPill_middle" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+            <div class="text-textSecondary text-[10px]">MEDIO [12]</div>
+            <div class="font-bold mt-0.5">ACTIVO</div>
+          </div>
+          <div id="fingerPill_ring" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+            <div class="text-textSecondary text-[10px]">ANULAR [16]</div>
+            <div class="font-bold mt-0.5">PLEGADO</div>
+          </div>
+          <div id="fingerPill_pinky" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+            <div class="text-textSecondary text-[10px]">MEÑIQUE [20]</div>
+            <div class="font-bold mt-0.5">PLEGADO</div>
+          </div>
+        </div>
+
+        <!-- Nota semántica (Gemini / Clasificador Local) -->
+        <div class="px-3 py-2 rounded-xl bg-void/60 border border-white/10 font-mono text-xs text-textSecondary flex items-center justify-between gap-2">
+          <span id="semanticNoteText" class="truncate">Vector 63D normalizado respecto a muñeca [0].</span>
+          <span id="scaleMetricBadge" class="text-cyanLiquid shrink-0">d_max: 0.48</span>
+        </div>
+      </div>
+
+      <!-- Panel 2: Matriz de Gestos y Acciones de Periféricos -->
+      <div class="glass-layer-2 p-4 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-cyanLiquid"></i>
+            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+              Matriz de Gestos y Periféricos
+            </h2>
+          </div>
+          <span class="font-mono text-[11px] text-textSecondary">Click para disparar</span>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <!-- G0 -->
+          <div id="matrixRow_G0" onclick="selectSimulatedGesture('G0')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-roseLiquid/20 text-roseLiquid border border-roseLiquid/40">G0</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Mano Abierta / Caótico</div>
+                <div class="text-[11px] text-textSecondary">Rechazo activo • Cero activación accidental</div>
+              </div>
+            </div>
+            <span class="font-mono text-[11px] text-roseLiquid">RECHAZO</span>
+          </div>
+
+          <!-- G1 -->
+          <div id="matrixRow_G1" onclick="selectSimulatedGesture('G1')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G1</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Índice + Medio Juntos (Paz)</div>
+                <div class="text-[11px] text-textSecondary">Puntas 8 y 12 extendidas; 16 y 20 plegados</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); triggerManualAction('G1')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+              Clic Derecho
+            </button>
+          </div>
+
+          <!-- G2 -->
+          <div id="matrixRow_G2" onclick="selectSimulatedGesture('G2')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G2</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Dedo Índice Extendido Arriba</div>
+                <div class="text-[11px] text-textSecondary">Punta 8 extendida; 12, 16 y 20 plegados</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); triggerManualAction('G2')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+              Scroll +350
+            </button>
+          </div>
+
+          <!-- G3 -->
+          <div id="matrixRow_G3" onclick="selectSimulatedGesture('G3')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G3</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Puño Cerrado (Compresión)</div>
+                <div class="text-[11px] text-textSecondary">Dedos 8, 12, 16 y 20 plegados en palma</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); triggerManualAction('G3')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+              Scroll -350
+            </button>
+          </div>
+
+          <!-- G4 -->
+          <div id="matrixRow_G4" onclick="selectSimulatedGesture('G4')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-amberLiquid/20 text-amberLiquid border border-amberLiquid/40">G4</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Señal de Asistencia (3 Dedos)</div>
+                <div class="text-[11px] text-textSecondary">Puntas 8, 12 y 16 extendidas (o Shaka)</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); triggerManualAction('G4')" class="px-2.5 py-1 rounded-lg bg-amberLiquid/15 border border-amberLiquid/40 font-mono text-[11px] text-amberLiquid hover:bg-amberLiquid/25">
+              Alerta SOS
+            </button>
+          </div>
+
+          <!-- G5: Clic Izquierdo -->
+          <div id="matrixRow_G5" onclick="selectSimulatedGesture('G5')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-display font-bold px-2 py-1 rounded-lg bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40">G5</span>
+              <div>
+                <div class="font-semibold text-textPrimary">Pellizco / Tap (Índice + Pulgar)</div>
+                <div class="text-[11px] text-textSecondary">Puntas 4 y 8 unidas • Clic natural</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); triggerManualAction('G5')" class="px-2.5 py-1 rounded-lg bg-emeraldLiquid/15 border border-emeraldLiquid/40 font-mono text-[11px] text-emeraldLiquid hover:bg-emeraldLiquid/25">
+              Clic Izquierdo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 3: Bitácora de Ejecución de Hardware y Enlace QR Rápido -->
+      <div class="glass-layer-2 p-4 flex-1 flex flex-col justify-between gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="Activity" class="w-4 h-4 text-emeraldLiquid"></i>
+            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+              Bitácora de Hardware & Telemetría
+            </h2>
+          </div>
+          <span id="mobileLinkBadge" class="font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary">
+            QR: Esperando dispositivo
+          </span>
+        </div>
+
+        <div id="eventLogList" class="space-y-1.5 max-h-[135px] overflow-y-auto font-mono text-xs pr-1">
+          <div class="text-textSecondary text-xs py-2">Esperando confirmación del anillo de estabilidad (100%)...</div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- COMPONENTE CLAVE 4: Barra Inferior Flotante Vidriada Adaptativa Móvil / APK (48x48px min touch targets) -->
+  <nav class="fixed bottom-3 left-3 right-3 lg:hidden glass-layer-2 px-3 py-2 safe-bottom-bar flex items-center justify-around z-30">
+    <button onclick="switchInferenceMode(currentMode === 'OFFLINE' ? 'ONLINE' : 'OFFLINE')" class="min-w-[48px] min-h-[48px] px-3 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-amberLiquid active:scale-95 transition-transform duration-150">
+      <i data-lucide="cpu" class="w-5 h-5"></i>
+      <span class="text-[10px]">Motor IA</span>
+    </button>
+    <button onclick="toggleBrowserWebcam()" class="min-w-[48px] min-h-[48px] px-3 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-cyanLiquid active:scale-95 transition-transform duration-150">
+      <i data-lucide="camera" class="w-5 h-5"></i>
+      <span class="text-[10px]">Cámara</span>
+    </button>
+    <button onclick="openQRModal()" class="min-w-[48px] min-h-[48px] px-3 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-emeraldLiquid active:scale-95 transition-transform duration-150">
+      <i data-lucide="qr-code" class="w-5 h-5"></i>
+      <span class="text-[10px]">Vincular QR</span>
+    </button>
+    <button onclick="triggerManualAction('G4')" class="min-w-[48px] min-h-[48px] px-3 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-roseLiquid active:scale-95 transition-transform duration-150">
+      <i data-lucide="bell-ring" class="w-5 h-5"></i>
+      <span class="text-[10px]">SOS G4</span>
+    </button>
+  </nav>
+
+  <!-- CAPA 3 / COMPONENTE CLAVE 3: Modal de Escaneo QR (Modo Cámara Remota Inalámbrica) -->
+  <div id="modalQR" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-layer-3 max-w-md w-full p-6 flex flex-col items-center text-center relative">
+      <button onclick="closeModal('modalQR')" class="absolute top-4 right-4 min-w-[48px] min-h-[48px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="w-12 h-12 rounded-2xl bg-cyanLiquid/15 border border-cyanLiquid/40 flex items-center justify-center text-cyanLiquid mb-3">
+        <i data-lucide="smartphone" class="w-6 h-6"></i>
+      </div>
+
+      <h3 class="font-display font-bold text-xl tracking-tight text-textPrimary">
+        Cámara Remota Inalámbrica (QR)
+      </h3>
+      <p class="text-xs text-textSecondary mt-1 max-w-xs">
+        Escanea con tu teléfono Android o iOS en la misma red Wi-Fi para transmitir video en vivo por WebSockets.
+      </p>
+
+      <!-- Tarjeta interior clara de alto contraste para lectura del sensor móvil -->
+      <div class="mt-5 p-4 bg-[#F8FAFC] rounded-2xl shadow-[0_0_35px_rgba(0,240,255,0.25)] border-2 border-cyanLiquid">
+        <img id="qrCodeImage" src="" alt="Código QR Cámara Móvil" class="w-52 h-52 object-contain mx-auto" />
+      </div>
+
+      <!-- Telemetría de Red Local -->
+      <div class="w-full mt-5 glass-layer-2 p-3.5 text-left font-mono text-xs space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-textSecondary">IP LOCAL LAN:</span>
+          <span id="qrLocalIp" class="text-cyanLiquid font-semibold">Cargando...</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-textSecondary">PUERTO WEBSOCKET:</span>
+          <span id="qrWsPort" class="text-textPrimary font-semibold">8000 (/ws/mobile)</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-textSecondary">ESTADO DEL ENLACE:</span>
+          <span id="qrLinkState" class="px-2 py-0.5 rounded-full bg-amberLiquid/20 text-amberLiquid text-[11px]">
+            Esperando dispositivo
+          </span>
+        </div>
+      </div>
+
+      <div class="w-full mt-4 flex gap-2">
+        <a id="qrDirectLink" href="/mobile" target="_blank" class="flex-1 min-h-[48px] rounded-full bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/50 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform duration-150">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+          <span>Abrir Vista Móvil (/mobile)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAPA 3: Modal de Configuración de Gemini API Key -->
+  <div id="modalGemini" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-layer-3 max-w-md w-full p-6 relative">
+      <button onclick="closeModal('modalGemini')" class="absolute top-4 right-4 min-w-[48px] min-h-[48px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 rounded-2xl bg-cyanLiquid/15 border border-cyanLiquid/40 flex items-center justify-center text-cyanLiquid">
+          <i data-lucide="sparkles" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-lg tracking-tight text-textPrimary">Motor Multimodal Gemini API</h3>
+          <p class="text-xs text-textSecondary">SDK Oficial <code class="font-mono text-cyanLiquid">google-genai</code></p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-textSecondary mb-1 font-semibold">GEMINI_API_KEY</label>
+          <input
+            id="inputGeminiKey"
+            type="password"
+            placeholder="AIzaSy..."
+            class="w-full px-3.5 py-2.5 rounded-xl bg-void/90 border border-white/15 text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid"
+          />
+        </div>
+        <div>
+          <label class="block text-textSecondary mb-1 font-semibold">Modelo Multimodal Gemini 3</label>
+          <select id="inputGeminiModel" class="w-full px-3.5 py-2.5 rounded-xl bg-void/90 border border-white/15 text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid">
+            <option value="gemini-3-flash-preview" selected>gemini-3-flash-preview (Gemini 3 Flash — Baja Latencia)</option>
+            <option value="gemini-3-pro-preview">gemini-3-pro-preview (Gemini 3 Pro — Máxima Precisión)</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash (Fallback Estable)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button onclick="closeModal('modalGemini')" class="min-h-[48px] px-4 rounded-full border border-white/15 text-xs font-semibold text-textSecondary hover:text-textPrimary">
+          Cancelar
+        </button>
+        <button onclick="saveGeminiKey()" class="min-h-[48px] px-5 rounded-full bg-cyanLiquid/20 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold active:scale-95 transition-transform duration-150">
+          Guardar y Activar Online
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let ws = null;
+    let currentMode = 'OFFLINE';
+    let hardwareEnabled = true;
+    let pointerActive = false;
+    let currentSource = 'AUTO';
+    let browserStream = null;
+    let browserCaptureInterval = null;
+    let pipStream = null;
+    let pipVideo = null;
+    let pipCanvas = null;
+    const RING_CIRCUMFERENCE = 175.93;
+
+    // Inicializar los 8 slots del buffer circular
+    function initBufferSlots() {
+      const container = document.getElementById('bufferSlotsContainer');
+      container.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        const slot = document.createElement('div');
+        slot.id = `bufSlot_${i}`;
+        slot.className = 'h-7 rounded-lg border border-white/10 bg-void/60 flex items-center justify-center font-mono text-[11px] text-textSecondary transition-all duration-150';
+        slot.textContent = '--';
+        container.appendChild(slot);
+      }
+    }
+    initBufferSlots();
+
+    function connectWebSocket() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${window.location.host}/ws/hud`);
+
+      ws.onopen = () => {
+        document.getElementById('wsStatusDot').className = 'w-2 h-2 rounded-full bg-emeraldLiquid animate-pulse';
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        renderHudTelemetry(data);
+      };
+
+      ws.onclose = () => {
+        document.getElementById('wsStatusDot').className = 'w-2 h-2 rounded-full bg-roseLiquid';
+        setTimeout(connectWebSocket, 1500);
+      };
+    }
+
+    function renderHudTelemetry(data) {
+      // 1. Frame de video
+      if (data.frame_b64) {
+        const frameSrc = `data:image/jpeg;base64,${data.frame_b64}`;
+        document.getElementById('hudVideoStream').src = frameSrc;
+
+        if (document.pictureInPictureElement && pipCanvas) {
+          const img = new Image();
+          img.onload = () => {
+            const ctx = pipCanvas.getContext('2d');
+            if (ctx) ctx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
+          };
+          img.src = frameSrc;
+        }
+      }
+
+      // Sincronizar estado del Puntero de Mouse
+      if (data.pointer_enabled !== undefined && data.pointer_enabled !== pointerActive) {
+        updatePointerUI(data.pointer_enabled);
+      }
+
+      // 2. Modo Offline vs Online
+      if (data.mode && data.mode !== currentMode) {
+        applyModeVisuals(data.mode);
+      }
+
+      // 3. Métricas de rendimiento (Space Grotesk tabular-nums)
+      document.getElementById('hudFpsValue').textContent = Number(data.fps || 30).toFixed(1);
+      document.getElementById('hudLatencyValue').textContent = Number(data.latency_ms || 12).toFixed(1);
+      document.getElementById('hudSourceLabel').textContent = data.source || 'SIMULATOR_3D';
+
+      if (data.source === 'MOBILE_CAM' || data.source === 'MOBILE_CTRL') {
+        if (currentSource !== 'MOBILE') {
+          currentSource = 'MOBILE';
+          highlightSourceButton('MOBILE');
+        }
+      } else if (data.source === 'SIMULATOR_3D' && currentSource === 'SIMULATOR') {
+        highlightSourceButton('SIMULATOR');
+      }
+
+      // 4. Estabilizador Temporal y Anillo de Retención
+      const stab = data.stabilizer || {};
+      const gid = stab.stabilized_id || 'G0';
+      const progress = Number(stab.ring_progress || 0);
+      const offset = RING_CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, progress)));
+
+      const ringEl = document.getElementById('stabilityRingCircle');
+      ringEl.style.strokeDashoffset = offset.toFixed(2);
+
+      let activeColor = '#00F0FF';
+      if (stab.pulse_emerald) {
+        activeColor = '#00FF9D';
+      } else if (gid === 'G0') {
+        activeColor = '#FF3366';
+      } else if (data.mode === 'OFFLINE') {
+        activeColor = '#FFB800';
+      }
+      ringEl.style.stroke = activeColor;
+
+      const viewportCard = document.getElementById('hudViewportCard');
+      if (stab.pulse_emerald) {
+        viewportCard.classList.add('emerald-pulse-active');
+      } else {
+        viewportCard.classList.remove('emerald-pulse-active');
+      }
+
+      // Banner SOS de Asistencia (G4)
+      const sosBanner = document.getElementById('assistanceBanner');
+      if (gid === 'G4' && (stab.pulse_emerald || progress >= 0.75)) {
+        sosBanner.classList.remove('hidden');
+      } else {
+        sosBanner.classList.add('hidden');
+      }
+
+      document.getElementById('hudGestureId').textContent = gid;
+      document.getElementById('hudGestureId').style.color = activeColor;
+      document.getElementById('hudRingPercent').textContent = `${Math.round(progress * 100)}%`;
+      document.getElementById('hudGestureShortLabel').textContent = stab.short_label || 'DESCONOCIDO';
+      document.getElementById('hudGestureName').textContent = stab.name || '';
+      document.getElementById('hudActionCommand').innerHTML = `<span>▸ ${stab.action_label || ''}</span>`;
+
+      const confPct = `${(Number(stab.confidence || 0) * 100).toFixed(1)}%`;
+      const confPill = document.getElementById('hudConfidencePill');
+      confPill.textContent = confPct;
+
+      // 5. Coordenadas 3D y Telemetría de Normalización
+      const tel = data.telemetry || {};
+      const fmtPt = (arr) => arr ? `(${arr[0].toFixed(2)}, ${arr[1].toFixed(2)}, ${arr[2].toFixed(2)})` : '(0.00, 0.00, 0.00)';
+      document.getElementById('coordWrist').textContent = fmtPt(tel.wrist);
+      document.getElementById('coordIndex').textContent = fmtPt(tel.index_tip);
+      document.getElementById('coordMiddle').textContent = fmtPt(tel.middle_tip);
+      document.getElementById('hudVectorNorm').textContent = `||V||=${Number(tel.vector_norm || 0).toFixed(2)}`;
+      document.getElementById('scaleMetricBadge').textContent = `d_max: ${Number(tel.euclidean_scale || 0).toFixed(3)}`;
+      document.getElementById('semanticNoteText').textContent = data.semantic_note || data.engine_label || 'Vector 63D activo';
+
+      // 6. Buffer Circular N=8 Slots
+      const snapshot = stab.buffer_snapshot || [];
+      document.getElementById('bufferStatusLabel').textContent = `N = ${stab.matching_frames || 0} / ${stab.buffer_size || 8} FRAMES`;
+      for (let i = 0; i < 8; i++) {
+        const slot = document.getElementById(`bufSlot_${i}`);
+        if (!slot) continue;
+        const val = snapshot[i];
+        if (!val) {
+          slot.textContent = '·';
+          slot.className = 'h-7 rounded-lg border border-white/10 bg-void/60 flex items-center justify-center font-mono text-[11px] text-textSecondary';
+        } else if (val === 'G0') {
+          slot.textContent = 'G0';
+          slot.className = 'h-7 rounded-lg border border-roseLiquid/50 bg-roseLiquid/15 flex items-center justify-center font-mono text-[11px] text-roseLiquid font-bold';
+        } else {
+          slot.textContent = val;
+          slot.className = 'h-7 rounded-lg border border-emeraldLiquid/50 bg-emeraldLiquid/15 flex items-center justify-center font-mono text-[11px] text-emeraldLiquid font-bold';
+        }
+      }
+
+      // 7. Estado de los 5 dedos
+      const fingers = tel.fingers || {};
+      ['thumb', 'index', 'middle', 'ring', 'pinky'].forEach((fname) => {
+        const pill = document.getElementById(`fingerPill_${fname}`);
+        if (!pill) return;
+        const isExt = Boolean(fingers[fname]);
+        const stateDiv = pill.children[1];
+        if (isExt) {
+          pill.className = 'px-2 py-1.5 rounded-xl border border-cyanLiquid/50 bg-cyanLiquid/15 text-center font-mono text-[11px] text-cyanLiquid';
+          stateDiv.textContent = 'EXTENDIDO';
+        } else {
+          pill.className = 'px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px] text-textSecondary';
+          stateDiv.textContent = 'PLEGADO';
+        }
+      });
+
+      // 8. Resaltar fila activa en la Matriz de Gestos
+      ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'].forEach((id) => {
+        const row = document.getElementById(`matrixRow_${id}`);
+        if (!row) return;
+        if (id === gid) {
+          row.classList.add('ring-1', 'ring-cyanLiquid', 'bg-white/15');
+        } else {
+          row.classList.remove('ring-1', 'ring-cyanLiquid', 'bg-white/15');
+        }
+      });
+
+      // 9. Estado de conexión móvil QR
+      const mobBadge = document.getElementById('mobileLinkBadge');
+      const qrState = document.getElementById('qrLinkState');
+      if (data.mobile_connected) {
+        mobBadge.textContent = 'QR: Streaming 60 FPS';
+        mobBadge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-emeraldLiquid/50 bg-emeraldLiquid/15 text-emeraldLiquid';
+        if (qrState) {
+          qrState.textContent = 'Streaming 60 FPS Activo';
+          qrState.className = 'px-2 py-0.5 rounded-full bg-emeraldLiquid/20 text-emeraldLiquid text-[11px]';
+        }
+      } else {
+        mobBadge.textContent = 'QR: Esperando dispositivo';
+        mobBadge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary';
+      }
+
+      // 10. Bitácora de eventos de hardware
+      if (Array.isArray(data.events) && data.events.length > 0) {
+        const logContainer = document.getElementById('eventLogList');
+        logContainer.innerHTML = data.events.map((ev) => `
+          <div class="px-2.5 py-1.5 rounded-lg bg-void/70 border border-white/10 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 truncate">
+              <span class="text-emeraldLiquid font-bold">[${ev.gesture_id}]</span>
+              <span class="text-textPrimary truncate">${ev.detail}</span>
+            </div>
+            <span class="text-textSecondary text-[10px] shrink-0">${ev.timestamp}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function applyModeVisuals(mode) {
+      currentMode = mode;
+      const thumb = document.getElementById('modeSwitchThumb');
+      const btnOff = document.getElementById('btnModeOffline');
+      const btnOn = document.getElementById('btnModeOnline');
+      const orb = document.getElementById('brandOrb');
+      const icon = document.getElementById('brandIcon');
+
+      if (mode === 'ONLINE') {
+        thumb.className = 'liquid-switch-thumb mode-online';
+        btnOn.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-cyanLiquid';
+        btnOff.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-textSecondary hover:text-textPrimary';
+        orb.className = 'w-11 h-11 rounded-2xl flex items-center justify-center border border-cyanLiquid/50 bg-cyanLiquid/10 shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all duration-300';
+        icon.setAttribute('class', 'w-6 h-6 text-cyanLiquid');
+      } else {
+        thumb.className = 'liquid-switch-thumb mode-offline';
+        btnOff.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-amberLiquid';
+        btnOn.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-textSecondary hover:text-textPrimary';
+        orb.className = 'w-11 h-11 rounded-2xl flex items-center justify-center border border-amberLiquid/50 bg-amberLiquid/10 shadow-[0_0_20px_rgba(255,184,0,0.25)] transition-all duration-300';
+        icon.setAttribute('class', 'w-6 h-6 text-amberLiquid');
+      }
+    }
+
+    async function switchInferenceMode(mode) {
+      applyModeVisuals(mode);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_MODE', mode }));
+      }
+      await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+    }
+
+    function highlightSourceButton(source) {
+      ['AUTO', 'LOCAL', 'MOBILE', 'SIMULATOR'].forEach((s) => {
+        const el = document.getElementById(`srcBtn${s}`);
+        if (el) {
+          el.className = s === source
+            ? 'px-2.5 py-1 rounded-full font-semibold bg-white/15 text-cyanLiquid active:scale-95 transition-transform duration-150 flex items-center gap-1'
+            : 'px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1';
+        }
+      });
+    }
+
+    function openMobilePreviewWindow() {
+      const w = 420;
+      const h = 840;
+      const left = Math.max(20, window.screen.width - w - 50);
+      const top = 40;
+      window.open(
+        '/mobile',
+        'SignBridgeMobileAPK',
+        `width=${w},height=${h},top=${top},left=${left},resizable=yes,status=no,toolbar=no,menubar=no`
+      );
+    }
+
+    function selectSimulatedGesture(gid) {
+      currentSource = 'SIMULATOR';
+      highlightSourceButton('SIMULATOR');
+      updatePointerUI(false);
+      if (browserStream) {
+        stopBrowserWebcam();
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_GESTURE', gesture_id: gid }));
+      }
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_source: 'SIMULATOR',
+          simulated_gesture: gid,
+          pointer_enabled: false,
+        }),
+      });
+    }
+
+    async function triggerManualAction(gid) {
+      selectSimulatedGesture(gid);
+      await fetch('/api/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gesture_id: gid }),
+      });
+    }
+
+    function updatePointerUI(enabled) {
+      pointerActive = enabled;
+      const btn = document.getElementById('btnTogglePointer');
+      const lbl = document.getElementById('labelTogglePointer');
+      if (!btn || !lbl) return;
+
+      if (enabled) {
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-cyanLiquid/50 bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.3)] active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'PUNTERO: ON';
+      } else {
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-textSecondary text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'PUNTERO: OFF';
+      }
+    }
+
+    async function togglePointerMode() {
+      const next = !pointerActive;
+      // Si el usuario activa el puntero estando en Simulador, cambiar automáticamente a cámara real (LOCAL)
+      if (next && currentSource === 'SIMULATOR') {
+        currentSource = 'LOCAL';
+        highlightSourceButton('LOCAL');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'SET_SOURCE', source: 'LOCAL' }));
+        }
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_source: 'LOCAL', pointer_enabled: true }),
+        });
+        updatePointerUI(true);
+        return;
+      }
+      updatePointerUI(next);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_POINTER', enabled: next }));
+      }
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pointer_enabled: next }),
+      });
+    }
+
+    function openMiniWindow() {
+      const w = 380;
+      const h = 460;
+      const left = window.screen.width - w - 40;
+      const top = 60;
+      window.open(
+        '/mini',
+        'SignBridgeMini',
+        `width=${w},height=${h},top=${top},left=${left},resizable=yes,status=no,toolbar=no,menubar=no`
+      );
+    }
+
+    async function toggleNativePiP() {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          return;
+        }
+        if (!pipCanvas) {
+          pipCanvas = document.createElement('canvas');
+          pipCanvas.width = 640;
+          pipCanvas.height = 480;
+          pipVideo = document.createElement('video');
+          pipVideo.muted = true;
+          pipVideo.autoplay = true;
+          pipVideo.playsInline = true;
+          pipStream = pipCanvas.captureStream(30);
+          pipVideo.srcObject = pipStream;
+          await pipVideo.play();
+        }
+        await pipVideo.requestPictureInPicture();
+      } catch (err) {
+        alert('Picture-in-Picture: ' + err.message);
+      }
+    }
+
+    async function toggleHardwareOS() {
+      hardwareEnabled = !hardwareEnabled;
+      const btn = document.getElementById('btnToggleOS');
+      const lbl = document.getElementById('labelToggleOS');
+      if (hardwareEnabled) {
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-emeraldLiquid/40 bg-emeraldLiquid/10 text-emeraldLiquid text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'OS ACTIVO';
+      } else {
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-white/15 bg-white/5 text-textSecondary text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'OS EN PAUSA';
+      }
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hardware_enabled: hardwareEnabled }),
+      });
+    }
+
+    async function setVideoSource(source) {
+      currentSource = source;
+      if (source === 'SIMULATOR') {
+        updatePointerUI(false);
+      }
+      if (source !== 'BROWSER' && browserStream) {
+        stopBrowserWebcam();
+      }
+      highlightSourceButton(source);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_SOURCE', source }));
+      }
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_source: source }),
+      });
+    }
+
+    async function toggleBrowserWebcam() {
+      if (browserStream) {
+        stopBrowserWebcam();
+        setVideoSource('SIMULATOR');
+        return;
+      }
+      try {
+        browserStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: 'user' },
+          audio: false,
+        });
+        const video = document.getElementById('browserWebcamVideo');
+        const canvas = document.getElementById('browserWebcamCanvas');
+        const ctx = canvas.getContext('2d');
+        video.srcObject = browserStream;
+        await video.play();
+
+        await setVideoSource('MOBILE');
+        document.getElementById('srcBtnBROWSER').className = 'px-2.5 py-1 rounded-full font-semibold bg-cyanLiquid/20 text-cyanLiquid active:scale-95 transition-transform duration-150';
+
+        browserCaptureInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN && video.readyState >= 2) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+            ws.send(JSON.stringify({ type: 'CLIENT_FRAME', frame: dataUrl }));
+          }
+        }, 90);
+      } catch (err) {
+        alert('No se pudo acceder a la cámara del navegador: ' + err.message);
+      }
+    }
+
+    function stopBrowserWebcam() {
+      if (browserCaptureInterval) {
+        clearInterval(browserCaptureInterval);
+        browserCaptureInterval = null;
+      }
+      if (browserStream) {
+        browserStream.getTracks().forEach((t) => t.stop());
+        browserStream = null;
+      }
+      document.getElementById('srcBtnBROWSER').className = 'px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150';
+    }
+
+    async function openQRModal() {
+      openModal('modalQR');
+      try {
+        const res = await fetch('/api/qr');
+        const data = await res.json();
+        document.getElementById('qrCodeImage').src = data.qr_base64;
+        document.getElementById('qrLocalIp').textContent = data.local_ip;
+        document.getElementById('qrWsPort').textContent = `${data.port} (/ws/mobile)`;
+        document.getElementById('qrDirectLink').href = data.mobile_url;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function saveGeminiKey() {
+      const key = document.getElementById('inputGeminiKey').value.trim();
+      const model = document.getElementById('inputGeminiModel').value;
+      await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'ONLINE',
+          gemini_api_key: key,
+          gemini_model: model,
+        }),
+      });
+      applyModeVisuals('ONLINE');
+      closeModal('modalGemini');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    connectWebSocket();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,16 @@
+{
+  "appId": "com.signbridge.extended",
+  "appName": "SignBridge Extended",
+  "webDir": "static",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}
+

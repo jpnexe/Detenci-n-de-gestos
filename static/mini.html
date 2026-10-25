@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>SignBridge Mini HUD — Ventana Flotante</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#08090D" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg-void: #08090D;
+      --glass-base: rgba(16, 20, 31, 0.70);
+      --border-specular: rgba(255, 255, 255, 0.12);
+      --border-highlight: rgba(255, 255, 255, 0.25);
+      --liquid-cyan: #00F0FF;
+      --liquid-amber: #FFB800;
+      --liquid-emerald: #00FF9D;
+      --liquid-rose: #FF3366;
+    }
+
+    * { box-sizing: border-box; user-select: none; }
+
+    body {
+      background-color: var(--bg-void);
+      color: #F8FAFC;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 10px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .glass-mini {
+      background: rgba(12, 16, 26, 0.78);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--border-specular);
+      border-top: 1px solid var(--border-highlight);
+      border-radius: 18px;
+    }
+
+    .pip-canvas { display: none; }
+  </style>
+</head>
+
+<body class="flex flex-col justify-between gap-2">
+
+  <!-- Encabezado Mini -->
+  <header class="glass-mini px-3 py-2 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span id="miniWsDot" class="w-2.5 h-2.5 rounded-full bg-emeraldLiquid animate-pulse"></span>
+      <span class="font-bold text-xs tracking-tight text-white" style="font-family: 'Space Grotesk', sans-serif;">
+        SIGNBRIDGE MINI
+      </span>
+    </div>
+
+    <!-- Botón Picture-in-Picture (PiP) Nativo del Sistema -->
+    <button
+      onclick="toggleNativePiP()"
+      id="btnPip"
+      title="Flotar sobre todas las ventanas (Picture-in-Picture OS)"
+      class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-semibold text-cyanLiquid flex items-center gap-1.5 active:scale-95 transition-transform duration-150"
+    >
+      <i data-lucide="picture-in-picture-2" class="w-3.5 h-3.5"></i>
+      <span>Flotar PiP</span>
+    </button>
+  </header>
+
+  <!-- Video Stream Compacto -->
+  <main class="glass-mini relative flex-1 overflow-hidden rounded-2xl flex items-center justify-center bg-black/60">
+    <img
+      id="miniStream"
+      alt="Mini Stream"
+      class="w-full h-full object-contain"
+      src=""
+    />
+
+    <!-- Video + Canvas ocultos para habilitar la API Picture-in-Picture del navegador -->
+    <canvas id="pipCanvas" class="pip-canvas" width="640" height="480"></canvas>
+    <video id="pipVideo" class="hidden" autoplay playsinline muted></video>
+
+    <!-- Overlay de Estado de Puntero y Pellizco -->
+    <div class="absolute top-2 left-2 z-10 flex items-center gap-1.5 font-mono text-[10px]">
+      <span id="miniPointerBadge" class="px-2 py-0.5 rounded-full border border-white/15 bg-black/60 text-[#94A3B8]">
+        MOUSE INACTIVO
+      </span>
+      <span id="miniPinchBadge" class="hidden px-2 py-0.5 rounded-full border border-emeraldLiquid/50 bg-emeraldLiquid/20 text-emeraldLiquid font-bold animate-pulse">
+        CLICK IZQ (PINCH)
+      </span>
+    </div>
+
+    <!-- Badge Gesto Detectado Flotante -->
+    <div class="absolute bottom-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/70 border border-white/15 text-xs font-bold" style="font-family: 'Space Grotesk', sans-serif;">
+      <span id="miniGid" class="text-cyanLiquid">G0</span>
+      <span id="miniConf" class="text-[#94A3B8] text-[10px] font-mono">0%</span>
+    </div>
+  </main>
+
+  <!-- Controles Inferiores Mini -->
+  <footer class="glass-mini px-3 py-2 flex items-center justify-between gap-2">
+    <!-- Toggle Dirigir Mouse -->
+    <button
+      id="btnTogglePointer"
+      onclick="togglePointerMode()"
+      class="flex-1 min-h-[42px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150"
+    >
+      <i data-lucide="navigation" class="w-4 h-4"></i>
+      <span id="lblTogglePointer">Activar Puntero</span>
+    </button>
+
+    <!-- Botón Volver al HUD Completo -->
+    <a
+      href="/"
+      target="_blank"
+      class="min-w-[42px] min-h-[42px] px-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-95 transition-transform duration-150"
+      title="Abrir HUD Completo"
+    >
+      <i data-lucide="maximize-2" class="w-4 h-4"></i>
+    </a>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    let ws = null;
+    let pointerActive = false;
+    let pipStream = null;
+    let pipCanvas = document.getElementById('pipCanvas');
+    let pipVideo = document.getElementById('pipVideo');
+    let pipCtx = pipCanvas.getContext('2d');
+    let imgElement = document.getElementById('miniStream');
+
+    function connectWS() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${window.location.host}/ws/hud`);
+
+      ws.onopen = () => {
+        document.getElementById('miniWsDot').className = 'w-2.5 h-2.5 rounded-full bg-emeraldLiquid animate-pulse';
+      };
+
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.frame_b64) {
+          const src = `data:image/jpeg;base64,${data.frame_b64}`;
+          imgElement.src = src;
+
+          // Dibujar en el canvas si el modo Picture-in-Picture está activo
+          if (document.pictureInPictureElement) {
+            const img = new Image();
+            img.onload = () => pipCtx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
+            img.src = src;
+          }
+        }
+
+        // Puntero y Pellizco
+        if (data.pointer_enabled !== undefined) {
+          updatePointerUI(data.pointer_enabled);
+        }
+
+        const ptr = data.pointer || {};
+        const pinchBadge = document.getElementById('miniPinchBadge');
+        if (ptr.pinching || ptr.clicked) {
+          pinchBadge.classList.remove('hidden');
+        } else {
+          pinchBadge.classList.add('hidden');
+        }
+
+        // Gesto actual
+        const stab = data.stabilizer || {};
+        document.getElementById('miniGid').textContent = stab.stabilized_id || 'G0';
+        document.getElementById('miniConf').textContent = `${Math.round((stab.confidence || 0) * 100)}%`;
+      };
+
+      ws.onclose = () => {
+        document.getElementById('miniWsDot').className = 'w-2.5 h-2.5 rounded-full bg-roseLiquid';
+        setTimeout(connectWS, 1500);
+      };
+    }
+
+    function updatePointerUI(enabled) {
+      pointerActive = enabled;
+      const btn = document.getElementById('btnTogglePointer');
+      const lbl = document.getElementById('lblTogglePointer');
+      const badge = document.getElementById('miniPointerBadge');
+
+      if (enabled) {
+        btn.className = 'flex-1 min-h-[42px] px-3 py-2 rounded-xl border border-cyanLiquid/50 bg-cyanLiquid/20 text-xs font-semibold flex items-center justify-center gap-2 text-cyanLiquid shadow-[0_0_15px_rgba(0,240,255,0.25)] active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'Puntero ACTIVO';
+        badge.textContent = 'MOUSE ACTIVO';
+        badge.className = 'px-2 py-0.5 rounded-full border border-cyanLiquid/50 bg-cyanLiquid/20 text-cyanLiquid font-bold';
+      } else {
+        btn.className = 'flex-1 min-h-[42px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150';
+        lbl.textContent = 'Activar Puntero';
+        badge.textContent = 'MOUSE INACTIVO';
+        badge.className = 'px-2 py-0.5 rounded-full border border-white/15 bg-black/60 text-[#94A3B8]';
+      }
+    }
+
+    async function togglePointerMode() {
+      const next = !pointerActive;
+      updatePointerUI(next);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_POINTER', enabled: next }));
+      }
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pointer_enabled: next }),
+      });
+    }
+
+    async function toggleNativePiP() {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          if (!pipStream) {
+            pipStream = pipCanvas.captureStream(30);
+            pipVideo.srcObject = pipStream;
+            await pipVideo.play();
+          }
+          await pipVideo.requestPictureInPicture();
+        }
+      } catch (err) {
+        alert('Picture-in-Picture: ' + err.message);
+      }
+    }
+
+    connectWS();
+  </script>
+</body>
+</html>
+

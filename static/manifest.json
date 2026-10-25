@@ -1,0 +1,18 @@
+{
+  "name": "SignBridge Extended — Liquid Glassmorphic Gesture OS",
+  "short_name": "SignBridge",
+  "description": "Sistema de control gestual multiplataforma con MediaPipe 3D, TensorFlow/Keras y Gemini Multimodal.",
+  "start_url": "/mobile",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090D",
+  "theme_color": "#08090D",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f590.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    }
+  ]
+}
+
