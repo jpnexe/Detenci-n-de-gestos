@@ -1,902 +1,1350 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>SignBridge Extended — Mobile APK & Remote Camera</title>
-  <link rel="manifest" href="/static/manifest.json" />
-  <meta name="theme-color" content="#08090D" />
+  <meta name="theme-color" content="#0B0F19" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-  <!-- Google Fonts: Space Grotesk, Plus Jakarta Sans, JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <title>SignBridge v2.0 — APK Control & Cámara Móvil</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root {
+      --bg-obsidian: #0B0F19;
       --bg-void: #08090D;
-      --glass-base: rgba(16, 20, 31, 0.60);
-      --glass-elevated: rgba(28, 35, 54, 0.40);
-      --border-specular: rgba(255, 255, 255, 0.12);
-      --border-highlight: rgba(255, 255, 255, 0.25);
-      --liquid-cyan: #00F0FF;
-      --liquid-amber: #FFB800;
-      --liquid-emerald: #00FF9D;
-      --liquid-rose: #FF3366;
+      --glass-card: rgba(30, 41, 59, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --cyan: #06B6D4;
+      --indigo: #6366F1;
+      --emerald: #10B981;
+      --amber: #F59E0B;
+      --rose: #F43F5E;
       --text-primary: #F8FAFC;
       --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --safe-top: env(safe-area-inset-top, 10px);
+      --safe-bottom: env(safe-area-inset-bottom, 12px);
     }
 
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       user-select: none;
+      -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
 
-    body {
-      background-color: var(--bg-void);
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.16), transparent 60%), var(--bg-obsidian);
       color: var(--text-primary);
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       overflow: hidden;
-      height: 100dvh;
-      width: 100vw;
-      background-image:
-        radial-gradient(circle at 20% 10%, rgba(0, 240, 255, 0.10) 0%, transparent 45%),
-        radial-gradient(circle at 80% 90%, rgba(0, 255, 157, 0.07) 0%, transparent 45%);
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Capa 1: Visualizador de Cámara (HUD Principal) */
-    .glass-layer-1 {
-      background: rgba(10, 14, 23, 0.45);
-      backdrop-filter: blur(16px) saturate(160%);
-      -webkit-backdrop-filter: blur(16px) saturate(160%);
-      border: 1px solid var(--border-specular);
-      border-radius: 24px;
-      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    /* TOP BAR */
+    .top-bar {
+      padding: calc(var(--safe-top) + 8px) 14px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(8, 9, 13, 0.88);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--glass-border);
+      z-index: 30;
+      flex-shrink: 0;
     }
 
-    /* Capa 2: Paneles de Control y Métricas Flotantes */
-    .glass-layer-2 {
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
-        rgba(18, 22, 34, 0.75);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border: 1px solid var(--border-specular);
-      border-top: 1px solid var(--border-highlight);
-      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.15), 0 8px 28px rgba(0, 0, 0, 0.45);
-      border-radius: 20px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    /* Capa 3: Modales Flotantes */
-    .glass-layer-3 {
-      background: rgba(8, 11, 18, 0.88);
-      backdrop-filter: blur(32px) saturate(200%);
-      -webkit-backdrop-filter: blur(32px) saturate(200%);
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      border-radius: 28px;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid rgba(6, 182, 212, 0.45);
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.3);
+      background: #08090D;
     }
 
-    .tabular-nums-metric {
+    .brand-title {
       font-family: 'Space Grotesk', sans-serif;
       font-weight: 700;
-      letter-spacing: -0.025em;
-      font-variant-numeric: tabular-nums;
+      font-size: 0.96rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .safe-top {
-      padding-top: max(0.5rem, env(safe-area-inset-top));
+    .apk-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(6, 182, 212, 0.16);
+      color: var(--cyan);
+      border: 1px solid rgba(6, 182, 212, 0.35);
     }
 
-    .safe-bottom {
-      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    .brand-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-secondary);
     }
 
-    .stability-ring-circle {
-      transition: stroke-dashoffset 0.12s linear, stroke 0.25s ease;
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .conn-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--glass-border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    .dot.online {
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+    }
+
+    .icon-btn {
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* MAIN VIEWPORT AREA */
+    .main-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 10px 12px;
+      gap: 10px;
+    }
+
+    .view-section {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .view-section.active {
+      display: flex;
+    }
+
+    /* CAMERA CONTROL MODE CARD */
+    .cam-hero-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.16), rgba(99, 102, 241, 0.12));
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .cam-hero-toggle.active-pc {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.18));
+      border-color: rgba(16, 185, 129, 0.65);
+      box-shadow: 0 0 22px rgba(16, 185, 129, 0.2);
+    }
+
+    .cam-hero-info h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .cam-hero-info p {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+      line-height: 1.3;
+    }
+
+    .btn-activate-cam {
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(6, 182, 212, 0.55);
+      background: rgba(6, 182, 212, 0.24);
+      color: #ECFEFF;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+    }
+
+    .btn-activate-cam.active {
+      background: var(--emerald);
+      border-color: #34D399;
+      color: #042F2E;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+    }
+
+    /* VIEWPORT STAGE */
+    .cam-stage {
+      position: relative;
+      flex: 1;
+      min-height: 220px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #05070B;
+      border: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video#localVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    img#pcHudMirror {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    canvas#captureCanvas {
+      display: none;
+    }
+
+    .stage-overlay-top {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .badge-chip {
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(8, 9, 13, 0.78);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--cyan);
+    }
+
+    /* HUD RING OVERLAY */
+    .stage-hud-bottom {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(8, 9, 13, 0.84);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .ring-mini {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+
+    .ring-mini svg {
+      width: 48px;
+      height: 48px;
       transform: rotate(-90deg);
-      transform-origin: 50% 50%;
     }
 
-    /* Retícula táctil para Touchpad */
+    .ring-mini-id {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .gesture-readout {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .gesture-readout .g-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gesture-readout .g-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--cyan);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* CAMERA CONTROLS BAR */
+    .cam-controls-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn {
+      min-height: 48px;
+      border-radius: 12px;
+      background: var(--glass-card);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.76rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 0 8px;
+      text-align: center;
+    }
+
+    .ctrl-btn.active {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: rgba(6, 182, 212, 0.55);
+      color: #A5F3FC;
+    }
+
+    /* TOUCHPAD & REMOTE GESTURES VIEW */
+    .touchpad-box {
+      position: relative;
+      flex: 1;
+      min-height: 175px;
+      border-radius: 18px;
+      background: radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.12), rgba(8, 9, 13, 0.95));
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
     .touchpad-grid {
+      position: absolute;
+      inset: 0;
       background-image:
-        linear-gradient(to right, rgba(0, 240, 255, 0.07) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+        linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
       background-size: 28px 28px;
+      pointer-events: none;
     }
 
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 9999px; }
+    .touch-cursor {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(6, 182, 212, 0.35);
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 16px var(--cyan);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      left: 50%;
+      top: 50%;
+      transition: background 0.1s ease;
+    }
+
+    .touch-cursor.pinching {
+      background: rgba(16, 185, 129, 0.65);
+      border-color: var(--emerald);
+      box-shadow: 0 0 20px var(--emerald);
+    }
+
+    .touchpad-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: rgba(248, 250, 252, 0.85);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .touchpad-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      pointer-events: none;
+      z-index: 2;
+      text-align: center;
+      padding: 0 16px;
+    }
+
+    .gesture-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .g-btn {
+      min-height: 54px;
+      padding: 8px 12px;
+      border-radius: 14px;
+      background: var(--glass-card);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      text-align: left;
+      transition: transform 0.12s ease, border-color 0.15s ease;
+    }
+
+    .g-btn:active {
+      transform: scale(0.97);
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.18);
+    }
+
+    .g-btn.sos {
+      grid-column: span 2;
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+
+    .g-btn-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .g-btn-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+
+    .g-btn-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+    }
+
+    .g-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: rgba(8, 9, 13, 0.65);
+      color: var(--cyan);
+    }
+
+    /* SYSTEM & AI ENGINE CONFIG TAB */
+    .sys-card {
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--glass-card);
+      border: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sys-card-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .seg-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .seg-row-4 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .seg-btn {
+      min-height: 48px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(8, 9, 13, 0.65);
+      border: 1px solid var(--glass-border);
+      color: var(--text-secondary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .seg-btn.active {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--cyan);
+      color: var(--text-primary);
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.2);
+    }
+
+    .input-field {
+      width: 100%;
+      height: 46px;
+      border-radius: 12px;
+      background: rgba(8, 9, 13, 0.85);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      padding: 0 12px;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--cyan);
+    }
+
+    .event-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: rgba(8, 9, 13, 0.65);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+    }
+
+    /* BOTTOM TAB BAR (APK NATIVE STYLE >= 48x48px) */
+    .bottom-nav {
+      padding: 8px 12px calc(var(--safe-bottom) + 6px);
+      background: rgba(8, 9, 13, 0.94);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--glass-border);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      z-index: 30;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      min-height: 48px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: rgba(6, 182, 212, 0.16);
+      border-color: rgba(6, 182, 212, 0.4);
+      color: var(--text-primary);
+    }
+
+    /* MODAL FOR SERVER IP CONFIG (APK) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 6, 12, 0.84);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 390px;
+      background: #111827;
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-card h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.02rem;
+    }
+
+    .modal-card p {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      min-height: 48px;
+      border-radius: 12px;
+      border: none;
+      background: var(--cyan);
+      color: #042F2E;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(30, 41, 59, 0.7);
+      color: var(--text-primary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
   </style>
 </head>
+<body>
 
-<body class="relative flex flex-col justify-between p-2.5 sm:p-3.5 safe-top">
-
-  <!-- LIENZO DE FONDO: Video de Cámara Móvil o Espejo IA del PC -->
-  <div class="fixed inset-0 bg-[#08090D] flex items-center justify-center z-0 overflow-hidden">
-    <!-- Video directo de la cámara del celular -->
-    <video id="mobileVideo" class="w-full h-full object-cover" autoplay playsinline muted></video>
-    <!-- Imagen espejo con el esqueleto 3D procesado por el PC -->
-    <img id="pcMirrorFeed" class="hidden w-full h-full object-contain bg-[#08090D]" alt="Esqueleto IA PC" />
-    <!-- Canvas interno de compresión JPEG para enviar por WebSocket -->
-    <canvas id="mobileCanvas" width="480" height="360" class="hidden"></canvas>
-    <!-- Input nativo de cámara para Android HTTP fallback -->
-    <input id="nativeCameraInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleNativePhotoFrame(event)" />
-  </div>
-
-  <!-- HEADER SUPERIOR FLOTANTE: Estado de Conexión + Anillo de Estabilidad Temporal + Config APK -->
-  <header class="relative z-20 glass-layer-2 px-3.5 py-2.5 flex items-center justify-between gap-2">
-    <div class="flex items-center gap-2.5 min-w-0">
-      <div class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-[#00F0FF]/15 border border-[#00F0FF]/40 shrink-0">
-        <i data-lucide="smartphone" class="w-5 h-5 text-[#00F0FF]"></i>
-        <span id="wsDot" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#00FF9D] border-2 border-[#08090D] animate-pulse"></span>
-      </div>
-      <div class="min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="tabular-nums-metric text-sm text-[#F8FAFC] truncate">SIGNBRIDGE APK</span>
-          <span id="pcSourcePill" class="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/30">
-            ENLACE OK
-          </span>
+  <!-- TOP HEADER WITH OFFICIAL LOGO -->
+  <header class="top-bar">
+    <div class="brand">
+      <img src="logo.png" alt="SignBridge Logo" class="brand-logo" onerror="this.style.display='none'" />
+      <div>
+        <div class="brand-title">
+          <span>SignBridge</span>
+          <span class="apk-tag">APK v2.0</span>
         </div>
-        <div id="wsStatusText" class="text-[11px] text-[#94A3B8] truncate" style="font-family: 'JetBrains Mono', monospace;">
-          Conectando con PC...
-        </div>
+        <div class="brand-sub" id="serverHostLabel">Enlace Wi-Fi Directo</div>
       </div>
     </div>
 
-    <!-- Anillo de Estabilidad Temporal Compacto + Gesto Activo -->
-    <div class="flex items-center gap-2 shrink-0">
-      <div class="flex items-center gap-2 px-2.5 py-1 rounded-2xl bg-black/50 border border-white/15">
-        <div class="relative w-9 h-9 flex items-center justify-center">
-          <svg class="w-9 h-9" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="16" stroke="rgba(255,255,255,0.12)" stroke-width="3.5" fill="transparent" />
-            <circle
-              id="mobRingCircle"
-              class="stability-ring-circle"
-              cx="20" cy="20" r="16"
-              stroke="#00F0FF"
-              stroke-width="3.5"
-              stroke-linecap="round"
-              fill="transparent"
-              stroke-dasharray="100.53"
-              stroke-dashoffset="100.53"
-            />
-          </svg>
-          <span id="mobGestureBadge" class="absolute tabular-nums-metric text-xs text-[#00F0FF]">G0</span>
-        </div>
-        <div class="pr-1">
-          <div id="mobGestureLabel" class="font-bold text-[11px] leading-tight text-[#F8FAFC]">ESPERANDO</div>
-          <div id="mobConfBadge" class="font-mono text-[10px] text-[#94A3B8]">0% conf</div>
-        </div>
+    <div class="top-actions">
+      <button class="icon-btn" onclick="openIpModal()">IP / Red</button>
+      <div class="conn-pill" onclick="openIpModal()">
+        <span class="dot" id="wsDot"></span>
+        <span id="wsText">CONECTANDO</span>
       </div>
-
-      <!-- Botón Configurar IP Servidor (Para APK) -->
-      <button
-        onclick="openServerModal()"
-        title="Configurar IP del PC para la APK"
-        class="min-w-[44px] min-h-[44px] rounded-2xl bg-white/5 hover:bg-white/15 border border-white/15 flex items-center justify-center text-[#94A3B8] active:scale-95 transition-transform duration-150"
-      >
-        <i data-lucide="wifi" class="w-4 h-4 text-[#00F0FF]"></i>
-      </button>
     </div>
   </header>
 
-  <!-- CONTENEDOR CENTRAL DINÁMICO SEGÚN PESTAÑA ACTIVA -->
-  <main class="relative z-10 flex-1 flex flex-col justify-between my-2.5 overflow-y-auto">
+  <!-- MAIN CONTENT -->
+  <main class="main-area">
 
-    <!-- ========================================================================= -->
-    <!-- VISTA 1: MODO CONTROL CÁMARA (Usar el Celular como Cámara del PC)         -->
-    <!-- ========================================================================= -->
-    <section id="tabView_CAMERA" class="flex-1 flex flex-col justify-between gap-2.5">
-
-      <!-- Controles Superiores de Lente y Vista Esqueleto IA -->
-      <div class="flex items-center justify-between gap-2">
-        <button
-          onclick="toggleMirrorView()"
-          id="btnToggleViewMode"
-          class="min-h-[48px] px-3.5 py-2 rounded-2xl glass-layer-2 text-xs font-semibold flex items-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150"
-        >
-          <i data-lucide="scan-face" class="w-4 h-4"></i>
-          <span id="lblViewMode">Vista: Esqueleto IA PC</span>
-        </button>
-
-        <button
-          onclick="switchCameraFacing()"
-          class="min-h-[48px] px-3.5 py-2 rounded-2xl glass-layer-2 text-xs font-semibold flex items-center gap-2 text-[#F8FAFC] active:scale-95 transition-transform duration-150"
-        >
-          <i data-lucide="refresh-cw" class="w-4 h-4 text-[#00FF9D]"></i>
-          <span id="lblLensFacing">Lente: Trasero</span>
+    <!-- TAB 1: MODO CONTROL DE CÁMARA AL PC -->
+    <section class="view-section active" id="viewCam">
+      <div class="cam-hero-toggle" id="camHeroCard">
+        <div class="cam-hero-info">
+          <h2 id="camHeroTitle">Modo Cámara Móvil hacia el PC</h2>
+          <p id="camHeroDesc">Usa la cámara de tu celular como sensor biomecánico principal del computador.</p>
+        </div>
+        <button class="btn-activate-cam" id="btnActivateMobileCam" onclick="toggleMobileCameraMode()">
+          ACTIVAR EN PC
         </button>
       </div>
 
-      <!-- Aviso / Puente de Cámara si el navegador HTTP móvil restringe getUserMedia antes de instalar APK -->
-      <div id="httpCameraNotice" class="hidden glass-layer-2 p-3.5 border border-[#FFB800]/50 text-xs space-y-2 my-auto">
-        <div class="flex items-center gap-2 text-[#FFB800] font-bold">
-          <i data-lucide="shield-alert" class="w-5 h-5 shrink-0"></i>
-          <span>Cámara en Navegador HTTP vs APK</span>
-        </div>
-        <p class="text-[11px] text-[#94A3B8] leading-relaxed">
-          Chrome móvil restringe el video continuo en direcciones <code class="text-[#F8FAFC]">http://</code> locales fuera de la APK compilada.
-          Mientras tanto, hemos activado el <strong class="text-[#00F0FF]">Visor Espejo IA en Vivo</strong> y puedes usar la cámara nativa o el modo Touchpad:
-        </p>
-        <div class="flex flex-wrap gap-2 pt-1">
-          <button
-            onclick="document.getElementById('nativeCameraInput').click()"
-            class="flex-1 min-h-[48px] px-3 py-2 rounded-xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 text-[#00F0FF] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform duration-150"
-          >
-            <i data-lucide="camera" class="w-4 h-4"></i>
-            <span>Capturar con Cámara OS</span>
-          </button>
-          <button
-            onclick="switchMobileTab('CONTROL')"
-            class="flex-1 min-h-[48px] px-3 py-2 rounded-xl bg-[#00FF9D]/20 border border-[#00FF9D]/50 text-[#00FF9D] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform duration-150"
-          >
-            <i data-lucide="hand" class="w-4 h-4"></i>
-            <span>Ir a Mando / Touchpad</span>
-          </button>
-        </div>
-      </div>
+      <div class="cam-stage">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <img id="pcHudMirror" alt="Vista IA del PC" />
+        <canvas id="captureCanvas" width="480" height="360"></canvas>
 
-      <!-- Tarjeta Inferior de Control de Cámara del Celular hacia el PC -->
-      <div class="glass-layer-2 p-3.5 mt-auto space-y-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-xs font-bold uppercase tracking-wider text-[#00F0FF]">
-              Modo Control de Cámara al PC
-            </div>
-            <div id="camControlSubtext" class="text-[11px] text-[#94A3B8]">
-              Al activarlo, el PC usará este celular como fuente de visión principal
-            </div>
+        <div class="stage-overlay-top">
+          <span class="badge-chip" id="camSourceChip">FUENTE PC: AUTO</span>
+          <span class="badge-chip" id="fpsChip">0 FPS · 0.00 CONF</span>
+        </div>
+
+        <div class="stage-hud-bottom">
+          <div class="ring-mini">
+            <svg viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,0.12)" stroke-width="4" fill="none"></circle>
+              <circle id="ringArc" cx="24" cy="24" r="20" stroke="#06B6D4" stroke-width="4" fill="none"
+                      stroke-dasharray="125.6" stroke-dashoffset="125.6" stroke-linecap="round"></circle>
+            </svg>
+            <div class="ring-mini-id" id="hudGid">G0</div>
           </div>
-          <span id="fpsMobileBadge" class="font-mono text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[#00FF9D]">
-            LIVE
-          </span>
-        </div>
-
-        <!-- BOTÓN PRINCIPAL: ACTIVAR / DESACTIVAR MODO CÁMARA DEL CELULAR EN EL PC -->
-        <button
-          id="btnActivateCamControl"
-          onclick="toggleMobileCameraControlMode()"
-          class="w-full min-h-[54px] px-4 py-3 rounded-2xl border border-[#00FF9D]/60 bg-gradient-to-r from-[#00FF9D]/25 to-[#00F0FF]/20 text-[#00FF9D] font-bold text-sm flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(0,255,157,0.25)] active:scale-95 transition-all duration-150"
-        >
-          <i data-lucide="video" class="w-5 h-5"></i>
-          <span id="lblActivateCamControl">USAR CELULAR COMO CÁMARA DEL PC: ACTIVO</span>
-        </button>
-
-        <!-- Fila Rápida: Puntero Mouse PC + Cambio de Motor IA -->
-        <div class="grid grid-cols-2 gap-2">
-          <button
-            id="btnCamTabPointer"
-            onclick="toggleMobilePointer()"
-            class="min-h-[48px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150"
-          >
-            <i data-lucide="navigation" class="w-4 h-4 text-[#00F0FF]"></i>
-            <span id="lblCamTabPointer">Puntero PC: OFF</span>
-          </button>
-
-          <button
-            id="btnCamTabEngine"
-            onclick="toggleRemoteEngine()"
-            class="min-h-[48px] px-3 py-2 rounded-xl border border-[#FFB800]/40 bg-[#FFB800]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#FFB800] active:scale-95 transition-transform duration-150"
-          >
-            <i data-lucide="cpu" class="w-4 h-4"></i>
-            <span id="lblCamTabEngine">Motor: OFFLINE</span>
-          </button>
+          <div class="gesture-readout">
+            <div class="g-title" id="hudGName">ESPERANDO MANO...</div>
+            <div class="g-sub" id="hudGAction">Activa la cámara o usa el mando táctil</div>
+          </div>
         </div>
       </div>
 
+      <div class="cam-controls-row">
+        <button class="ctrl-btn" id="btnFlipLens" onclick="switchCameraLens()">
+          🔄 Lente: Trasera
+        </button>
+        <button class="ctrl-btn" id="btnPointerToggle" onclick="togglePcPointer()">
+          🖱️ Puntero: OFF
+        </button>
+        <button class="ctrl-btn" id="btnMirrorToggle" onclick="toggleMirrorView()">
+          👁️ Ver: Espejo IA
+        </button>
+      </div>
     </section>
 
-    <!-- ========================================================================= -->
-    <!-- VISTA 2: MANDO DE GESTOS & TOUCHPAD TÁCTIL (Modo Control Remoto)          -->
-    <!-- ========================================================================= -->
-    <section id="tabView_CONTROL" class="hidden flex-1 flex flex-col justify-between gap-2.5">
-
-      <!-- Touchpad Háptico para Dirigir el Mouse del PC desde la Pantalla del Celular -->
-      <div
-        id="mobileTouchpad"
-        class="glass-layer-1 touchpad-grid relative flex-1 min-h-[180px] p-3.5 flex flex-col justify-between overflow-hidden border border-[#00F0FF]/35"
-      >
-        <div class="flex items-center justify-between pointer-events-none">
-          <span class="font-mono text-[11px] text-[#00F0FF] font-semibold flex items-center gap-1.5">
-            <i data-lucide="move" class="w-3.5 h-3.5"></i>
-            TOUCHPAD DE PUNTERO PC (DESLIZA EL DEDO)
-          </span>
-          <span class="font-mono text-[10px] text-[#94A3B8]">1 Toque = Clic Izq</span>
-        </div>
-
-        <!-- Indicador visual donde apoya el dedo -->
-        <div
-          id="touchCursorDot"
-          class="hidden absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-2 border-[#00F0FF] bg-[#00F0FF]/20 shadow-[0_0_20px_#00F0FF] pointer-events-none transition-transform duration-75"
-        ></div>
-
-        <div class="my-auto text-center pointer-events-none opacity-60">
-          <div class="text-xs font-bold text-[#F8FAFC]" style="font-family: 'Space Grotesk', sans-serif;">
-            ÁREA HÁPTICA DE CONTROL DE MOUSE
-          </div>
-          <div class="text-[11px] text-[#94A3B8] mt-0.5">
-            Alcanza todas las esquinas de Windows (incluyendo el botón Inicio)
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between text-[10px] font-mono text-[#94A3B8] pointer-events-none">
-          <span id="touchCoordsLabel">X: 0.50 | Y: 0.50</span>
-          <span class="text-[#00FF9D]">RANGO AMPLIADO 1.30x</span>
-        </div>
+    <!-- TAB 2: MANDO DE GESTOS & TOUCHPAD HÁPTICO -->
+    <section class="view-section" id="viewControl">
+      <div class="touchpad-box" id="touchpadArea">
+        <div class="touchpad-grid"></div>
+        <div class="touch-cursor" id="touchCursor"></div>
+        <div class="touchpad-label">TOUCHPAD BIOMECÁNICO PC</div>
+        <div class="touchpad-hint">Desliza para dirigir el mouse del PC · Toca rápido para Clic Izquierdo</div>
       </div>
 
-      <!-- Catálogo de Botones de Gesto y Acciones Directas (Mínimo 48x48px) -->
-      <div class="glass-layer-2 p-3 space-y-2">
-        <div class="flex items-center justify-between px-1">
-          <span class="text-xs font-bold uppercase tracking-wider text-[#00F0FF]" style="font-family: 'Space Grotesk', sans-serif;">
-            Catálogo de Gestos & Periféricos
-          </span>
-          <button
-            onclick="toggleMobilePointer()"
-            id="btnCtrlTabPointer"
-            class="px-2.5 py-1 rounded-full bg-white/5 border border-white/15 font-mono text-[11px] text-[#94A3B8]"
-          >
-            Puntero Cámara: OFF
-          </button>
-        </div>
+      <div class="gesture-grid">
+        <button class="g-btn" onclick="triggerRemoteGesture('G5')">
+          <div class="g-btn-left">
+            <span class="g-btn-title">Clic Izquierdo</span>
+            <span class="g-btn-sub">Pinza Índice + Pulgar</span>
+          </div>
+          <span class="g-code">G5</span>
+        </button>
 
-        <div class="grid grid-cols-2 gap-2 text-xs">
-          <!-- G5: Clic Izquierdo -->
-          <button
-            onclick="sendRemoteGesture('G5')"
-            class="min-h-[54px] p-2.5 rounded-2xl bg-[#00FF9D]/15 border border-[#00FF9D]/45 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
-          >
-            <div class="flex items-center justify-between w-full">
-              <span class="font-bold text-[#00FF9D]">G5 • Clic Izquierdo</span>
-              <i data-lucide="mouse-pointer" class="w-4 h-4 text-[#00FF9D]"></i>
-            </div>
-            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Pellizco Índice+Pulgar</span>
-          </button>
+        <button class="g-btn" onclick="triggerRemoteGesture('G1')">
+          <div class="g-btn-left">
+            <span class="g-btn-title">Clic Derecho</span>
+            <span class="g-btn-sub">Palma Abierta</span>
+          </div>
+          <span class="g-code">G1</span>
+        </button>
 
-          <!-- G1: Clic Derecho -->
-          <button
-            onclick="sendRemoteGesture('G1')"
-            class="min-h-[54px] p-2.5 rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/45 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
-          >
-            <div class="flex items-center justify-between w-full">
-              <span class="font-bold text-[#00F0FF]">G1 • Clic Derecho</span>
-              <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-[#00F0FF]"></i>
-            </div>
-            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Paz (Índice + Medio)</span>
-          </button>
+        <button class="g-btn" onclick="triggerRemoteGesture('G2')">
+          <div class="g-btn-left">
+            <span class="g-btn-title">Scroll Arriba</span>
+            <span class="g-btn-sub">Índice + Medio (V)</span>
+          </div>
+          <span class="g-code">G2</span>
+        </button>
 
-          <!-- G2: Scroll Arriba -->
-          <button
-            onclick="sendRemoteGesture('G2')"
-            class="min-h-[54px] p-2.5 rounded-2xl bg-white/5 border border-white/15 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
-          >
-            <div class="flex items-center justify-between w-full">
-              <span class="font-bold text-[#F8FAFC]">G2 • Scroll Arriba</span>
-              <i data-lucide="arrow-up-circle" class="w-4 h-4 text-[#00F0FF]"></i>
-            </div>
-            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Índice Extendido (+350)</span>
-          </button>
+        <button class="g-btn" onclick="triggerRemoteGesture('G3')">
+          <div class="g-btn-left">
+            <span class="g-btn-title">Scroll Abajo</span>
+            <span class="g-btn-sub">Puño Cerrado</span>
+          </div>
+          <span class="g-code">G3</span>
+        </button>
 
-          <!-- G3: Scroll Abajo -->
-          <button
-            onclick="sendRemoteGesture('G3')"
-            class="min-h-[54px] p-2.5 rounded-2xl bg-white/5 border border-white/15 flex flex-col justify-center items-start text-left active:scale-95 transition-transform duration-150"
-          >
-            <div class="flex items-center justify-between w-full">
-              <span class="font-bold text-[#F8FAFC]">G3 • Scroll Abajo</span>
-              <i data-lucide="arrow-down-circle" class="w-4 h-4 text-[#00F0FF]"></i>
-            </div>
-            <span class="text-[10px] text-[#94A3B8] font-mono mt-0.5">Puño Cerrado (-350)</span>
-          </button>
-        </div>
-
-        <!-- G4: Llamada de Asistencia Prioritaria -->
-        <button
-          onclick="sendRemoteGesture('G4')"
-          class="w-full min-h-[50px] px-3.5 py-2.5 rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/50 flex items-center justify-between text-xs font-bold text-[#FFB800] active:scale-95 transition-transform duration-150"
-        >
-          <span class="flex items-center gap-2">
-            <i data-lucide="siren" class="w-4 h-4"></i>
-            <span>G4 • LLAMADA DE ASISTENCIA (SOS)</span>
-          </span>
-          <span class="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#FFB800]/20">3 Dedos / Shaka</span>
+        <button class="g-btn sos" onclick="triggerRemoteGesture('G4')">
+          <div class="g-btn-left">
+            <span class="g-btn-title">Llamado de Asistencia (SOS)</span>
+            <span class="g-btn-sub">Pulgar + Meñique Extendidos · Alerta Sonora PC</span>
+          </div>
+          <span class="g-code" style="color:#FB7185;">G4</span>
         </button>
       </div>
+    </section>
 
+    <!-- TAB 3: MOTOR IA & CONTROL COMPLETO DEL SISTEMA -->
+    <section class="view-section" id="viewSystem">
+      <div class="sys-card">
+        <div class="sys-card-title">
+          <span>1. Fuente de Video Activa en el PC</span>
+          <span id="sysActiveSourceBadge" style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:#10B981;">AUTO</span>
+        </div>
+        <div class="seg-row-4">
+          <button class="seg-btn" id="srcOptMOBILE" onclick="setPcSource('MOBILE')">
+            <span>📱 Cámara Móvil</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Usar celular</span>
+          </button>
+          <button class="seg-btn" id="srcOptLOCAL" onclick="setPcSource('LOCAL')">
+            <span>💻 Webcam PC</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Cámara local</span>
+          </button>
+          <button class="seg-btn" id="srcOptSIMULATOR" onclick="setPcSource('SIMULATOR')">
+            <span>🧊 Simulador 3D</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Poses canónicas</span>
+          </button>
+          <button class="seg-btn" id="srcOptAUTO" onclick="setPcSource('AUTO')">
+            <span>⚡ Automático</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Prioridad inteligente</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sys-card">
+        <div class="sys-card-title">
+          <span>2. Motor de Inferencia IA</span>
+          <span id="sysModeBadge" style="font-family:'JetBrains Mono',monospace; font-size:0.7rem;">OFFLINE</span>
+        </div>
+        <div class="seg-row">
+          <button class="seg-btn active" id="modeOptOFFLINE" onclick="setPcEngineMode('OFFLINE')">
+            <span>🧠 Local MLP</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">63-D Baja Latencia</span>
+          </button>
+          <button class="seg-btn" id="modeOptONLINE" onclick="setPcEngineMode('ONLINE')">
+            <span>✨ Gemini 3 Cloud</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Multimodal Contextual</span>
+          </button>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <input type="password" id="geminiKeyMobileInput" class="input-field" placeholder="Pegar GEMINI_API_KEY (opcional)..." />
+          <button class="btn-secondary" onclick="saveGeminiKeyFromMobile()">Guardar</button>
+        </div>
+      </div>
+
+      <div class="sys-card">
+        <div class="sys-card-title">
+          <span>3. Periféricos OS (PyAutoGUI) & Eventos</span>
+          <button class="icon-btn" id="btnHwToggle" onclick="toggleHardwareEnabled()">HW: ON</button>
+        </div>
+        <div class="event-list" id="mobileEventList">
+          <div class="event-item">
+            <span style="color:var(--text-secondary);">Sin eventos recientes</span>
+            <span style="color:var(--cyan);">LISTO</span>
+          </div>
+        </div>
+      </div>
     </section>
 
   </main>
 
-  <!-- BARRA INFERIOR FLOTANTE VIDRIADA (Safe-Area-Inset-Bottom, Botones >= 48x48px) -->
-  <footer class="relative z-20 glass-layer-2 px-2.5 py-2 safe-bottom grid grid-cols-4 gap-1.5">
-    <button
-      id="navBtnCamera"
-      onclick="switchMobileTab('CAMERA')"
-      class="min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150"
-    >
-      <i data-lucide="camera" class="w-5 h-5"></i>
-      <span class="text-[10px]">Modo Cámara</span>
+  <!-- BOTTOM NAVIGATION (3 TABS FOR COMPLETE APK FUNCTIONALITY) -->
+  <nav class="bottom-nav">
+    <button class="tab-btn active" id="tabBtnCam" onclick="switchTab('CAM')">
+      📷 Cámara PC
     </button>
-
-    <button
-      id="navBtnControl"
-      onclick="switchMobileTab('CONTROL')"
-      class="min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150"
-    >
-      <i data-lucide="gamepad-2" class="w-5 h-5"></i>
-      <span class="text-[10px]">Mando & Mouse</span>
+    <button class="tab-btn" id="tabBtnControl" onclick="switchTab('CONTROL')">
+      🕹️ Mando & Mouse
     </button>
-
-    <button
-      id="navBtnEngine"
-      onclick="toggleRemoteEngine()"
-      class="min-h-[52px] rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/40 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#FFB800] active:scale-95 transition-all duration-150"
-    >
-      <i data-lucide="cpu" class="w-5 h-5"></i>
-      <span id="lblMobileEngine" class="text-[10px]">OFFLINE</span>
+    <button class="tab-btn" id="tabBtnSystem" onclick="switchTab('SYSTEM')">
+      ⚙️ Motor & IA
     </button>
+  </nav>
 
-    <button
-      onclick="openServerModal()"
-      class="min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#F8FAFC] active:scale-95 transition-all duration-150"
-    >
-      <i data-lucide="settings-2" class="w-5 h-5 text-[#00FF9D]"></i>
-      <span class="text-[10px]">IP / APK</span>
-    </button>
-  </footer>
-
-  <!-- MODAL CAPA 3: Configuración de IP del Servidor PC (Para APK Autónoma) -->
-  <div id="modalServerConfig" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="glass-layer-3 max-w-sm w-full p-5 space-y-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/40 flex items-center justify-center text-[#00F0FF]">
-            <i data-lucide="server" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-base text-[#F8FAFC]" style="font-family: 'Space Grotesk', sans-serif;">
-              Enlace de Red APK ↔ PC
-            </h3>
-            <p class="text-[11px] text-[#94A3B8]">Dirección IP local del servidor Python</p>
-          </div>
-        </div>
-        <button onclick="closeServerModal()" class="min-w-[44px] min-h-[44px] rounded-full bg-white/5 flex items-center justify-center text-[#94A3B8]">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-2 text-xs">
-        <label class="block text-[#94A3B8] font-semibold">Host / IP del PC (Puerto 8000):</label>
-        <input
-          id="inputServerHost"
-          type="text"
-          placeholder="192.168.101.12:8000"
-          class="w-full px-3.5 py-3 rounded-xl bg-[#08090D] border border-white/20 text-[#F8FAFC] font-mono text-sm focus:outline-none focus:border-[#00F0FF]"
-        />
-        <p class="text-[11px] text-[#94A3B8]">
-          En la APK de Android, ingresa aquí la IP local que aparece en la tarjeta QR de tu PC.
-        </p>
-      </div>
-
-      <div class="flex gap-2 pt-1">
-        <a
-          href="/"
-          class="flex-1 min-h-[48px] rounded-full border border-white/15 bg-white/5 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#F8FAFC]"
-        >
-          <i data-lucide="monitor" class="w-4 h-4"></i>
-          <span>Abrir HUD PC</span>
-        </a>
-        <button
-          onclick="saveServerHost()"
-          class="flex-1 min-h-[48px] rounded-full bg-[#00F0FF]/20 border border-[#00F0FF]/60 text-xs font-bold text-[#00F0FF] active:scale-95 transition-transform duration-150"
-        >
-          Conectar Ahora
-        </button>
+  <!-- SERVER IP MODAL FOR STANDALONE ANDROID APK -->
+  <div class="modal-backdrop" id="ipModal">
+    <div class="modal-card">
+      <h3>Conexión APK ↔ Servidor PC</h3>
+      <p>Ingresa la dirección IP local y puerto que muestra la consola de tu PC al ejecutar <code>python main.py</code> (ambos en la misma red Wi-Fi):</p>
+      <input type="text" class="input-field" id="ipInput" placeholder="Ej: 192.168.1.50:8000" />
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeIpModal()">Cerrar</button>
+        <button class="btn-primary" onclick="saveServerIp()">Guardar y Conectar</button>
       </div>
     </div>
   </div>
 
   <script>
-    lucide.createIcons();
+    // Host preconfigurado por Compilador.py al generar el APK
+    const COMPILED_DEFAULT_HOST = "__DEFAULT_PC_HOST__";
 
-    let wsMobile = null;
-    let facingMode = 'environment';
-    let currentStream = null;
-    let currentMode = 'OFFLINE';
-    let mobileCamControlActive = true;
-    let mobPointerActive = false;
-    let showPcMirror = false;
-    let activeTab = 'CAMERA';
-    const MOB_RING_CIRC = 100.53;
-
-    // Determinar el host del servidor PC (soporta navegador web directo o APK Capacitor)
-    function getServerHost() {
+    function resolveInitialHost() {
       const saved = localStorage.getItem('signbridge_server_host');
-      if (saved && saved.trim()) return saved.trim();
-      if (window.location.host && !window.location.host.startsWith('localhost')) {
+      if (saved && saved.trim().length > 3) return saved.trim();
+      if (window.location.host && !window.location.host.includes('androidplatform.net') && window.location.protocol.startsWith('http')) {
         return window.location.host;
       }
-      return window.location.host || '192.168.101.12:8000';
-    }
-
-    function getApiBaseUrl() {
-      const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
-      return `${proto}//${getServerHost()}`;
-    }
-
-    async function startMobileCamera() {
-      if (currentStream) {
-        currentStream.getTracks().forEach((t) => t.stop());
-        currentStream = null;
+      if (COMPILED_DEFAULT_HOST && !COMPILED_DEFAULT_HOST.includes('__DEFAULT_')) {
+        return COMPILED_DEFAULT_HOST;
       }
+      return '192.168.1.100:8000';
+    }
+
+    let serverHost = resolveInitialHost();
+    let ws = null;
+    let stream = null;
+    let facingMode = 'environment';
+    let mobileCamActiveOnPc = false;
+    let pointerEnabledOnPc = false;
+    let hardwareEnabledOnPc = true;
+    let currentPcMode = 'OFFLINE';
+    let currentPcSource = 'AUTO';
+    let showHudMirror = true;
+    let frameTimer = null;
+
+    const localVideo = document.getElementById('localVideo');
+    const pcHudMirror = document.getElementById('pcHudMirror');
+    const captureCanvas = document.getElementById('captureCanvas');
+    const captureCtx = captureCanvas.getContext('2d');
+
+    function vibrateHaptic(ms = 22) {
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('Contexto HTTP sin getUserMedia directo');
+        if (window.SignBridgeNative && typeof window.SignBridgeNative.vibrate === 'function') {
+          window.SignBridgeNative.vibrate(ms);
+          return;
         }
-        currentStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false,
-        });
-        const video = document.getElementById('mobileVideo');
-        video.srcObject = currentStream;
-        await video.play();
-        document.getElementById('httpCameraNotice').classList.add('hidden');
-        document.getElementById('fpsMobileBadge').textContent = 'CAM 30 FPS';
-      } catch (err) {
-        // Activar automáticamente el espejo IA del PC y mostrar opciones para HTTP
-        showPcMirror = true;
-        document.getElementById('mobileVideo').classList.add('hidden');
-        document.getElementById('pcMirrorFeed').classList.remove('hidden');
-        document.getElementById('httpCameraNotice').classList.remove('hidden');
-        document.getElementById('fpsMobileBadge').textContent = 'ESPEJO IA';
+        if (navigator.vibrate) navigator.vibrate(ms);
+      } catch (e) {}
+    }
+
+    function updateHostLabel() {
+      document.getElementById('serverHostLabel').textContent = `PC: ${serverHost}`;
+      document.getElementById('ipInput').value = serverHost;
+    }
+
+    function openIpModal() {
+      document.getElementById('ipInput').value = serverHost;
+      document.getElementById('ipModal').classList.add('open');
+    }
+
+    function closeIpModal() {
+      document.getElementById('ipModal').classList.remove('open');
+    }
+
+    function saveServerIp() {
+      const raw = document.getElementById('ipInput').value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      if (raw) {
+        serverHost = raw;
+        localStorage.setItem('signbridge_server_host', serverHost);
+        updateHostLabel();
+        closeIpModal();
+        connectMobileWS();
       }
+    }
+
+    function switchTab(tab) {
+      vibrateHaptic(12);
+      document.getElementById('viewCam').classList.toggle('active', tab === 'CAM');
+      document.getElementById('viewControl').classList.toggle('active', tab === 'CONTROL');
+      document.getElementById('viewSystem').classList.toggle('active', tab === 'SYSTEM');
+
+      document.getElementById('tabBtnCam').classList.toggle('active', tab === 'CAM');
+      document.getElementById('tabBtnControl').classList.toggle('active', tab === 'CONTROL');
+      document.getElementById('tabBtnSystem').classList.toggle('active', tab === 'SYSTEM');
     }
 
     function connectMobileWS() {
-      const host = getServerHost();
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      document.getElementById('inputServerHost').value = host;
+      updateHostLabel();
+      if (ws) {
+        try { ws.close(); } catch (e) {}
+      }
+      const wsProto = (window.location.protocol === 'https:' && !window.location.host.includes('androidplatform.net')) ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProto}//${serverHost}/ws/mobile`;
 
       try {
-        wsMobile = new WebSocket(`${proto}//${host}/ws/mobile`);
-      } catch (e) {
-        setTimeout(connectMobileWS, 2000);
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        setTimeout(connectMobileWS, 2200);
         return;
       }
 
-      wsMobile.onopen = () => {
-        document.getElementById('wsDot').className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#00FF9D] border-2 border-[#08090D] animate-pulse';
-        document.getElementById('wsStatusText').textContent = `Conectado a ${host}`;
-        // Al abrir desde el celular, si el modo control cámara está activo, avisar al PC
-        if (mobileCamControlActive) {
-          wsMobile.send(JSON.stringify({ type: 'ACTIVATE_MOBILE_CAM', enabled: true }));
-        }
+      ws.onopen = () => {
+        document.getElementById('wsDot').classList.add('online');
+        document.getElementById('wsText').textContent = 'EN LÍNEA';
+        ws.send(JSON.stringify({ type: 'PING' }));
       };
 
-      wsMobile.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        const gid = data.stabilized_id || 'G0';
-        const conf = Math.round((data.confidence || 0) * 100);
-        const prog = Number(data.ring_progress || 0);
-
-        document.getElementById('mobGestureBadge').textContent = gid;
-        document.getElementById('mobGestureLabel').textContent = data.short_label || gid;
-        document.getElementById('mobConfBadge').textContent = `${conf}% conf`;
-
-        const offset = MOB_RING_CIRC * (1 - Math.min(1, Math.max(0, prog)));
-        const ring = document.getElementById('mobRingCircle');
-        ring.style.strokeDashoffset = offset.toFixed(2);
-        ring.style.stroke = gid === 'G0' ? '#FF3366' : '#00FF9D';
-
-        if (data.mode) {
-          currentMode = data.mode;
-          updateEngineButtonsUI(currentMode);
-        }
-
-        if (data.pointer_enabled !== undefined) {
-          mobPointerActive = Boolean(data.pointer_enabled);
-          updatePointerButtonsUI(mobPointerActive);
-        }
-
-        if (data.mobile_cam_active !== undefined) {
-          mobileCamControlActive = Boolean(data.mobile_cam_active);
-          updateCamControlButtonUI(mobileCamControlActive);
-        }
-
-        // Mostrar feed procesado del PC si estamos en modo Espejo IA o sin cámara directa
-        if ((showPcMirror || !currentStream) && data.hud_frame_b64) {
-          const mirrorImg = document.getElementById('pcMirrorFeed');
-          mirrorImg.src = `data:image/jpeg;base64,${data.hud_frame_b64}`;
-        }
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          updateMobileHUD(data);
+        } catch (e) {}
       };
 
-      wsMobile.onclose = () => {
-        document.getElementById('wsDot').className = 'absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#FF3366] border-2 border-[#08090D]';
-        document.getElementById('wsStatusText').textContent = 'Reconectando con PC...';
-        setTimeout(connectMobileWS, 1500);
+      ws.onclose = () => {
+        document.getElementById('wsDot').classList.remove('online');
+        document.getElementById('wsText').textContent = 'RECONECTANDO';
+        setTimeout(connectMobileWS, 2000);
       };
+
+      ws.onerror = () => {};
     }
 
-    // Bucle de transmisión de fotogramas de la cámara del celular al PC
-    setInterval(() => {
-      const video = document.getElementById('mobileVideo');
-      const canvas = document.getElementById('mobileCanvas');
-      if (
-        mobileCamControlActive &&
-        wsMobile &&
-        wsMobile.readyState === WebSocket.OPEN &&
-        currentStream &&
-        video.readyState >= 2
-      ) {
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          if (blob && wsMobile.readyState === WebSocket.OPEN) {
-            wsMobile.send(blob);
-          }
-        }, 'image/jpeg', 0.72);
-      } else if (wsMobile && wsMobile.readyState === WebSocket.OPEN && !currentStream) {
-        // Mantener latido de telemetría para recibir el espejo IA del PC
-        wsMobile.send(JSON.stringify({ type: 'PING' }));
-      }
-    }, 85);
+    function updateMobileHUD(data) {
+      mobileCamActiveOnPc = Boolean(data.mobile_cam_active);
+      pointerEnabledOnPc = Boolean(data.pointer_enabled);
+      hardwareEnabledOnPc = data.hardware_enabled !== undefined ? Boolean(data.hardware_enabled) : true;
+      currentPcMode = data.mode || 'OFFLINE';
+      currentPcSource = data.video_source || 'AUTO';
 
-    // Activar / Desactivar el uso del celular como cámara principal del PC
-    function toggleMobileCameraControlMode() {
-      mobileCamControlActive = !mobileCamControlActive;
-      updateCamControlButtonUI(mobileCamControlActive);
-      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-        wsMobile.send(JSON.stringify({
+      const heroCard = document.getElementById('camHeroCard');
+      const btnActivate = document.getElementById('btnActivateMobileCam');
+      if (mobileCamActiveOnPc) {
+        heroCard.classList.add('active-pc');
+        btnActivate.classList.add('active');
+        btnActivate.textContent = 'ACTIVO EN PC ✓';
+        document.getElementById('camHeroTitle').textContent = 'Cámara Móvil Activa en el PC';
+        document.getElementById('camHeroDesc').textContent = 'El PC está procesando la cámara/mando de tu móvil en tiempo real.';
+      } else {
+        heroCard.classList.remove('active-pc');
+        btnActivate.classList.remove('active');
+        btnActivate.textContent = 'ACTIVAR EN PC';
+        document.getElementById('camHeroTitle').textContent = 'Modo Cámara Móvil hacia el PC';
+        document.getElementById('camHeroDesc').textContent = 'Pulsa para que el PC cambie a la cámara de este dispositivo móvil.';
+      }
+
+      document.getElementById('camSourceChip').textContent = `FUENTE PC: ${currentPcSource}`;
+      document.getElementById('fpsChip').textContent = `${data.fps || 24} FPS · ${Math.round((data.confidence || 0) * 100)}%`;
+
+      const ptrBtn = document.getElementById('btnPointerToggle');
+      ptrBtn.classList.toggle('active', pointerEnabledOnPc);
+      ptrBtn.textContent = pointerEnabledOnPc ? '🖱️ Puntero: ON' : '🖱️ Puntero: OFF';
+
+      // Anillo de estabilidad y gesto actual
+      const gid = data.stabilized_id || 'G0';
+      document.getElementById('hudGid').textContent = gid;
+      document.getElementById('hudGName').textContent = data.short_label || 'RECHAZO ACTIVO';
+      document.getElementById('hudGAction').textContent = data.action_label || 'Sin acción';
+
+      const pct = Math.max(0, Math.min(1, data.ring_progress || 0));
+      const arc = document.getElementById('ringArc');
+      arc.style.strokeDashoffset = (125.6 * (1 - pct)).toFixed(1);
+      arc.style.stroke = pct >= 0.99 ? '#10B981' : '#06B6D4';
+
+      if (data.hud_frame_b64 && showHudMirror) {
+        pcHudMirror.src = `data:image/jpeg;base64,${data.hud_frame_b64}`;
+      }
+
+      // Actualizar controles de la pestaña Motor & IA
+      document.getElementById('sysActiveSourceBadge').textContent = currentPcSource;
+      ['MOBILE', 'LOCAL', 'SIMULATOR', 'AUTO'].forEach(s => {
+        const el = document.getElementById('srcOpt' + s);
+        if (el) el.classList.toggle('active', currentPcSource === s);
+      });
+
+      document.getElementById('sysModeBadge').textContent = currentPcMode;
+      document.getElementById('modeOptOFFLINE').classList.toggle('active', currentPcMode === 'OFFLINE');
+      document.getElementById('modeOptONLINE').classList.toggle('active', currentPcMode === 'ONLINE');
+
+      const hwBtn = document.getElementById('btnHwToggle');
+      hwBtn.textContent = hardwareEnabledOnPc ? 'HW: ON' : 'HW: OFF';
+      hwBtn.style.color = hardwareEnabledOnPc ? '#10B981' : '#F59E0B';
+
+      if (Array.isArray(data.events) && data.events.length > 0) {
+        const listEl = document.getElementById('mobileEventList');
+        listEl.innerHTML = data.events.map(ev => `
+          <div class="event-item">
+            <span><strong>${ev.gesture_id}</strong> · ${ev.gesture_name}</span>
+            <span style="color:#10B981;">${ev.timestamp || ''}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function startWebRTCCamera() {
+      try {
+        if (window.SignBridgeNative && typeof window.SignBridgeNative.requestCamera === 'function') {
+          window.SignBridgeNative.requestCamera();
+        }
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          return false;
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facingMode,
+            width: { ideal: 480 },
+            height: { ideal: 360 }
+          },
+          audio: false
+        });
+        localVideo.srcObject = stream;
+        await localVideo.play();
+
+        if (!showHudMirror) {
+          localVideo.style.display = 'block';
+          pcHudMirror.style.display = 'none';
+        }
+
+        if (frameTimer) clearInterval(frameTimer);
+        frameTimer = setInterval(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
+          if (!mobileCamActiveOnPc) return;
+          if (localVideo.readyState >= 2) {
+            captureCtx.drawImage(localVideo, 0, 0, captureCanvas.width, captureCanvas.height);
+            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.65);
+            ws.send(JSON.stringify({
+              type: 'FRAME',
+              data: dataUrl,
+              auto_switch: true
+            }));
+          }
+        }, 90);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    async function toggleMobileCameraMode() {
+      vibrateHaptic(28);
+      const nextState = !mobileCamActiveOnPc;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
           type: 'ACTIVATE_MOBILE_CAM',
-          enabled: mobileCamControlActive,
+          enabled: nextState
         }));
       }
-      fetch(`${getApiBaseUrl()}/api/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_source: mobileCamControlActive ? 'MOBILE' : 'AUTO' }),
-      }).catch(() => {});
+      if (nextState) {
+        const started = await startWebRTCCamera();
+        if (started) {
+          showHudMirror = false;
+          localVideo.style.display = 'block';
+          pcHudMirror.style.display = 'none';
+          document.getElementById('btnMirrorToggle').textContent = '👁️ Ver: Cámara';
+        } else {
+          showHudMirror = true;
+          localVideo.style.display = 'none';
+          pcHudMirror.style.display = 'block';
+        }
+      } else {
+        if (frameTimer) clearInterval(frameTimer);
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+          stream = null;
+        }
+        showHudMirror = true;
+        localVideo.style.display = 'none';
+        pcHudMirror.style.display = 'block';
+      }
     }
 
-    function updateCamControlButtonUI(active) {
-      const btn = document.getElementById('btnActivateCamControl');
-      const lbl = document.getElementById('lblActivateCamControl');
-      const pill = document.getElementById('pcSourcePill');
-      if (active) {
-        btn.className = 'w-full min-h-[54px] px-4 py-3 rounded-2xl border border-[#00FF9D]/60 bg-gradient-to-r from-[#00FF9D]/25 to-[#00F0FF]/20 text-[#00FF9D] font-bold text-sm flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(0,255,157,0.25)] active:scale-95 transition-all duration-150';
-        lbl.textContent = 'USAR CELULAR COMO CÁMARA DEL PC: ACTIVO';
-        pill.textContent = 'CAM MÓVIL EN PC';
-        pill.className = 'font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/30';
-      } else {
-        btn.className = 'w-full min-h-[54px] px-4 py-3 rounded-2xl border border-white/15 bg-white/5 text-[#94A3B8] font-bold text-sm flex items-center justify-center gap-2.5 active:scale-95 transition-all duration-150';
-        lbl.textContent = 'ACTIVAR CELULAR COMO CÁMARA DEL PC';
-        pill.textContent = 'STANDBY';
-        pill.className = 'font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-[#94A3B8] border border-white/15';
+    async function switchCameraLens() {
+      vibrateHaptic(18);
+      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+      document.getElementById('btnFlipLens').textContent =
+        facingMode === 'environment' ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
+      if (mobileCamActiveOnPc) {
+        await startWebRTCCamera();
+      }
+    }
+
+    function togglePcPointer() {
+      vibrateHaptic(20);
+      const nextPtr = !pointerEnabledOnPc;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_POINTER',
+          enabled: nextPtr
+        }));
       }
     }
 
     function toggleMirrorView() {
-      showPcMirror = !showPcMirror;
-      const video = document.getElementById('mobileVideo');
-      const mirror = document.getElementById('pcMirrorFeed');
-      const lbl = document.getElementById('lblViewMode');
-      if (showPcMirror) {
-        video.classList.add('hidden');
-        mirror.classList.remove('hidden');
-        lbl.textContent = 'Vista: Esqueleto IA PC';
+      vibrateHaptic(15);
+      showHudMirror = !showHudMirror;
+      const btn = document.getElementById('btnMirrorToggle');
+      if (showHudMirror || !stream) {
+        localVideo.style.display = 'none';
+        pcHudMirror.style.display = 'block';
+        btn.textContent = '👁️ Ver: Espejo IA';
       } else {
-        mirror.classList.add('hidden');
-        video.classList.remove('hidden');
-        lbl.textContent = 'Vista: Lente Directo';
+        localVideo.style.display = 'block';
+        pcHudMirror.style.display = 'none';
+        btn.textContent = '👁️ Ver: Cámara';
       }
     }
 
-    function switchCameraFacing() {
-      facingMode = facingMode === 'user' ? 'environment' : 'user';
-      document.getElementById('lblLensFacing').textContent =
-        facingMode === 'user' ? 'Lente: Frontal' : 'Lente: Trasero';
-      showPcMirror = false;
-      document.getElementById('pcMirrorFeed').classList.add('hidden');
-      document.getElementById('mobileVideo').classList.remove('hidden');
-      startMobileCamera();
-    }
-
-    function handleNativePhotoFrame(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-          wsMobile.send(JSON.stringify({
-            type: 'FRAME',
-            data: reader.result,
-            auto_switch: true,
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function switchMobileTab(tab) {
-      activeTab = tab;
-      const camSection = document.getElementById('tabView_CAMERA');
-      const ctrlSection = document.getElementById('tabView_CONTROL');
-      const navCam = document.getElementById('navBtnCamera');
-      const navCtrl = document.getElementById('navBtnControl');
-
-      if (tab === 'CAMERA') {
-        camSection.classList.remove('hidden');
-        ctrlSection.classList.add('hidden');
-        navCam.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
-        navCtrl.className = 'min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150';
-      } else {
-        camSection.classList.add('hidden');
-        ctrlSection.classList.remove('hidden');
-        navCtrl.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/20 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
-        navCam.className = 'min-h-[52px] rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#94A3B8] active:scale-95 transition-all duration-150';
+    function triggerRemoteGesture(gid) {
+      vibrateHaptic(35);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'TRIGGER',
+          gesture_id: gid
+        }));
       }
     }
 
-    function toggleMobilePointer() {
-      mobPointerActive = !mobPointerActive;
-      updatePointerButtonsUI(mobPointerActive);
-      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-        wsMobile.send(JSON.stringify({ type: 'SET_POINTER', enabled: mobPointerActive }));
-      }
-      fetch(`${getApiBaseUrl()}/api/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pointer_enabled: mobPointerActive }),
-      }).catch(() => {});
-    }
-
-    function updatePointerButtonsUI(enabled) {
-      const btnCam = document.getElementById('btnCamTabPointer');
-      const lblCam = document.getElementById('lblCamTabPointer');
-      const btnCtrl = document.getElementById('btnCtrlTabPointer');
-      if (enabled) {
-        btnCam.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#00F0FF]/60 bg-[#00F0FF]/20 text-xs font-semibold flex items-center justify-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150';
-        lblCam.textContent = 'Puntero PC: ON';
-        btnCtrl.textContent = 'Puntero Cámara: ON';
-        btnCtrl.className = 'px-2.5 py-1 rounded-full bg-[#00F0FF]/20 border border-[#00F0FF]/50 font-mono text-[11px] text-[#00F0FF]';
-      } else {
-        btnCam.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold flex items-center justify-center gap-2 text-[#94A3B8] active:scale-95 transition-transform duration-150';
-        lblCam.textContent = 'Puntero PC: OFF';
-        btnCtrl.textContent = 'Puntero Cámara: OFF';
-        btnCtrl.className = 'px-2.5 py-1 rounded-full bg-white/5 border border-white/15 font-mono text-[11px] text-[#94A3B8]';
+    function setPcSource(source) {
+      vibrateHaptic(20);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_SOURCE',
+          source: source
+        }));
       }
     }
 
-    function sendRemoteGesture(gid) {
-      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-        wsMobile.send(JSON.stringify({ type: 'TRIGGER', gesture_id: gid }));
-      }
-      fetch(`${getApiBaseUrl()}/api/trigger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gesture_id: gid }),
-      }).catch(() => {});
-    }
-
-    function toggleRemoteEngine() {
-      const next = currentMode === 'OFFLINE' ? 'ONLINE' : 'OFFLINE';
-      currentMode = next;
-      updateEngineButtonsUI(next);
-      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-        wsMobile.send(JSON.stringify({ type: 'SET_MODE', mode: next }));
+    function setPcEngineMode(mode) {
+      vibrateHaptic(20);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_MODE',
+          mode: mode
+        }));
       }
     }
 
-    function updateEngineButtonsUI(mode) {
-      document.getElementById('lblMobileEngine').textContent = mode;
-      document.getElementById('lblCamTabEngine').textContent = `Motor: ${mode}`;
-      const navBtn = document.getElementById('navBtnEngine');
-      const camBtn = document.getElementById('btnCamTabEngine');
-      if (mode === 'ONLINE') {
-        navBtn.className = 'min-h-[52px] rounded-2xl bg-[#00F0FF]/15 border border-[#00F0FF]/50 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#00F0FF] active:scale-95 transition-all duration-150';
-        camBtn.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#00F0FF]/50 bg-[#00F0FF]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#00F0FF] active:scale-95 transition-transform duration-150';
-      } else {
-        navBtn.className = 'min-h-[52px] rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/40 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold text-[#FFB800] active:scale-95 transition-all duration-150';
-        camBtn.className = 'min-h-[48px] px-3 py-2 rounded-xl border border-[#FFB800]/40 bg-[#FFB800]/15 text-xs font-semibold flex items-center justify-center gap-2 text-[#FFB800] active:scale-95 transition-transform duration-150';
+    function saveGeminiKeyFromMobile() {
+      const key = document.getElementById('geminiKeyMobileInput').value.trim();
+      if (!key) return;
+      vibrateHaptic(30);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_GEMINI_KEY',
+          api_key: key,
+          model: 'gemini-3-flash-preview'
+        }));
+        document.getElementById('geminiKeyMobileInput').value = '';
       }
     }
 
-    // Lógica del Touchpad Háptico para mover el cursor del PC desde la pantalla del celular
-    const pad = document.getElementById('mobileTouchpad');
-    const dot = document.getElementById('touchCursorDot');
+    function toggleHardwareEnabled() {
+      vibrateHaptic(20);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_HARDWARE',
+          enabled: !hardwareEnabledOnPc
+        }));
+      }
+    }
+
+    // TOUCHPAD BIOMECÁNICO EN TIEMPO REAL
+    const touchpadArea = document.getElementById('touchpadArea');
+    const touchCursor = document.getElementById('touchCursor');
     let touchStartTs = 0;
     let touchMoved = false;
 
-    function handlePadMove(clientX, clientY) {
-      const rect = pad.getBoundingClientRect();
-      const nx = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const ny = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    function handlePadMove(clientX, clientY, isPinch = false) {
+      const rect = touchpadArea.getBoundingClientRect();
+      const nx = Math.max(0.02, Math.min(0.98, (clientX - rect.left) / rect.width));
+      const ny = Math.max(0.02, Math.min(0.98, (clientY - rect.top) / rect.height));
 
-      dot.style.left = `${nx * 100}%`;
-      dot.style.top = `${ny * 100}%`;
-      dot.classList.remove('hidden');
-      document.getElementById('touchCoordsLabel').textContent = `X: ${nx.toFixed(2)} | Y: ${ny.toFixed(2)}`;
+      touchCursor.style.left = `${nx * 100}%`;
+      touchCursor.style.top = `${ny * 100}%`;
+      touchCursor.classList.toggle('pinching', isPinch);
 
-      if (wsMobile && wsMobile.readyState === WebSocket.OPEN) {
-        wsMobile.send(JSON.stringify({ type: 'TOUCH_MOVE', x: nx, y: ny, pinch: false }));
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'TOUCH_MOVE',
+          x: nx,
+          y: ny,
+          pinch: isPinch
+        }));
       }
     }
 
-    pad.addEventListener('touchstart', (e) => {
-      touchStartTs = Date.now();
+    touchpadArea.addEventListener('pointerdown', (e) => {
+      touchStartTs = performance.now();
       touchMoved = false;
-      const t = e.touches[0];
-      handlePadMove(t.clientX, t.clientY);
-    }, { passive: true });
+      handlePadMove(e.clientX, e.clientY, false);
+    });
 
-    pad.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      touchMoved = true;
-      const t = e.touches[0];
-      handlePadMove(t.clientX, t.clientY);
-    }, { passive: false });
-
-    pad.addEventListener('touchend', () => {
-      dot.classList.add('hidden');
-      // Si fue un toque rápido (< 220ms) sin arrastrar, disparar Clic Izquierdo (G5)
-      if (!touchMoved && (Date.now() - touchStartTs) < 220) {
-        sendRemoteGesture('G5');
+    touchpadArea.addEventListener('pointermove', (e) => {
+      if (e.buttons > 0 || e.pointerType === 'touch') {
+        touchMoved = true;
+        handlePadMove(e.clientX, e.clientY, false);
       }
     });
 
-    // Soporte de mouse para probar el touchpad móvil desde la ventana de previsualización en PC
-    let mouseDownOnPad = false;
-    pad.addEventListener('mousedown', (e) => {
-      mouseDownOnPad = true;
-      touchStartTs = Date.now();
-      touchMoved = false;
-      handlePadMove(e.clientX, e.clientY);
-    });
-    window.addEventListener('mousemove', (e) => {
-      if (!mouseDownOnPad) return;
-      touchMoved = true;
-      handlePadMove(e.clientX, e.clientY);
-    });
-    window.addEventListener('mouseup', () => {
-      if (!mouseDownOnPad) return;
-      mouseDownOnPad = false;
-      dot.classList.add('hidden');
-      if (!touchMoved && (Date.now() - touchStartTs) < 220) {
-        sendRemoteGesture('G5');
+    touchpadArea.addEventListener('pointerup', (e) => {
+      const elapsed = performance.now() - touchStartTs;
+      if (elapsed < 220 && !touchMoved) {
+        vibrateHaptic(25);
+        handlePadMove(e.clientX, e.clientY, true);
+        setTimeout(() => {
+          touchCursor.classList.remove('pinching');
+        }, 150);
       }
     });
 
-    function openServerModal() {
-      document.getElementById('inputServerHost').value = getServerHost();
-      document.getElementById('modalServerConfig').classList.remove('hidden');
-    }
-
-    function closeServerModal() {
-      document.getElementById('modalServerConfig').classList.add('hidden');
-    }
-
-    function saveServerHost() {
-      const val = document.getElementById('inputServerHost').value.trim();
-      if (val) {
-        localStorage.setItem('signbridge_server_host', val);
-      }
-      closeServerModal();
-      if (wsMobile) {
-        wsMobile.close();
-      }
+    window.addEventListener('DOMContentLoaded', () => {
       connectMobileWS();
-    }
-
-    connectMobileWS();
-    startMobileCamera();
+    });
   </script>
 </body>
 </html>

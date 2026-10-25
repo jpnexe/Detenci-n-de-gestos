@@ -24,7 +24,7 @@ from typing import Optional
 import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import qrcode
@@ -181,6 +181,22 @@ async def serve_mini_hud():
 async def serve_mobile():
     with open(os.path.join("static", "mobile.html"), "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
+
+
+@app.get("/apk")
+async def download_apk():
+    """Permite descargar directamente el APK compilado desde apk_estractor/SignBridge_v2.apk."""
+    apk_path = os.path.join("apk_estractor", "SignBridge_v2.apk")
+    if not os.path.exists(apk_path):
+        return JSONResponse(
+            {"error": "El APK aún no ha sido compilado. Ejecuta python Compilador.py primero."},
+            status_code=404,
+        )
+    return FileResponse(
+        path=apk_path,
+        media_type="application/vnd.android.package-archive",
+        filename="SignBridge_v2.apk",
+    )
 
 
 @app.get("/api/status")
@@ -363,7 +379,7 @@ async def ws_hud_endpoint(websocket: WebSocket):
 async def ws_mobile_endpoint(websocket: WebSocket):
     """
     Canal WebSocket dedicado para recibir el stream de cámara y comandos del Modo Control Móvil
-    (APK Android / PWA), devolviendo telemetría y vista procesada en tiempo real.
+    (APK Android / PWA), devolviendo telemetría completa y vista procesada en tiempo real.
     """
     await websocket.accept()
     pipeline.mobile_client_count += 1
@@ -388,8 +404,15 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 elif msg_type == "ACTIVATE_MOBILE_CAM":
                     enabled = bool(payload.get("enabled", True))
                     pipeline.set_video_source("MOBILE" if enabled else "AUTO")
+                elif msg_type == "SET_SOURCE":
+                    pipeline.set_video_source(payload.get("source", "MOBILE"))
                 elif msg_type == "SET_POINTER":
-                    pipeline.hardware.pointer_enabled = bool(payload.get("enabled", False))
+                    if pipeline.video_source != "SIMULATOR":
+                        pipeline.hardware.pointer_enabled = bool(payload.get("enabled", False))
+                    else:
+                        pipeline.hardware.pointer_enabled = False
+                elif msg_type == "SET_HARDWARE":
+                    pipeline.hardware.enabled = bool(payload.get("enabled", True))
                 elif msg_type == "TOUCH_MOVE":
                     tx = float(payload.get("x", 0.5))
                     ty = float(payload.get("y", 0.5))
@@ -398,11 +421,22 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                         pipeline.video_source = "MOBILE"
                     pipeline.receive_mobile_touch(tx, ty, pinch=pinch)
                 elif msg_type == "SET_MODE":
+                    if payload.get("gemini_api_key"):
+                        pipeline.gemini_classifier.set_api_key(
+                            str(payload.get("gemini_api_key")).strip(),
+                            payload.get("gemini_model"),
+                        )
                     pipeline.set_mode(payload.get("mode", "OFFLINE"))
+                elif msg_type == "SET_GEMINI_KEY":
+                    key_val = str(payload.get("api_key", "")).strip()
+                    model_val = payload.get("model") or "gemini-3-flash-preview"
+                    if key_val:
+                        pipeline.gemini_classifier.set_api_key(key_val, model_val)
+                        pipeline.set_mode("ONLINE")
                 elif msg_type == "SIMULATE":
                     gid = payload.get("gesture_id", "G1")
                     if gid in GESTURE_CATALOG:
-                        pipeline.simulated_gesture = gid
+                        pipeline.set_simulated_gesture(gid)
                 elif msg_type == "TRIGGER":
                     gid = payload.get("gesture_id", "G1")
                     if gid in GESTURE_CATALOG:
@@ -411,19 +445,30 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                         pipeline.hardware.execute_action(gid, meta["action"], meta["name"])
                         pipeline.stabilizer.pulse_until = time.time() + 0.7
 
+            # Si el navegador del PC está cerrado o en segundo plano, el APK impulsa el pipeline
+            if (time.perf_counter() - pipeline._last_frame_ts) > 0.032:
+                local_frame = camera_worker.read() if camera_worker.available else None
+                pipeline.process_step(local_cam_bgr=local_frame)
+
             cur_gid = (
                 pipeline.stabilizer.buffer[-1]
                 if pipeline.stabilizer.buffer
                 else (pipeline.stabilizer.last_triggered_gesture or "G0")
             )
             meta_cur = GESTURE_CATALOG.get(cur_gid, GESTURE_CATALOG["G0"])
+            gem_status = pipeline.gemini_classifier.get_status()
 
             await websocket.send_json({
                 "status": "streaming",
                 "mode": pipeline.mode,
                 "video_source": pipeline.video_source,
+                "simulated_gesture": pipeline.simulated_gesture,
                 "mobile_cam_active": pipeline.video_source == "MOBILE",
                 "pointer_enabled": pipeline.hardware.pointer_enabled,
+                "hardware_enabled": pipeline.hardware.enabled,
+                "fps": round(pipeline._fps_ema, 1),
+                "gemini_configured": gem_status.get("configured", False),
+                "gemini_model": gem_status.get("model", "gemini-3-flash-preview"),
                 "stabilized_id": cur_gid,
                 "short_label": meta_cur["short_label"],
                 "action_label": meta_cur["action_label"],
@@ -436,6 +481,7 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 "confidence": round(
                     pipeline.stabilizer.conf_buffer[-1] if pipeline.stabilizer.conf_buffer else 0.0, 3
                 ),
+                "events": pipeline.hardware.get_recent_events()[:6],
                 "hud_frame_b64": pipeline.latest_rendered_b64,
             })
     except WebSocketDisconnect:
