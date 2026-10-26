@@ -60,9 +60,9 @@ GESTURE_CATALOG: Dict[str, Dict[str, Any]] = {
     },
     "G5": {
         "id": "G5",
-        "name": "Pellizco / Tap (Clic Izquierdo)",
+        "name": "Pistola / L (Índice + Pulgar)",
         "short_label": "CLIC IZQUIERDO",
-        "description": "Punta del pulgar (4) e índice (8) unidas en pellizco (Pinch Click)",
+        "description": "Dedo índice (8) apuntando arriba y pulgar (4) extendido en L; medio, anular y meñique plegados",
         "action": "LEFT_CLICK",
         "action_label": "pyautogui.click()",
         "color": "#00FF9D",
@@ -136,12 +136,9 @@ def get_canonical_hand_pose(gesture_id: str) -> np.ndarray:
         set_finger_extended(base, 9, 0.00, 0.27)
         set_finger_extended(base, 13, 0.04, 0.25)
         set_finger_folded(base, 17, 0.02)
-    elif gesture_id == "G5":  # G5: Pellizco Índice + Pulgar (Clic Izquierdo)
-        base[3] = [0.38, 0.58, -0.03]
-        base[4] = [0.42, 0.51, -0.04]  # Punta pulgar
-        base[6] = [0.43, 0.56, -0.02]
-        base[7] = [0.42, 0.53, -0.03]
-        base[8] = [0.42, 0.51, -0.04]  # Punta índice tocando al pulgar
+    elif gesture_id == "G5":  # G5: Pistola / L (Índice + Pulgar extendidos en L = Clic Izquierdo)
+        set_thumb(base, True)
+        set_finger_extended(base, 5, -0.02, 0.26)
         set_finger_folded(base, 9, 0.00)
         set_finger_folded(base, 13, 0.01)
         set_finger_folded(base, 17, 0.02)
@@ -280,20 +277,20 @@ class LocalGestureClassifier:
         geom_id = "G0"
         geom_conf = 0.92
 
-        if is_pinch and not middle and not ring and not pinky:
-            # G5: Pellizco Dedo Índice + Pulgar unidos (Clic Izquierdo)
+        if index and thumb and not middle and not ring and not pinky:
+            # G5: Pistola / L (Índice + Pulgar extendidos en L -> Clic Izquierdo)
             geom_id = "G5"
             geom_conf = 0.97
-        elif not index and not middle and not ring and not pinky and not thumb and not is_pinch:
-            # G3: Puño cerrado (todos los 5 dedos plegados en la palma, sin pellizco)
+        elif not index and not middle and not ring and not pinky and not thumb:
+            # G3: Puño cerrado (todos los 5 dedos plegados en la palma -> Scroll Abajo)
             geom_id = "G3"
             geom_conf = 0.97
-        elif index and middle and not ring and not pinky and not is_pinch:
-            # G1: Dedos índice (8) y medio (12) extendidos juntos (Paz)
+        elif index and middle and not ring and not pinky:
+            # G1: Dedos índice (8) y medio (12) extendidos juntos (Paz -> Clic Derecho)
             geom_id = "G1"
             geom_conf = 0.95
-        elif index and not middle and not ring and not pinky and not is_pinch:
-            # G2: Dedo índice (8) extendido apuntando arriba
+        elif index and not thumb and not middle and not ring and not pinky:
+            # G2: Solo dedo índice (8) extendido apuntando arriba (pulgar guardado -> Scroll Arriba)
             geom_id = "G2"
             geom_conf = 0.96
         elif (index and middle and ring and not pinky) or (thumb and pinky and not index and not middle and not ring):

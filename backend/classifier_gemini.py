@@ -25,7 +25,7 @@ Clasifica ESTRICTAMENTE en una de las siguientes clases:
 - "G2": Solo dedo índice (8) extendido apuntando hacia arriba -> Acción: SCROLL_UP.
 - "G3": Puño cerrado (dedos plegados) -> Acción: SCROLL_DOWN.
 - "G4": Tres dedos extendidos (índice, medio, anular) o señal Shaka (pulgar y meñique) -> Acción: ASSISTANCE_CALL.
-- "G5": Pellizco dedo índice (8) y pulgar (4) unidos en tap/pinch -> Acción: LEFT_CLICK.
+- "G5": Gesto Pistola / L: dedo índice (8) extendido apuntando arriba y pulgar (4) extendido hacia afuera en L (medio, anular y meñique plegados) -> Acción: LEFT_CLICK.
 
 Responde ÚNICAMENTE con un objeto JSON válido con las claves:
 {"gesture_id": "G0"|"G1"|"G2"|"G3"|"G4"|"G5", "confidence": 0.0-1.0, "semantic_note": "breve explicación en español"}

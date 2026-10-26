@@ -161,20 +161,22 @@ class HardwareController:
         t = threading.Thread(target=_loop, daemon=True)
         t.start()
 
-    def update_pointer(self, index_tip_xy: tuple[float, float], thumb_tip_xy: tuple[float, float]) -> Dict[str, Any]:
+    def update_pointer(
+        self,
+        index_tip_xy: tuple[float, float],
+        thumb_tip_xy: tuple[float, float],
+        stabilize_aim: bool = False,
+        trigger_tap_click: bool = False,
+    ) -> Dict[str, Any]:
         """
         Dirige la posición del cursor de mouse en tiempo real mediante la punta del dedo índice (8)
-        con Filtro 1€ adaptativo por velocidad y estabilización Pre-Pinch al hacer clic con el pulgar (4).
+        con Filtro 1€ adaptativo por velocidad y estabilización de puntería al ejecutar el gesto
+        Pistola / L (G5 - Clic Izquierdo).
         """
         if not (self.enabled and self.pointer_enabled and self.pyautogui_available and self._pyautogui):
             return {"active": False, "cursor": [int(self.curr_x), int(self.curr_y)], "pinching": False, "clicked": False}
 
         raw_x, raw_y = index_tip_xy
-
-        # Distancia de pellizco (Pinch = Clic Izquierdo)
-        dx_p = raw_x - thumb_tip_xy[0]
-        dy_p = raw_y - thumb_tip_xy[1]
-        dist_pinch = math.hypot(dx_p, dy_p)
 
         # Zona activa ergonómica de control para alcanzar las 4 esquinas y la barra de tareas sin esfuerzo
         m_x1, m_x2 = 0.24, 0.76
@@ -199,14 +201,12 @@ class HardwareController:
         raw_target_x = max(0.0, min(float(self.screen_w - 1), filt_nx * (self.screen_w - 1)))
         raw_target_y = max(0.0, min(float(self.screen_h - 1), filt_ny * (self.screen_h - 1)))
 
-        # 2. Micro-zona muerta y Anclaje Pre-Pinch:
-        #    Cuando el usuario empieza a juntar índice y pulgar (dist_pinch < 0.085),
-        #    amortiguamos el desplazamiento para que el cursor no se mueva del botón al hacer clic.
+        # 2. Micro-zona muerta y Anclaje de Puntería (cuando se realiza el gesto G5 Pistola / L):
         delta_target = math.hypot(raw_target_x - self.target_x, raw_target_y - self.target_y)
         if delta_target >= self.deadzone_px:
-            if dist_pinch < 0.085:
-                # Estabilizador Pre-Pinch (mantiene fijo el puntero sobre el objetivo mientras cierras la pinza)
-                anchor_blend = 0.18
+            if stabilize_aim:
+                # Estabilizador de puntería: mantiene fijo el puntero sobre el objetivo al abrir el pulgar en L
+                anchor_blend = 0.16
                 self.target_x = (1.0 - anchor_blend) * self.target_x + anchor_blend * raw_target_x
                 self.target_y = (1.0 - anchor_blend) * self.target_y + anchor_blend * raw_target_y
             else:
@@ -227,28 +227,26 @@ class HardwareController:
         py = max(0, min(self.screen_h - 1, int(round(self.curr_y))))
         self._set_os_cursor(px, py)
 
-        # 3. Detección de pellizco (Pinch = Clic Izquierdo)
+        # 3. Tap directo desde el Touchpad Móvil (sin interferir con el puño cerrado G3 de la cámara)
         now = time.time()
         clicked = False
-        if dist_pinch < 0.055:  # Puntas unidas
-            if not self.is_pinching and (now - self.last_pinch_click_time) > 0.40:
-                self.is_pinching = True
+        if trigger_tap_click:
+            if (now - self.last_pinch_click_time) > 0.30:
                 self.last_pinch_click_time = now
                 clicked = True
                 try:
                     threading.Thread(target=self._pyautogui.click, daemon=True).start()
                     self.event_log.appendleft({
                         "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3],
-                        "gesture_id": "PINCH",
-                        "gesture_name": "Pellizco Índice-Pulgar",
+                        "gesture_id": "G5",
+                        "gesture_name": "Touchpad Tap (Clic Izquierdo)",
                         "action": "LEFT_CLICK",
                         "executed_os": True,
                         "detail": f"Clic Izquierdo en ({px}, {py})",
                     })
                 except Exception:
                     pass
-        else:
-            self.is_pinching = False
+        self.is_pinching = bool(stabilize_aim or trigger_tap_click)
 
         return {
             "active": True,

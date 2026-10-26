@@ -138,7 +138,12 @@ class SignBridgePipeline:
         self.mobile_touch_xy = (norm_x, norm_y)
         self.hardware.pointer_enabled = True
         thumb_xy = (norm_x, norm_y) if pinch else (norm_x + 0.2, norm_y + 0.2)
-        return self.hardware.update_pointer((norm_x, norm_y), thumb_xy)
+        return self.hardware.update_pointer(
+            (norm_x, norm_y),
+            thumb_xy,
+            stabilize_aim=pinch,
+            trigger_tap_click=pinch,
+        )
 
     def generate_mobile_standby_frame(self, width: int = 800, height: int = 500) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
@@ -403,14 +408,18 @@ class SignBridgePipeline:
             }
             stabilized = self.stabilizer.update(raw_pred)
         else:
-            # 1. Dirección del cursor del mouse si el modo puntero está activado y NO es simulador
+            # 1. Normalización de vectores (Resta de muñeca [0] + Escalado euclidiano -> 63 floats)
+            vector_63d, telemetry = normalize_landmarks(landmarks)
+
+            # 2. Dirección del cursor del mouse si el modo puntero está activado y NO es simulador
             if self.hardware.pointer_enabled and active_source != "SIMULATOR_3D" and len(landmarks) > 8:
                 index_pt = (float(landmarks[8][0]), float(landmarks[8][1]))
                 thumb_pt = (float(landmarks[4][0]), float(landmarks[4][1]))
-                pointer_info = self.hardware.update_pointer(index_pt, thumb_pt)
-
-            # 2. Normalización de vectores (Resta de muñeca [0] + Escalado euclidiano -> 63 floats)
-            vector_63d, telemetry = normalize_landmarks(landmarks)
+                pointer_info = self.hardware.update_pointer(
+                    index_pt,
+                    thumb_pt,
+                    stabilize_aim=bool(telemetry.get("is_l_gesture", False)),
+                )
 
             # 3. Inferencia según Switch [OFFLINE vs ONLINE]
             if self.mode == "ONLINE":
