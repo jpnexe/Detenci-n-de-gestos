@@ -409,7 +409,9 @@
           <!-- Selector de Fuente de Video + Botón PiP -->
           <div class="glass-layer-2 p-1 rounded-full flex flex-wrap items-center gap-1 text-xs">
             <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2.5 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150">Auto</button>
-            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Webcam PC</button>
+            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" title="Modo Independiente en el PC (usa la webcam del PC sin depender del celular)" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
+              <span>⚡ Independiente PC</span>
+            </button>
             <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
               <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
               <span>Cámara Móvil</span>

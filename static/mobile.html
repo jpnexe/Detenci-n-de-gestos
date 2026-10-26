@@ -12,6 +12,7 @@
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="logo.png" />
   <title>SignBridge v2.0 — APK Control & Cámara Móvil</title>
+  <script src="mediapipe/vision_bundle.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -266,6 +267,46 @@
 
     canvas#captureCanvas {
       display: none;
+    }
+
+    canvas#standaloneCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .standalone-sim-bar {
+      display: none;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .standalone-sim-bar.active {
+      display: grid;
+    }
+
+    .sim-pill-btn {
+      min-height: 38px;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--glass-border);
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .sim-pill-btn.active {
+      background: rgba(16, 185, 129, 0.22);
+      border-color: var(--emerald);
+      color: #A7F3D0;
     }
 
     .stage-overlay-top {
@@ -735,6 +776,9 @@
     </div>
 
     <div class="top-actions">
+      <button class="icon-btn" id="btnStandaloneTop" onclick="toggleStandaloneMode()" style="border-color:rgba(16,185,129,0.5); color:#34D399;">
+        ⚡ Independiente
+      </button>
       <button class="icon-btn" onclick="openIpModal()">IP / Red</button>
       <div class="conn-pill" onclick="openIpModal()">
         <span class="dot" id="wsDot"></span>
@@ -750,17 +794,33 @@
     <section class="view-section active" id="viewCam">
       <div class="cam-hero-toggle" id="camHeroCard">
         <div class="cam-hero-info">
-          <h2 id="camHeroTitle">Modo Cámara Móvil hacia el PC</h2>
-          <p id="camHeroDesc">Usa la cámara de tu celular como sensor biomecánico principal del computador.</p>
+          <h2 id="camHeroTitle">Modo Cámara Móvil / IA Independiente</h2>
+          <p id="camHeroDesc">Conecta al PC o ejecuta el modelo IA 100% offline dentro del celular.</p>
         </div>
-        <button class="btn-activate-cam" id="btnActivateMobileCam" onclick="toggleMobileCameraMode()">
-          ACTIVAR EN PC
-        </button>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <button class="btn-activate-cam" id="btnActivateMobileCam" onclick="toggleMobileCameraMode()">
+            ACTIVAR EN PC
+          </button>
+          <button class="btn-activate-cam" id="btnActivateStandalone" onclick="toggleStandaloneMode()" style="min-height:38px; font-size:0.72rem; background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.55); color:#A7F3D0;">
+            ⚡ MODO INDEPENDIENTE
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de prueba rápida en Modo Independiente (Cámara IA o Poses G0..G5 sin PC) -->
+      <div class="standalone-sim-bar" id="standaloneSimBar">
+        <button class="sim-pill-btn active" id="stSrcCAM" onclick="setStandaloneSubSource('CAM')">📷 CAM</button>
+        <button class="sim-pill-btn" id="stSrcG1" onclick="setStandaloneSubSource('G1')">G1 Cont</button>
+        <button class="sim-pill-btn" id="stSrcG2" onclick="setStandaloneSubSource('G2')">G2 Sí</button>
+        <button class="sim-pill-btn" id="stSrcG3" onclick="setStandaloneSubSource('G3')">G3 Alto</button>
+        <button class="sim-pill-btn" id="stSrcG4" onclick="setStandaloneSubSource('G4')">G4 SOS</button>
+        <button class="sim-pill-btn" id="stSrcG5" onclick="setStandaloneSubSource('G5')">G5 No</button>
       </div>
 
       <div class="cam-stage">
         <video id="localVideo" autoplay playsinline muted></video>
         <img id="pcHudMirror" alt="Vista IA del PC" />
+        <canvas id="standaloneCanvas" width="480" height="360"></canvas>
         <canvas id="captureCanvas" width="480" height="360"></canvas>
 
         <div class="stage-overlay-top">
@@ -1080,15 +1140,18 @@
       };
 
       ws.onclose = () => {
-        document.getElementById('wsDot').classList.remove('online');
-        document.getElementById('wsText').textContent = 'RECONECTANDO';
-        setTimeout(connectMobileWS, 2000);
+        if (!standaloneMode) {
+          document.getElementById('wsDot').classList.remove('online');
+          document.getElementById('wsText').textContent = 'RECONECTANDO';
+        }
+        setTimeout(connectMobileWS, 2500);
       };
 
       ws.onerror = () => {};
     }
 
     function updateMobileHUD(data) {
+      if (standaloneMode) return;
       mobileCamActiveOnPc = Boolean(data.mobile_cam_active);
       pointerEnabledOnPc = Boolean(data.pointer_enabled);
       hardwareEnabledOnPc = data.hardware_enabled !== undefined ? Boolean(data.hardware_enabled) : true;
@@ -1434,6 +1497,352 @@
         }, 150);
       }
     });
+
+    // ============================================================================
+    // MODO INDEPENDIENTE OFFLINE (100% EN EL CELULAR SIN DEPENDER DEL PC)
+    // ============================================================================
+    let standaloneMode = false;
+    let standaloneSubSource = 'CAM'; // 'CAM' | 'G1' | 'G2' | 'G3' | 'G4' | 'G5'
+    let mlpData = null;
+    let mpHandLandmarker = null;
+    let mpInitializing = false;
+    let standaloneRafId = null;
+    let stBuffer = [];
+    let stLastTriggerTs = 0;
+    let stPulseUntil = 0;
+    let stLastFrameTs = performance.now();
+    let stFpsEma = 28.0;
+
+    const standaloneCanvas = document.getElementById('standaloneCanvas');
+    const standaloneCtx = standaloneCanvas.getContext('2d');
+
+    const HAND_BONES = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [5,9],[9,10],[10,11],[11,12],
+      [9,13],[13,14],[14,15],[15,16],
+      [13,17],[0,17],[17,18],[18,19],[19,20]
+    ];
+
+    async function loadOfflineMlpAndMediaPipe() {
+      if (!mlpData) {
+        try {
+          const resp = await fetch('mlp_weights.json');
+          mlpData = await resp.json();
+        } catch (e) {}
+      }
+      if (!mpHandLandmarker && !mpInitializing && window.Vision) {
+        mpInitializing = true;
+        try {
+          const vision = await window.Vision.FilesetResolver.forVisionTasks('mediapipe/wasm');
+          mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'mediapipe/hand_landmarker.task'
+            },
+            runningMode: 'VIDEO',
+            numHands: 1,
+            minHandDetectionConfidence: 0.45,
+            minHandPresenceConfidence: 0.45,
+            minTrackingConfidence: 0.45
+          });
+        } catch (err) {
+          console.warn('MediaPipe local fallback:', err);
+        } finally {
+          mpInitializing = false;
+        }
+      }
+    }
+
+    function normalizeLandmarksJS(pts21) {
+      const w0 = pts21[0];
+      const trans = pts21.map(p => [p[0] - w0[0], p[1] - w0[1], (p[2] || 0) - (w0[2] || 0)]);
+      let maxD = 1e-6;
+      for (let i = 0; i < 21; i++) {
+        const d = Math.hypot(trans[i][0], trans[i][1], trans[i][2]);
+        if (d > maxD) maxD = d;
+      }
+      const norm = trans.map(p => [p[0] / maxD, p[1] / maxD, p[2] / maxD]);
+      const vec63 = [];
+      for (let i = 0; i < 21; i++) {
+        vec63.push(norm[i][0], norm[i][1], norm[i][2]);
+      }
+
+      const isExt = (mcp, pip, tip) => {
+        const dTip = Math.hypot(norm[tip][0], norm[tip][1]);
+        const dPip = Math.hypot(norm[pip][0], norm[pip][1]);
+        const dMcp = Math.hypot(norm[mcp][0], norm[mcp][1]);
+        return (norm[tip][1] < norm[pip][1] - 0.04) && (dTip > dPip * 1.12) && (dTip > dMcp * 1.25);
+      };
+
+      const dThumbPinky = Math.hypot(norm[4][0] - norm[17][0], norm[4][1] - norm[17][1]);
+      const dIpPinky = Math.hypot(norm[3][0] - norm[17][0], norm[3][1] - norm[17][1]);
+      const dMcpPinky = Math.hypot(norm[2][0] - norm[17][0], norm[2][1] - norm[17][1]);
+      const dThumbIdxMcp = Math.hypot(norm[4][0] - norm[5][0], norm[4][1] - norm[5][1]);
+
+      const fingers = {
+        thumb: (dThumbPinky > dIpPinky * 1.10) && (dThumbPinky > dMcpPinky * 1.14) && (dThumbIdxMcp > 0.22),
+        index: isExt(5, 6, 8),
+        middle: isExt(9, 10, 12),
+        ring: isExt(13, 14, 16),
+        pinky: isExt(17, 18, 20)
+      };
+
+      return { vec63, fingers };
+    }
+
+    function forwardMlpJS(vec63) {
+      if (!mlpData || !mlpData.W1) return [1, 0, 0, 0, 0, 0];
+      const { W1, b1, W2, b2, W3, b3 } = mlpData;
+      const h1 = new Array(b1.length);
+      for (let j = 0; j < b1.length; j++) {
+        let sum = b1[j];
+        for (let i = 0; i < 63; i++) sum += vec63[i] * W1[i][j];
+        h1[j] = sum > 0 ? sum : 0;
+      }
+      const h2 = new Array(b2.length);
+      for (let j = 0; j < b2.length; j++) {
+        let sum = b2[j];
+        for (let i = 0; i < h1.length; i++) sum += h1[i] * W2[i][j];
+        h2[j] = sum > 0 ? sum : 0;
+      }
+      const logits = new Array(b3.length);
+      let maxL = -1e9;
+      for (let j = 0; j < b3.length; j++) {
+        let sum = b3[j];
+        for (let i = 0; i < h2.length; i++) sum += h2[i] * W3[i][j];
+        logits[j] = sum;
+        if (sum > maxL) maxL = sum;
+      }
+      const exps = logits.map(l => Math.exp(l - maxL));
+      const sumExp = exps.reduce((a, b) => a + b, 0) || 1;
+      return exps.map(e => e / sumExp);
+    }
+
+    function classifyStandalonePose(pts21) {
+      const { vec63, fingers } = normalizeLandmarksJS(pts21);
+      const probs = forwardMlpJS(vec63);
+      const classIds = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'];
+
+      let geomId = 'G0';
+      let geomConf = 0.92;
+      const { thumb, index, middle, ring, pinky } = fingers;
+
+      if (index && thumb && !middle && !ring && !pinky) {
+        geomId = 'G5'; geomConf = 0.97;
+      } else if (!index && !middle && !ring && !pinky && !thumb) {
+        geomId = 'G3'; geomConf = 0.97;
+      } else if (index && middle && !ring && !pinky) {
+        geomId = 'G1'; geomConf = 0.95;
+      } else if (index && !thumb && !middle && !ring && !pinky) {
+        geomId = 'G2'; geomConf = 0.96;
+      } else if ((index && middle && ring && !pinky) || (thumb && pinky && !index && !middle && !ring)) {
+        geomId = 'G4'; geomConf = 0.94;
+      } else if (index && middle && ring && pinky) {
+        geomId = 'G0'; geomConf = 0.97;
+      } else {
+        let bestIdx = 0;
+        for (let i = 1; i < probs.length; i++) {
+          if (probs[i] > probs[bestIdx]) bestIdx = i;
+        }
+        if (bestIdx !== 0 && probs[bestIdx] >= 0.90) {
+          geomId = classIds[bestIdx];
+          geomConf = probs[bestIdx];
+        }
+      }
+
+      const cIdx = classIds.indexOf(geomId);
+      const mlpProb = probs[cIdx] || 0.85;
+      const confidence = 0.65 * geomConf + 0.35 * Math.max(0.85, mlpProb);
+      return { gid: geomId, confidence };
+    }
+
+    function speakOfflineMessage(text) {
+      try {
+        if ('speechSynthesis' in window && text) {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'es-ES';
+          u.rate = 1.05;
+          window.speechSynthesis.speak(u);
+        }
+      } catch (e) {}
+    }
+
+    function drawStandaloneSkeleton(pts21, gid, pulseActive) {
+      const cw = standaloneCanvas.width;
+      const ch = standaloneCanvas.height;
+      standaloneCtx.clearRect(0, 0, cw, ch);
+
+      if (standaloneSubSource !== 'CAM') {
+        standaloneCtx.fillStyle = '#08090D';
+        standaloneCtx.fillRect(0, 0, cw, ch);
+        standaloneCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+        standaloneCtx.lineWidth = 1;
+        for (let x = 0; x < cw; x += 36) {
+          standaloneCtx.beginPath(); standaloneCtx.moveTo(x, 0); standaloneCtx.lineTo(x, ch); standaloneCtx.stroke();
+        }
+        for (let y = 0; y < ch; y += 36) {
+          standaloneCtx.beginPath(); standaloneCtx.moveTo(0, y); standaloneCtx.lineTo(cw, y); standaloneCtx.stroke();
+        }
+      }
+
+      if (!pts21 || pts21.length < 21) return;
+
+      const boneColor = pulseActive ? '#10B981' : (gid === 'G0' ? '#F43F5E' : '#06B6D4');
+      standaloneCtx.strokeStyle = boneColor;
+      standaloneCtx.lineWidth = 3.5;
+      standaloneCtx.lineCap = 'round';
+
+      for (const [i, j] of HAND_BONES) {
+        const x1 = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[i][0]) : pts21[i][0]) * cw;
+        const y1 = pts21[i][1] * ch;
+        const x2 = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[j][0]) : pts21[j][0]) * cw;
+        const y2 = pts21[j][1] * ch;
+        standaloneCtx.beginPath();
+        standaloneCtx.moveTo(x1, y1);
+        standaloneCtx.lineTo(x2, y2);
+        standaloneCtx.stroke();
+      }
+
+      const tips = new Set([4, 8, 12, 16, 20]);
+      for (let i = 0; i < 21; i++) {
+        const px = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[i][0]) : pts21[i][0]) * cw;
+        const py = pts21[i][1] * ch;
+        standaloneCtx.beginPath();
+        standaloneCtx.arc(px, py, i === 0 ? 7 : (tips.has(i) ? 6 : 4), 0, Math.PI * 2);
+        standaloneCtx.fillStyle = tips.has(i) ? '#10B981' : '#F8FAFC';
+        standaloneCtx.fill();
+      }
+    }
+
+    function runStandaloneLoop() {
+      if (!standaloneMode) return;
+
+      const now = performance.now();
+      const dt = Math.max(1, now - stLastFrameTs);
+      stLastFrameTs = now;
+      stFpsEma = 0.85 * stFpsEma + 0.15 * Math.min(60, 1000 / dt);
+
+      let pts21 = null;
+      if (standaloneSubSource !== 'CAM' && mlpData && mlpData.poses && mlpData.poses[standaloneSubSource]) {
+        const base = mlpData.poses[standaloneSubSource];
+        const t = now * 0.003;
+        pts21 = base.map((p, idx) => [
+          p[0] + Math.sin(t + idx * 0.3) * 0.003,
+          p[1] + Math.cos(t + idx * 0.3) * 0.003,
+          p[2]
+        ]);
+      } else if (mpHandLandmarker && localVideo.readyState >= 2) {
+        try {
+          const res = mpHandLandmarker.detectForVideo(localVideo, now);
+          if (res && res.landmarks && res.landmarks.length > 0) {
+            pts21 = res.landmarks[0].map(lm => [lm.x, lm.y, lm.z || 0]);
+          }
+        } catch (e) {}
+      }
+
+      let gid = 'G0';
+      let conf = 0.0;
+      if (pts21) {
+        const pred = classifyStandalonePose(pts21);
+        gid = pred.confidence >= 0.85 ? pred.gid : 'G0';
+        conf = pred.confidence;
+      }
+
+      stBuffer.push(gid);
+      if (stBuffer.length > 8) stBuffer.shift();
+
+      const matching = gid === 'G0' ? 0 : stBuffer.filter(x => x === gid).length;
+      let progress = Math.min(1, matching / 8.0);
+      const nowSec = now / 1000.0;
+
+      if (gid !== 'G0' && matching >= 8 && (nowSec - stLastTriggerTs) > 1.2) {
+        stLastTriggerTs = nowSec;
+        stPulseUntil = nowSec + 0.65;
+        stBuffer = [];
+        vibrateHaptic(45);
+        const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : null;
+        if (cat && cat.sign_message) {
+          speakOfflineMessage(cat.sign_message);
+        }
+      }
+
+      const pulseActive = nowSec < stPulseUntil;
+      if (pulseActive) progress = 1.0;
+
+      drawStandaloneSkeleton(pts21, gid, pulseActive);
+
+      const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : {
+        sign_label: gid === 'G0' ? 'SIN MANO / NEUTRAL' : gid,
+        sign_message: 'Apunta tu mano a la cámara o elige una pose G1..G5 arriba'
+      };
+
+      document.getElementById('camSourceChip').textContent = `MODO INDEPENDIENTE (${standaloneSubSource})`;
+      document.getElementById('fpsChip').textContent = `${ stFpsEma.toFixed(0) } FPS · ${ Math.round(conf * 100) }%`;
+      document.getElementById('hudGid').textContent = gid;
+      document.getElementById('hudGName').textContent = `${cat.sign_label || cat.short_label} (${Math.round(conf * 100)}%)`;
+      document.getElementById('hudGAction').textContent = cat.sign_message || cat.action_label || '';
+
+      const arc = document.getElementById('ringArc');
+      arc.style.strokeDashoffset = (125.6 * (1 - progress)).toFixed(1);
+      arc.style.stroke = pulseActive ? '#10B981' : '#06B6D4';
+
+      standaloneRafId = requestAnimationFrame(runStandaloneLoop);
+    }
+
+    async function toggleStandaloneMode() {
+      vibrateHaptic(30);
+      standaloneMode = !standaloneMode;
+      const btnTop = document.getElementById('btnStandaloneTop');
+      const btnHero = document.getElementById('btnActivateStandalone');
+      const simBar = document.getElementById('standaloneSimBar');
+
+      if (standaloneMode) {
+        btnTop.style.background = '#10B981';
+        btnTop.style.color = '#042F2E';
+        btnHero.textContent = '⚡ INDEPENDIENTE: ON ✓';
+        btnHero.classList.add('active');
+        simBar.classList.add('active');
+
+        document.getElementById('wsDot').classList.add('online');
+        document.getElementById('wsText').textContent = 'IA LOCAL APK';
+        document.getElementById('serverHostLabel').textContent = 'Modo Autónomo Offline (Sin PC)';
+        document.getElementById('camHeroTitle').textContent = 'IA Ejecutándose en el Celular (Sin PC)';
+        document.getElementById('camHeroDesc').textContent = 'MediaPipe 21 Landmarks + Red Neuronal MLP corriendo 100% en tu móvil.';
+
+        await loadOfflineMlpAndMediaPipe();
+        await startWebRTCCamera();
+
+        localVideo.style.display = standaloneSubSource === 'CAM' ? 'block' : 'none';
+        pcHudMirror.style.display = 'none';
+        standaloneCanvas.style.display = 'block';
+
+        stBuffer = [];
+        runStandaloneLoop();
+      } else {
+        if (standaloneRafId) cancelAnimationFrame(standaloneRafId);
+        btnTop.style.background = 'rgba(30, 41, 59, 0.85)';
+        btnTop.style.color = '#34D399';
+        btnHero.textContent = '⚡ MODO INDEPENDIENTE';
+        btnHero.classList.remove('active');
+        simBar.classList.remove('active');
+        standaloneCanvas.style.display = 'none';
+        localVideo.style.display = 'none';
+        pcHudMirror.style.display = 'block';
+        updateHostLabel();
+        connectMobileWS();
+      }
+    }
+
+    function setStandaloneSubSource(src) {
+      vibrateHaptic(18);
+      standaloneSubSource = src;
+      ['CAM', 'G1', 'G2', 'G3', 'G4', 'G5'].forEach(k => {
+        const el = document.getElementById('stSrc' + k);
+        if (el) el.classList.toggle('active', k === src);
+      });
+      localVideo.style.display = (src === 'CAM') ? 'block' : 'none';
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
       connectMobileWS();

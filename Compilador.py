@@ -377,14 +377,18 @@ public class MainActivity extends Activity {
                     try {
                         InputStream is = getAssets().open(path);
                         String mime = "text/html";
-                        if (path.endsWith(".png")) mime = "image/png";
-                        else if (path.endsWith(".json")) mime = "application/json";
-                        else if (path.endsWith(".js")) mime = "application/javascript";
-                        else if (path.endsWith(".css")) mime = "text/css";
+                        String enc = "UTF-8";
+                        if (path.endsWith(".png")) { mime = "image/png"; enc = null; }
+                        else if (path.endsWith(".ico")) { mime = "image/x-icon"; enc = null; }
+                        else if (path.endsWith(".json")) { mime = "application/json"; }
+                        else if (path.endsWith(".js")) { mime = "application/javascript"; }
+                        else if (path.endsWith(".css")) { mime = "text/css"; }
+                        else if (path.endsWith(".wasm")) { mime = "application/wasm"; enc = null; }
+                        else if (path.endsWith(".task")) { mime = "application/octet-stream"; enc = null; }
 
                         Map<String, String> headers = new HashMap<>();
                         headers.put("Access-Control-Allow-Origin", "*");
-                        return new WebResourceResponse(mime, "UTF-8", 200, "OK", headers, is);
+                        return new WebResourceResponse(mime, enc, 200, "OK", headers, is);
                     } catch (Exception e) {
                         return super.shouldInterceptRequest(view, request);
                     }
@@ -568,7 +572,28 @@ def compile_apk():
         desc="d8 dexing",
     )
 
-    # Inyectar classes.dex y los archivos de static/ (mobile.html con IP LAN por defecto, logo.png, manifest.json)
+    # Exportar pesos actuales de la red neuronal MLP (models/gesture_mlp_weights.npz -> static/mlp_weights.json)
+    try:
+        import json
+        from backend.classifier_local import get_canonical_hand_pose, CLASS_IDS, GESTURE_CATALOG
+        npz_path = PROJECT_ROOT / "models" / "gesture_mlp_weights.npz"
+        if npz_path.exists():
+            d = np.load(str(npz_path))
+            mlp_export = {
+                "W1": np.round(d["W1"], 5).tolist(),
+                "b1": np.round(d["b1"], 5).tolist(),
+                "W2": np.round(d["W2"], 5).tolist(),
+                "b2": np.round(d["b2"], 5).tolist(),
+                "W3": np.round(d["W3"], 5).tolist(),
+                "b3": np.round(d["b3"], 5).tolist(),
+                "poses": {g: np.round(get_canonical_hand_pose(g), 4).tolist() for g in CLASS_IDS},
+                "catalog": GESTURE_CATALOG,
+            }
+            (STATIC_DIR / "mlp_weights.json").write_text(json.dumps(mlp_export), encoding="utf-8")
+    except Exception:
+        pass
+
+    # Inyectar classes.dex y los archivos de static/ (incluyendo motor IA Offline MediaPipe + MLP)
     local_ip = get_local_ip()
     default_host = f"{local_ip}:8000"
     mobile_html_content = (STATIC_DIR / "mobile.html").read_text(encoding="utf-8")
@@ -578,8 +603,20 @@ def compile_apk():
         zf.write(dex_dir / "classes.dex", "classes.dex")
         zf.writestr("assets/mobile.html", mobile_html_compiled.encode("utf-8"))
         zf.write(STATIC_DIR / "logo.png", "assets/logo.png")
+        if (STATIC_DIR / "favicon.ico").exists():
+            zf.write(STATIC_DIR / "favicon.ico", "assets/favicon.ico")
         if (STATIC_DIR / "manifest.json").exists():
             zf.write(STATIC_DIR / "manifest.json", "assets/manifest.json")
+        if (STATIC_DIR / "mlp_weights.json").exists():
+            zf.write(STATIC_DIR / "mlp_weights.json", "assets/mlp_weights.json")
+
+        # Empaquetar motor offline MediaPipe (vision_bundle.js, hand_landmarker.task y binarios WASM)
+        mp_dir = STATIC_DIR / "mediapipe"
+        if mp_dir.exists():
+            for file_path in mp_dir.rglob("*"):
+                if file_path.is_file():
+                    rel_asset = "assets/mediapipe/" + file_path.relative_to(mp_dir).as_posix()
+                    zf.write(file_path, rel_asset)
 
     # 6. Alinear (zipalign) y firmar criptográficamente (apksigner) hacia apk_estractor/
     print("  [6/6] Alineando y firmando el paquete APK final...")
