@@ -1,6 +1,8 @@
 """
 Módulo de Normalización Matemática de Vectores 3D (MediaPipe 21 Landmarks -> 63 floats).
-Implementa invarianza a traslación (resta de muñeca [0]) y escalado por distancia euclidiana máxima.
+Implementa invarianza a traslación (resta de muñeca [0]), escalado por distancia euclidiana máxima
+y detección biomecánica de alta precisión referenciada al hueso metacarpiano de la palma (0 -> 9)
+y ángulos articulares (ley de cosenos en PIP/DIP).
 """
 
 from __future__ import annotations
@@ -20,11 +22,6 @@ PINKY_MCP, PINKY_PIP, PINKY_DIP, PINKY_TIP = 17, 18, 19, 20
 def normalize_landmarks(landmarks_3d: List[Tuple[float, float, float]] | np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
     """
     Normaliza 21 puntos clave 3D (x, y, z) en un vector invariante de 63 floats.
-    
-    Pasos:
-    1. Resta del punto base (Muñeca [0]): P'_i = P_i - P_0
-    2. Escalado por distancia euclidiana máxima: d_max = max_i ||P'_i||_2
-    3. Aplanado a vector 1D de 63 elementos en [-1.0, 1.0].
     """
     pts = np.asarray(landmarks_3d, dtype=np.float32)
     if pts.shape != (21, 3):
@@ -49,7 +46,7 @@ def normalize_landmarks(landmarks_3d: List[Tuple[float, float, float]] | np.ndar
     orientation_rad = float(np.arctan2(axis_vec[1], axis_vec[0]))
     orientation_deg = round(float(np.degrees(orientation_rad)), 2)
 
-    # Análisis geométrico de extensión de dedos y gesto Pistola / L (Índice + Pulgar = Clic Izquierdo)
+    # 5. Análisis biomecánico por ángulos articulares y longitud metacarpiana de la palma
     finger_states = analyze_finger_extension(normalized_pts)
     thumb_index_dist = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[INDEX_TIP, :2]))
     is_l_gesture = bool(
@@ -79,32 +76,50 @@ def normalize_landmarks(landmarks_3d: List[Tuple[float, float, float]] | np.ndar
 
 def analyze_finger_extension(norm_pts: np.ndarray) -> Dict[str, bool]:
     """
-    Evalúa biomecánicamente qué dedos están extendidos usando coordenadas normalizadas
-    respecto a la muñeca y articulaciones PIP/MCP.
+    Evalúa biomecánicamente qué dedos están extendidos usando como referencia rígida
+    el tamaño de la palma (distancia Muñeca [0] -> Nudillo Medio [9]) y el coseno del ángulo articular PIP.
+    Esto evita que al cerrar el puño (donde d_max disminuye) se distorsionen los umbrales del pulgar o meñique.
     """
-    def is_finger_extended(mcp_idx: int, pip_idx: int, dip_idx: int, tip_idx: int) -> bool:
-        dist_tip = np.linalg.norm(norm_pts[tip_idx, :2])
-        dist_pip = np.linalg.norm(norm_pts[pip_idx, :2])
-        dist_mcp = np.linalg.norm(norm_pts[mcp_idx, :2])
-        vertical_up = norm_pts[tip_idx, 1] < (norm_pts[pip_idx, 1] - 0.04)
-        radial_out = dist_tip > (dist_pip * 1.12) and dist_tip > (dist_mcp * 1.25)
-        return bool(vertical_up and radial_out)
+    palm_len = max(0.15, float(np.linalg.norm(norm_pts[MIDDLE_MCP, :2])))
 
-    # Pulgar: abierto lateralmente formando "L" cuando su punta (4) se aleja del MCP del meñique (17) y del MCP del índice (5)
-    dist_thumb_tip_pinky = np.linalg.norm(norm_pts[THUMB_TIP, :2] - norm_pts[PINKY_MCP, :2])
-    dist_thumb_ip_pinky = np.linalg.norm(norm_pts[THUMB_IP, :2] - norm_pts[PINKY_MCP, :2])
-    dist_thumb_mcp_pinky = np.linalg.norm(norm_pts[THUMB_MCP, :2] - norm_pts[PINKY_MCP, :2])
-    dist_thumb_index_mcp = np.linalg.norm(norm_pts[THUMB_TIP, :2] - norm_pts[INDEX_MCP, :2])
+    def is_finger_extended(mcp_idx: int, pip_idx: int, dip_idx: int, tip_idx: int, min_palm_ratio: float = 1.32) -> bool:
+        v1 = norm_pts[pip_idx, :2] - norm_pts[mcp_idx, :2]
+        v2 = norm_pts[tip_idx, :2] - norm_pts[pip_idx, :2]
+        n1 = float(np.linalg.norm(v1))
+        n2 = float(np.linalg.norm(v2))
+        cos_angle = float(np.dot(v1, v2) / max(1e-6, n1 * n2))
+
+        span_tip_mcp = float(np.linalg.norm(norm_pts[tip_idx, :2] - norm_pts[mcp_idx, :2]))
+        dist_tip_wrist = float(np.linalg.norm(norm_pts[tip_idx, :2]))
+        dist_pip_wrist = float(np.linalg.norm(norm_pts[pip_idx, :2]))
+
+        # Rectitud de la falange + punta más alejada de la muñeca que el PIP + extensión respecto a la palma
+        straight = cos_angle > 0.48
+        open_span = span_tip_mcp > (n1 * 1.30)
+        radial_out = dist_tip_wrist > (dist_pip_wrist * 1.07) and (dist_tip_wrist / palm_len) > min_palm_ratio
+        return bool(straight and open_span and radial_out)
+
+    # Pulgar: evaluar rectitud (CMC->MCP->TIP) y abducción lateral respecto al tamaño rígido de la palma
+    vt1 = norm_pts[THUMB_MCP, :2] - norm_pts[THUMB_CMC, :2]
+    vt2 = norm_pts[THUMB_TIP, :2] - norm_pts[THUMB_MCP, :2]
+    cos_thumb = float(np.dot(vt1, vt2) / max(1e-6, float(np.linalg.norm(vt1) * np.linalg.norm(vt2))))
+
+    dist_thumb_tip_pinky = float(np.linalg.norm(norm_pts[THUMB_TIP, :2] - norm_pts[PINKY_MCP, :2]))
+    dist_thumb_ip_pinky = float(np.linalg.norm(norm_pts[THUMB_IP, :2] - norm_pts[PINKY_MCP, :2]))
+    dist_thumb_index_mcp = float(np.linalg.norm(norm_pts[THUMB_TIP, :2] - norm_pts[INDEX_MCP, :2]))
+    dist_thumb_middle_mcp = float(np.linalg.norm(norm_pts[THUMB_TIP, :2] - norm_pts[MIDDLE_MCP, :2]))
+
     thumb_extended = bool(
-        dist_thumb_tip_pinky > dist_thumb_ip_pinky * 1.10
-        and dist_thumb_tip_pinky > dist_thumb_mcp_pinky * 1.14
-        and dist_thumb_index_mcp > 0.22
+        cos_thumb > 0.45
+        and dist_thumb_tip_pinky > (dist_thumb_ip_pinky * 1.08)
+        and (dist_thumb_index_mcp / palm_len) > 0.48
+        and (dist_thumb_middle_mcp / palm_len) > 0.62
     )
 
     return {
         "thumb": thumb_extended,
-        "index": is_finger_extended(INDEX_MCP, INDEX_PIP, INDEX_DIP, INDEX_TIP),
-        "middle": is_finger_extended(MIDDLE_MCP, MIDDLE_PIP, MIDDLE_DIP, MIDDLE_TIP),
-        "ring": is_finger_extended(RING_MCP, RING_PIP, RING_DIP, RING_TIP),
-        "pinky": is_finger_extended(PINKY_MCP, PINKY_PIP, PINKY_DIP, PINKY_TIP),
+        "index": is_finger_extended(INDEX_MCP, INDEX_PIP, INDEX_DIP, INDEX_TIP, 1.32),
+        "middle": is_finger_extended(MIDDLE_MCP, MIDDLE_PIP, MIDDLE_DIP, MIDDLE_TIP, 1.34),
+        "ring": is_finger_extended(RING_MCP, RING_PIP, RING_DIP, RING_TIP, 1.28),
+        "pinky": is_finger_extended(PINKY_MCP, PINKY_PIP, PINKY_DIP, PINKY_TIP, 1.16),
     }

@@ -56,12 +56,12 @@
 
     /* TOP BAR */
     .top-bar {
-      padding: calc(var(--safe-top) + 8px) 14px 10px;
+      padding: calc(var(--safe-top) + 6px) 10px 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      background: rgba(8, 9, 13, 0.88);
+      gap: 6px;
+      background: rgba(8, 9, 13, 0.92);
       backdrop-filter: blur(18px);
       border-bottom: 1px solid var(--glass-border);
       z-index: 30;
@@ -71,71 +71,83 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
     }
 
     .brand-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
       object-fit: cover;
       border: 1px solid rgba(6, 182, 212, 0.45);
-      box-shadow: 0 0 14px rgba(6, 182, 212, 0.3);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.28);
       background: #08090D;
+      flex-shrink: 0;
     }
 
     .brand-title {
       font-family: 'Space Grotesk', sans-serif;
       font-weight: 700;
-      font-size: 0.96rem;
+      font-size: 0.88rem;
       letter-spacing: -0.02em;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      white-space: nowrap;
     }
 
     .apk-tag {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.6rem;
-      padding: 2px 6px;
-      border-radius: 5px;
+      font-size: 0.56rem;
+      padding: 1px 5px;
+      border-radius: 4px;
       background: rgba(6, 182, 212, 0.16);
       color: var(--cyan);
       border: 1px solid rgba(6, 182, 212, 0.35);
+      white-space: nowrap;
     }
 
     .brand-sub {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 145px;
     }
 
     .top-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      flex-shrink: 0;
     }
 
     .conn-pill {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 5px;
+      padding: 5px 8px;
       border-radius: 999px;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.88);
       border: 1px solid var(--glass-border);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       color: var(--text-secondary);
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--amber);
       box-shadow: 0 0 8px var(--amber);
+      flex-shrink: 0;
     }
 
     .dot.online {
@@ -144,19 +156,21 @@
     }
 
     .icon-btn {
-      min-height: 36px;
-      padding: 0 10px;
-      border-radius: 10px;
-      background: rgba(30, 41, 59, 0.85);
+      min-height: 32px;
+      padding: 0 8px;
+      border-radius: 9px;
+      background: rgba(30, 41, 59, 0.88);
       border: 1px solid var(--glass-border);
       color: var(--text-primary);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     /* MAIN VIEWPORT AREA */
@@ -166,14 +180,14 @@
       display: flex;
       flex-direction: column;
       overflow-y: auto;
-      padding: 10px 12px;
-      gap: 10px;
+      padding: 8px 10px;
+      gap: 8px;
     }
 
     .view-section {
       display: none;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
       flex: 1;
       min-height: 0;
     }
@@ -185,44 +199,61 @@
     /* CAMERA CONTROL MODE CARD */
     .cam-hero-toggle {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(6, 182, 212, 0.16), rgba(99, 102, 241, 0.12));
-      border: 1px solid rgba(6, 182, 212, 0.4);
-      gap: 10px;
+      flex-direction: column;
+      padding: 9px 11px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.14), rgba(99, 102, 241, 0.10));
+      border: 1px solid rgba(6, 182, 212, 0.38);
+      gap: 7px;
       flex-shrink: 0;
     }
 
     .cam-hero-toggle.active-pc {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.18));
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.20), rgba(6, 182, 212, 0.16));
       border-color: rgba(16, 185, 129, 0.65);
-      box-shadow: 0 0 22px rgba(16, 185, 129, 0.2);
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.18);
+    }
+
+    .cam-hero-info {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .cam-hero-info h2 {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.92rem;
+      font-size: 0.82rem;
       color: var(--text-primary);
-      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .cam-hero-info p {
-      font-size: 0.73rem;
+      font-size: 0.66rem;
       color: var(--text-secondary);
-      line-height: 1.3;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cam-hero-btns {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 6px;
     }
 
     .btn-activate-cam {
-      min-height: 48px;
-      padding: 0 14px;
-      border-radius: 12px;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 10px;
       border: 1px solid rgba(6, 182, 212, 0.55);
-      background: rgba(6, 182, 212, 0.24);
+      background: rgba(6, 182, 212, 0.22);
       color: #ECFEFF;
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
@@ -233,15 +264,15 @@
       background: var(--emerald);
       border-color: #34D399;
       color: #042F2E;
-      box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
     }
 
     /* VIEWPORT STAGE */
     .cam-stage {
       position: relative;
       flex: 1;
-      min-height: 220px;
-      border-radius: 18px;
+      min-height: 230px;
+      border-radius: 16px;
       overflow: hidden;
       background: #05070B;
       border: 1px solid var(--glass-border);
@@ -283,7 +314,7 @@
     .standalone-sim-bar {
       display: none;
       grid-template-columns: repeat(6, 1fr);
-      gap: 5px;
+      gap: 4px;
       flex-shrink: 0;
     }
 
@@ -292,13 +323,13 @@
     }
 
     .sim-pill-btn {
-      min-height: 38px;
-      border-radius: 10px;
+      min-height: 32px;
+      border-radius: 8px;
       background: rgba(15, 23, 42, 0.85);
       border: 1px solid var(--glass-border);
       color: var(--text-secondary);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 700;
       cursor: pointer;
     }
@@ -311,9 +342,9 @@
 
     .stage-overlay-top {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      right: 10px;
+      top: 8px;
+      left: 8px;
+      right: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -322,43 +353,43 @@
     }
 
     .badge-chip {
-      padding: 5px 10px;
+      padding: 4px 9px;
       border-radius: 999px;
-      background: rgba(8, 9, 13, 0.78);
+      background: rgba(8, 9, 13, 0.82);
       backdrop-filter: blur(10px);
       border: 1px solid var(--glass-border);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       color: var(--cyan);
     }
 
     /* HUD RING OVERLAY */
     .stage-hud-bottom {
       position: absolute;
-      bottom: 10px;
-      left: 10px;
-      right: 10px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      background: rgba(8, 9, 13, 0.84);
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(8, 9, 13, 0.86);
       backdrop-filter: blur(14px);
       border: 1px solid var(--glass-border);
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       z-index: 10;
     }
 
     .ring-mini {
       position: relative;
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       flex-shrink: 0;
     }
 
     .ring-mini svg {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       transform: rotate(-90deg);
     }
 
@@ -370,7 +401,7 @@
       justify-content: center;
       font-family: 'Space Grotesk', sans-serif;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.86rem;
     }
 
     .gesture-readout {
@@ -380,7 +411,7 @@
 
     .gesture-readout .g-title {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.9rem;
+      font-size: 0.86rem;
       font-weight: 700;
       color: var(--text-primary);
       white-space: nowrap;
@@ -390,7 +421,7 @@
 
     .gesture-readout .g-sub {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       color: var(--cyan);
       white-space: nowrap;
       overflow: hidden;
@@ -401,26 +432,27 @@
     .cam-controls-row {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
+      gap: 6px;
       flex-shrink: 0;
     }
 
     .ctrl-btn {
-      min-height: 48px;
-      border-radius: 12px;
+      min-height: 40px;
+      border-radius: 10px;
       background: var(--glass-card);
       border: 1px solid var(--glass-border);
       color: var(--text-primary);
       font-family: 'Inter', sans-serif;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
-      padding: 0 8px;
+      padding: 0 6px;
       text-align: center;
+      white-space: nowrap;
     }
 
     .ctrl-btn.active {
@@ -766,7 +798,7 @@
   <header class="top-bar">
     <div class="brand">
       <img src="logo.png" alt="SignBridge Logo" class="brand-logo" onerror="this.style.display='none'" />
-      <div>
+      <div style="min-width:0;">
         <div class="brand-title">
           <span>SignBridge</span>
           <span class="apk-tag">APK v2.0</span>
@@ -777,12 +809,12 @@
 
     <div class="top-actions">
       <button class="icon-btn" id="btnStandaloneTop" onclick="toggleStandaloneMode()" style="border-color:rgba(16,185,129,0.5); color:#34D399;">
-        ⚡ Independiente
+        ⚡ IA Móvil
       </button>
-      <button class="icon-btn" onclick="openIpModal()">IP / Red</button>
+      <button class="icon-btn" onclick="openIpModal()">🌐 IP</button>
       <div class="conn-pill" onclick="openIpModal()">
         <span class="dot" id="wsDot"></span>
-        <span id="wsText">CONECTANDO</span>
+        <span id="wsText">OFF</span>
       </div>
     </div>
   </header>
@@ -794,15 +826,15 @@
     <section class="view-section active" id="viewCam">
       <div class="cam-hero-toggle" id="camHeroCard">
         <div class="cam-hero-info">
-          <h2 id="camHeroTitle">Modo Cámara Móvil / IA Independiente</h2>
-          <p id="camHeroDesc">Conecta al PC o ejecuta el modelo IA 100% offline dentro del celular.</p>
+          <h2 id="camHeroTitle">Cámara Móvil / IA Independiente</h2>
+          <p id="camHeroDesc">21 Landmarks + MLP 100% en celular o PC</p>
         </div>
-        <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="cam-hero-btns">
           <button class="btn-activate-cam" id="btnActivateMobileCam" onclick="toggleMobileCameraMode()">
-            ACTIVAR EN PC
+            📡 ACTIVAR EN PC
           </button>
-          <button class="btn-activate-cam" id="btnActivateStandalone" onclick="toggleStandaloneMode()" style="min-height:38px; font-size:0.72rem; background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.55); color:#A7F3D0;">
-            ⚡ MODO INDEPENDIENTE
+          <button class="btn-activate-cam" id="btnActivateStandalone" onclick="toggleStandaloneMode()" style="background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.55); color:#A7F3D0;">
+            ⚡ INDEPENDIENTE
           </button>
         </div>
       </div>
@@ -1235,18 +1267,83 @@
       }
     }
 
+    let isSwitchingCamera = false;
+    let currentDeviceId = null;
+
+    async function getPreferredDeviceId(targetFacing) {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(d => d.kind === 'videoinput');
+        if (videoInputs.length < 2) return null;
+
+        const isBack = (targetFacing === 'environment');
+        const backKeywords = ['back', 'rear', 'environment', 'trasera', 'trás', '0'];
+        const frontKeywords = ['front', 'user', 'selfie', 'frontal', '1'];
+
+        for (const d of videoInputs) {
+          const lbl = (d.label || '').toLowerCase();
+          if (isBack && backKeywords.some(k => lbl.includes(k))) return d.deviceId;
+          if (!isBack && frontKeywords.some(k => lbl.includes(k))) return d.deviceId;
+        }
+
+        // Si el WebView no expone nombres en enumerateDevices, alternar al otro deviceId distinto al actual
+        if (currentDeviceId) {
+          const other = videoInputs.find(d => d.deviceId && d.deviceId !== currentDeviceId);
+          if (other) return other.deviceId;
+        }
+        return isBack ? videoInputs[videoInputs.length - 1].deviceId : videoInputs[0].deviceId;
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function startWebRTCCamera() {
       try {
         if (window.SignBridgeNative && typeof window.SignBridgeNative.requestCamera === 'function') {
           window.SignBridgeNative.requestCamera();
         }
+        const hadStream = Boolean(stream);
         if (stream) {
-          stream.getTracks().forEach(t => t.stop());
+          stream.getTracks().forEach(t => {
+            try { t.stop(); } catch (e) {}
+          });
+          stream = null;
         }
+        localVideo.srcObject = null;
+
+        // Pausa necesaria en Android Camera2 HAL para liberar el sensor antes de abrir la otra lente
+        if (hadStream) {
+          await new Promise(r => setTimeout(r, 180));
+        }
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           return false;
         }
-        stream = await navigator.mediaDevices.getUserMedia({
+
+        const preferredId = await getPreferredDeviceId(facingMode);
+        const attempts = [];
+        if (preferredId) {
+          attempts.push({
+            video: {
+              deviceId: { exact: preferredId },
+              width: { ideal: 480 },
+              height: { ideal: 360 },
+              frameRate: { ideal: 30 }
+            },
+            audio: false
+          });
+        }
+        attempts.push({
+          video: {
+            facingMode: { exact: facingMode },
+            width: { ideal: 480 },
+            height: { ideal: 360 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        });
+        attempts.push({
           video: {
             facingMode: facingMode,
             width: { ideal: 480 },
@@ -1254,23 +1351,55 @@
           },
           audio: false
         });
+        attempts.push({ video: true, audio: false });
+
+        let acquired = null;
+        for (const constraints of attempts) {
+          try {
+            acquired = await navigator.mediaDevices.getUserMedia(constraints);
+            if (acquired) break;
+          } catch (e) {}
+        }
+        if (!acquired) return false;
+
+        stream = acquired;
+        try {
+          const track = stream.getVideoTracks()[0];
+          if (track && track.getSettings) {
+            currentDeviceId = track.getSettings().deviceId || currentDeviceId;
+          }
+        } catch (e) {}
+
         localVideo.srcObject = stream;
         await localVideo.play();
+        stLastVideoTime = -1;
+        stSmoothedPts = null;
         applyVideoTransform();
 
-        if (!showHudMirror) {
+        if (standaloneMode) {
+          // En modo independiente dibujamos video + esqueleto unificados sobre standaloneCanvas (0px desfase)
+          localVideo.style.display = 'block';
+          localVideo.style.opacity = '0';
+          localVideo.style.position = 'absolute';
+          localVideo.style.pointerEvents = 'none';
+          pcHudMirror.style.display = 'none';
+          standaloneCanvas.style.display = 'block';
+        } else if (!showHudMirror) {
+          localVideo.style.opacity = '1';
+          localVideo.style.position = 'relative';
           localVideo.style.display = 'block';
           pcHudMirror.style.display = 'none';
         }
 
         if (frameTimer) clearInterval(frameTimer);
         frameTimer = setInterval(() => {
+          if (standaloneMode) return;
           if (!ws || ws.readyState !== WebSocket.OPEN) return;
           if (!mobileCamActiveOnPc) return;
           if (localVideo.readyState >= 2) {
             const vw = localVideo.videoWidth || 480;
             const vh = localVideo.videoHeight || 360;
-            const scale = 480 / Math.max(vw, vh);
+            const scale = 420 / Math.max(vw, vh);
             const cw = Math.max(160, Math.round(vw * scale));
             const ch = Math.max(160, Math.round(vh * scale));
             if (captureCanvas.width !== cw || captureCanvas.height !== ch) {
@@ -1300,6 +1429,9 @@
 
     async function toggleMobileCameraMode() {
       vibrateHaptic(28);
+      if (standaloneMode) {
+        await toggleStandaloneMode();
+      }
       const nextState = !mobileCamActiveOnPc;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -1311,6 +1443,8 @@
         const started = await startWebRTCCamera();
         if (started) {
           showHudMirror = false;
+          localVideo.style.opacity = '1';
+          localVideo.style.position = 'relative';
           localVideo.style.display = 'block';
           pcHudMirror.style.display = 'none';
           document.getElementById('btnMirrorToggle').textContent = '👁️ Ver: Cámara';
@@ -1332,21 +1466,34 @@
     }
 
     async function switchCameraLens() {
-      vibrateHaptic(18);
-      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
-      // En lente frontal activar espejo horizontal automáticamente para dirección natural del cursor
-      mirrorX = (facingMode === 'user');
-      applyVideoTransform();
-      document.getElementById('btnFlipLens').textContent =
-        facingMode === 'environment' ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
-      if (mobileCamActiveOnPc) {
-        await startWebRTCCamera();
+      if (isSwitchingCamera) return;
+      isSwitchingCamera = true;
+      vibrateHaptic(22);
+      const btnLens = document.getElementById('btnFlipLens');
+      try {
+        facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+        // En lente frontal activar espejo horizontal automáticamente; en trasera desactivarlo
+        mirrorX = (facingMode === 'user');
+        applyVideoTransform();
+        if (btnLens) {
+          btnLens.textContent = '⏳ Cambiando...';
+        }
+        // Reiniciar la cámara tanto en Modo Independiente como en Modo Cámara PC o si el stream ya está abierto
+        if (standaloneMode || mobileCamActiveOnPc || stream !== null) {
+          await startWebRTCCamera();
+        }
+      } finally {
+        if (btnLens) {
+          btnLens.textContent = facingMode === 'environment' ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
+        }
+        isSwitchingCamera = false;
       }
     }
 
     function toggleCameraFlipX() {
       vibrateHaptic(18);
       mirrorX = !mirrorX;
+      stSmoothedPts = null;
       applyVideoTransform();
     }
 
@@ -1363,6 +1510,7 @@
 
     function toggleMirrorView() {
       vibrateHaptic(15);
+      if (standaloneMode) return;
       showHudMirror = !showHudMirror;
       const btn = document.getElementById('btnMirrorToggle');
       if (showHudMirror || !stream) {
@@ -1370,6 +1518,8 @@
         pcHudMirror.style.display = 'block';
         btn.textContent = '👁️ Ver: Espejo IA';
       } else {
+        localVideo.style.opacity = '1';
+        localVideo.style.position = 'relative';
         localVideo.style.display = 'block';
         pcHudMirror.style.display = 'none';
         btn.textContent = '👁️ Ver: Cámara';
@@ -1408,6 +1558,8 @@
 
     function resetMobileDetection() {
       vibrateHaptic(28);
+      stBuffer = [];
+      stSmoothedPts = null;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: 'RESET_DETECTION'
@@ -1512,9 +1664,13 @@
     let stPulseUntil = 0;
     let stLastFrameTs = performance.now();
     let stFpsEma = 28.0;
+    let stLastVideoTime = -1;
+    let stCachedRawPts = null;
+    let stSmoothedPts = null;
+    let stLastDetectMs = 0;
 
     const standaloneCanvas = document.getElementById('standaloneCanvas');
-    const standaloneCtx = standaloneCanvas.getContext('2d');
+    const standaloneCtx = standaloneCanvas.getContext('2d', { alpha: false });
 
     const HAND_BONES = [
       [0,1],[1,2],[2,3],[3,4],
@@ -1535,22 +1691,56 @@
         mpInitializing = true;
         try {
           const vision = await window.Vision.FilesetResolver.forVisionTasks('mediapipe/wasm');
-          mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: 'mediapipe/hand_landmarker.task'
-            },
-            runningMode: 'VIDEO',
-            numHands: 1,
-            minHandDetectionConfidence: 0.45,
-            minHandPresenceConfidence: 0.45,
-            minTrackingConfidence: 0.45
-          });
+          try {
+            // Intentar primero aceleración GPU WebGL para alcanzar 25-30 FPS en el celular
+            mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath: 'mediapipe/hand_landmarker.task',
+                delegate: 'GPU'
+              },
+              runningMode: 'VIDEO',
+              numHands: 1,
+              minHandDetectionConfidence: 0.42,
+              minHandPresenceConfidence: 0.42,
+              minTrackingConfidence: 0.40
+            });
+          } catch (gpuErr) {
+            mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath: 'mediapipe/hand_landmarker.task',
+                delegate: 'CPU'
+              },
+              runningMode: 'VIDEO',
+              numHands: 1,
+              minHandDetectionConfidence: 0.42,
+              minHandPresenceConfidence: 0.42,
+              minTrackingConfidence: 0.40
+            });
+          }
         } catch (err) {
           console.warn('MediaPipe local fallback:', err);
         } finally {
           mpInitializing = false;
         }
       }
+    }
+
+    function smoothLandmarks21(rawPts) {
+      if (!rawPts || rawPts.length < 21) {
+        stSmoothedPts = null;
+        return null;
+      }
+      if (!stSmoothedPts || stSmoothedPts.length < 21) {
+        stSmoothedPts = rawPts.map(p => [p[0], p[1], p[2] || 0]);
+        return stSmoothedPts;
+      }
+      const alpha = 0.68; // Suavizado reactivo sin rezago
+      for (let i = 0; i < 21; i++) {
+        stSmoothedPts[i][0] = alpha * rawPts[i][0] + (1 - alpha) * stSmoothedPts[i][0];
+        stSmoothedPts[i][1] = alpha * rawPts[i][1] + (1 - alpha) * stSmoothedPts[i][1];
+        stSmoothedPts[i][2] = alpha * (rawPts[i][2] || 0) + (1 - alpha) * stSmoothedPts[i][2];
+      }
+      return stSmoothedPts;
     }
 
     function normalizeLandmarksJS(pts21) {
@@ -1567,27 +1757,51 @@
         vec63.push(norm[i][0], norm[i][1], norm[i][2]);
       }
 
-      const isExt = (mcp, pip, tip) => {
-        const dTip = Math.hypot(norm[tip][0], norm[tip][1]);
-        const dPip = Math.hypot(norm[pip][0], norm[pip][1]);
-        const dMcp = Math.hypot(norm[mcp][0], norm[mcp][1]);
-        return (norm[tip][1] < norm[pip][1] - 0.04) && (dTip > dPip * 1.12) && (dTip > dMcp * 1.25);
+      // Referencia anatómica rígida de la palma (muñeca 0 -> nudillo medio 9)
+      const palmLen = Math.max(0.18, Math.hypot(norm[9][0], norm[9][1], norm[9][2]));
+
+      const cosAngle = (a, b, c) => {
+        const v1x = norm[b][0] - norm[a][0], v1y = norm[b][1] - norm[a][1], v1z = norm[b][2] - norm[a][2];
+        const v2x = norm[c][0] - norm[b][0], v2y = norm[c][1] - norm[b][1], v2z = norm[c][2] - norm[b][2];
+        const n1 = Math.hypot(v1x, v1y, v1z);
+        const n2 = Math.hypot(v2x, v2y, v2z);
+        if (n1 < 1e-6 || n2 < 1e-6) return -1.0;
+        return (v1x * v2x + v1y * v2y + v1z * v2z) / (n1 * n2);
       };
 
+      const isExt = (mcp, pip, dip, tip) => {
+        const dTip = Math.hypot(norm[tip][0], norm[tip][1], norm[tip][2]);
+        const dPip = Math.hypot(norm[pip][0], norm[pip][1], norm[pip][2]);
+        const dMcp = Math.hypot(norm[mcp][0], norm[mcp][1], norm[mcp][2]);
+        const straightCos = cosAngle(mcp, pip, tip);
+        const distOk = (dTip > dPip * 1.07) && (dTip > dMcp + palmLen * 0.25);
+        const angleOk = straightCos > 0.45;
+        return distOk && angleOk;
+      };
+
+      // Biomecánica del pulgar invariante a compresión de puño y rotación
       const dThumbPinky = Math.hypot(norm[4][0] - norm[17][0], norm[4][1] - norm[17][1]);
       const dIpPinky = Math.hypot(norm[3][0] - norm[17][0], norm[3][1] - norm[17][1]);
-      const dMcpPinky = Math.hypot(norm[2][0] - norm[17][0], norm[2][1] - norm[17][1]);
       const dThumbIdxMcp = Math.hypot(norm[4][0] - norm[5][0], norm[4][1] - norm[5][1]);
+      const dThumbMidMcp = Math.hypot(norm[4][0] - norm[9][0], norm[4][1] - norm[9][1]);
+      const thumbCos = cosAngle(1, 2, 4);
+
+      const thumbExtended = (
+        (dThumbPinky > dIpPinky * 1.06) &&
+        (dThumbIdxMcp > palmLen * 0.52) &&
+        (dThumbMidMcp > palmLen * 0.54) &&
+        (thumbCos > 0.42)
+      );
 
       const fingers = {
-        thumb: (dThumbPinky > dIpPinky * 1.10) && (dThumbPinky > dMcpPinky * 1.14) && (dThumbIdxMcp > 0.22),
-        index: isExt(5, 6, 8),
-        middle: isExt(9, 10, 12),
-        ring: isExt(13, 14, 16),
-        pinky: isExt(17, 18, 20)
+        thumb: thumbExtended,
+        index: isExt(5, 6, 7, 8),
+        middle: isExt(9, 10, 11, 12),
+        ring: isExt(13, 14, 15, 16),
+        pinky: isExt(17, 18, 19, 20)
       };
 
-      return { vec63, fingers };
+      return { vec63, fingers, norm };
     }
 
     function forwardMlpJS(vec63) {
@@ -1627,17 +1841,27 @@
       let geomConf = 0.92;
       const { thumb, index, middle, ring, pinky } = fingers;
 
-      if (index && thumb && !middle && !ring && !pinky) {
+      if (
+        (index && middle && ring && !pinky) ||
+        (thumb && pinky && !index && !middle && !ring) ||
+        (index && pinky && !middle && !ring)
+      ) {
+        // G4: 3 Dedos, Shaka (🤙) o ILY/Rock (🤟/🤘 Índice + Meñique ± Pulgar) -> AYUDA / ASISTENCIA
+        geomId = 'G4'; geomConf = 0.96;
+      } else if (index && thumb && !middle && !ring && !pinky) {
+        // G5: Pistola / L (Índice + Pulgar, con meñique plegado) -> NO / CANCELAR (Clic Izquierdo)
         geomId = 'G5'; geomConf = 0.97;
       } else if (!index && !middle && !ring && !pinky && !thumb) {
+        // G3: Puño cerrado -> DETENER / ALTO (Scroll Abajo)
         geomId = 'G3'; geomConf = 0.97;
       } else if (index && middle && !ring && !pinky) {
-        geomId = 'G1'; geomConf = 0.95;
+        // G1: Paz / Victoria (Índice + Medio) -> CONTINUAR (Clic Derecho)
+        geomId = 'G1'; geomConf = 0.96;
       } else if (index && !thumb && !middle && !ring && !pinky) {
+        // G2: Solo Índice extendido -> SÍ / AFIRMATIVO (Scroll Arriba)
         geomId = 'G2'; geomConf = 0.96;
-      } else if ((index && middle && ring && !pinky) || (thumb && pinky && !index && !middle && !ring)) {
-        geomId = 'G4'; geomConf = 0.94;
       } else if (index && middle && ring && pinky) {
+        // G0: Mano abierta -> Rechazo Activo
         geomId = 'G0'; geomConf = 0.97;
       } else {
         let bestIdx = 0;
@@ -1652,7 +1876,7 @@
 
       const cIdx = classIds.indexOf(geomId);
       const mlpProb = probs[cIdx] || 0.85;
-      const confidence = 0.65 * geomConf + 0.35 * Math.max(0.85, mlpProb);
+      const confidence = 0.68 * geomConf + 0.32 * Math.max(0.85, mlpProb);
       return { gid: geomId, confidence };
     }
 
@@ -1668,20 +1892,19 @@
       } catch (e) {}
     }
 
-    function drawStandaloneSkeleton(pts21, gid, pulseActive) {
+    function drawStandaloneSkeletonOnCanvas(pts21, gid, pulseActive, clearBg = false) {
       const cw = standaloneCanvas.width;
       const ch = standaloneCanvas.height;
-      standaloneCtx.clearRect(0, 0, cw, ch);
 
-      if (standaloneSubSource !== 'CAM') {
+      if (clearBg) {
         standaloneCtx.fillStyle = '#08090D';
         standaloneCtx.fillRect(0, 0, cw, ch);
         standaloneCtx.strokeStyle = 'rgba(255,255,255,0.05)';
         standaloneCtx.lineWidth = 1;
-        for (let x = 0; x < cw; x += 36) {
+        for (let x = 0; x < cw; x += 32) {
           standaloneCtx.beginPath(); standaloneCtx.moveTo(x, 0); standaloneCtx.lineTo(x, ch); standaloneCtx.stroke();
         }
-        for (let y = 0; y < ch; y += 36) {
+        for (let y = 0; y < ch; y += 32) {
           standaloneCtx.beginPath(); standaloneCtx.moveTo(0, y); standaloneCtx.lineTo(cw, y); standaloneCtx.stroke();
         }
       }
@@ -1690,13 +1913,16 @@
 
       const boneColor = pulseActive ? '#10B981' : (gid === 'G0' ? '#F43F5E' : '#06B6D4');
       standaloneCtx.strokeStyle = boneColor;
-      standaloneCtx.lineWidth = 3.5;
+      standaloneCtx.lineWidth = Math.max(2.5, Math.min(cw, ch) * 0.011);
       standaloneCtx.lineCap = 'round';
+      standaloneCtx.lineJoin = 'round';
 
+      // Como standaloneCanvas ya contiene el fotograma espejado (cuando mirrorX=true),
+      // las coordenadas [0..1] de MediaPipe corresponden 1:1 al píxel exacto del canvas.
       for (const [i, j] of HAND_BONES) {
-        const x1 = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[i][0]) : pts21[i][0]) * cw;
+        const x1 = pts21[i][0] * cw;
         const y1 = pts21[i][1] * ch;
-        const x2 = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[j][0]) : pts21[j][0]) * cw;
+        const x2 = pts21[j][0] * cw;
         const y2 = pts21[j][1] * ch;
         standaloneCtx.beginPath();
         standaloneCtx.moveTo(x1, y1);
@@ -1705,13 +1931,17 @@
       }
 
       const tips = new Set([4, 8, 12, 16, 20]);
+      const baseR = Math.max(3.2, Math.min(cw, ch) * 0.014);
       for (let i = 0; i < 21; i++) {
-        const px = (mirrorX && standaloneSubSource === 'CAM' ? (1 - pts21[i][0]) : pts21[i][0]) * cw;
+        const px = pts21[i][0] * cw;
         const py = pts21[i][1] * ch;
         standaloneCtx.beginPath();
-        standaloneCtx.arc(px, py, i === 0 ? 7 : (tips.has(i) ? 6 : 4), 0, Math.PI * 2);
+        standaloneCtx.arc(px, py, i === 0 ? baseR * 1.45 : (tips.has(i) ? baseR * 1.25 : baseR * 0.9), 0, Math.PI * 2);
         standaloneCtx.fillStyle = tips.has(i) ? '#10B981' : '#F8FAFC';
         standaloneCtx.fill();
+        standaloneCtx.lineWidth = 1.2;
+        standaloneCtx.strokeStyle = '#08090D';
+        standaloneCtx.stroke();
       }
     }
 
@@ -1721,10 +1951,16 @@
       const now = performance.now();
       const dt = Math.max(1, now - stLastFrameTs);
       stLastFrameTs = now;
-      stFpsEma = 0.85 * stFpsEma + 0.15 * Math.min(60, 1000 / dt);
+      stFpsEma = 0.88 * stFpsEma + 0.12 * Math.min(60, 1000 / dt);
 
       let pts21 = null;
-      if (standaloneSubSource !== 'CAM' && mlpData && mlpData.poses && mlpData.poses[standaloneSubSource]) {
+      let isSimPose = (standaloneSubSource !== 'CAM');
+
+      if (isSimPose && mlpData && mlpData.poses && mlpData.poses[standaloneSubSource]) {
+        if (standaloneCanvas.width !== 360 || standaloneCanvas.height !== 360) {
+          standaloneCanvas.width = 360;
+          standaloneCanvas.height = 360;
+        }
         const base = mlpData.poses[standaloneSubSource];
         const t = now * 0.003;
         pts21 = base.map((p, idx) => [
@@ -1732,13 +1968,48 @@
           p[1] + Math.cos(t + idx * 0.3) * 0.003,
           p[2]
         ]);
-      } else if (mpHandLandmarker && localVideo.readyState >= 2) {
-        try {
-          const res = mpHandLandmarker.detectForVideo(localVideo, now);
-          if (res && res.landmarks && res.landmarks.length > 0) {
-            pts21 = res.landmarks[0].map(lm => [lm.x, lm.y, lm.z || 0]);
+      } else if (localVideo.readyState >= 2) {
+        const vw = localVideo.videoWidth || 360;
+        const vh = localVideo.videoHeight || 480;
+        // Escalar manteniendo exactamente la relación de aspecto nativa (portrait o landscape)
+        const maxSide = 360;
+        const scale = maxSide / Math.max(vw, vh);
+        const cw = Math.max(180, Math.round(vw * scale));
+        const ch = Math.max(180, Math.round(vh * scale));
+
+        if (standaloneCanvas.width !== cw || standaloneCanvas.height !== ch) {
+          standaloneCanvas.width = cw;
+          standaloneCanvas.height = ch;
+        }
+
+        // 1. Dibujar el video (aplicando Espejo X si está activo) directamente sobre standaloneCanvas
+        standaloneCtx.save();
+        if (mirrorX) {
+          standaloneCtx.translate(cw, 0);
+          standaloneCtx.scale(-1, 1);
+        }
+        standaloneCtx.drawImage(localVideo, 0, 0, cw, ch);
+        standaloneCtx.restore();
+
+        // 2. Ejecutar MediaPipe sobre ese mismo canvas solo cuando hay un nuevo frame de cámara
+        if (mpHandLandmarker) {
+          const curVideoTime = localVideo.currentTime;
+          if (curVideoTime !== stLastVideoTime && (now - stLastDetectMs) >= 24) {
+            stLastVideoTime = curVideoTime;
+            stLastDetectMs = now;
+            try {
+              const res = mpHandLandmarker.detectForVideo(standaloneCanvas, Math.floor(now));
+              if (res && res.landmarks && res.landmarks.length > 0) {
+                const raw = res.landmarks[0].map(lm => [lm.x, lm.y, lm.z || 0]);
+                stCachedRawPts = smoothLandmarks21(raw);
+              } else {
+                stCachedRawPts = null;
+                stSmoothedPts = null;
+              }
+            } catch (e) {}
           }
-        } catch (e) {}
+          pts21 = stCachedRawPts;
+        }
       }
 
       let gid = 'G0';
@@ -1749,14 +2020,15 @@
         conf = pred.confidence;
       }
 
+      const requiredFrames = 6;
       stBuffer.push(gid);
-      if (stBuffer.length > 8) stBuffer.shift();
+      if (stBuffer.length > requiredFrames) stBuffer.shift();
 
       const matching = gid === 'G0' ? 0 : stBuffer.filter(x => x === gid).length;
-      let progress = Math.min(1, matching / 8.0);
+      let progress = Math.min(1, matching / requiredFrames);
       const nowSec = now / 1000.0;
 
-      if (gid !== 'G0' && matching >= 8 && (nowSec - stLastTriggerTs) > 1.2) {
+      if (gid !== 'G0' && matching >= requiredFrames && (nowSec - stLastTriggerTs) > 1.2) {
         stLastTriggerTs = nowSec;
         stPulseUntil = nowSec + 0.65;
         stBuffer = [];
@@ -1770,7 +2042,8 @@
       const pulseActive = nowSec < stPulseUntil;
       if (pulseActive) progress = 1.0;
 
-      drawStandaloneSkeleton(pts21, gid, pulseActive);
+      // 3. Dibujar el esqueleto de 21 puntos sobre el mismo standaloneCanvas (precisión 1:1 sin desfase)
+      drawStandaloneSkeletonOnCanvas(pts21, gid, pulseActive, isSimPose);
 
       const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : {
         sign_label: gid === 'G0' ? 'SIN MANO / NEUTRAL' : gid,
@@ -1778,7 +2051,7 @@
       };
 
       document.getElementById('camSourceChip').textContent = `MODO INDEPENDIENTE (${standaloneSubSource})`;
-      document.getElementById('fpsChip').textContent = `${ stFpsEma.toFixed(0) } FPS · ${ Math.round(conf * 100) }%`;
+      document.getElementById('fpsChip').textContent = `${stFpsEma.toFixed(0)} FPS · ${Math.round(conf * 100)}%`;
       document.getElementById('hudGid').textContent = gid;
       document.getElementById('hudGName').textContent = `${cat.sign_label || cat.short_label} (${Math.round(conf * 100)}%)`;
       document.getElementById('hudGAction').textContent = cat.sign_message || cat.action_label || '';
@@ -1798,6 +2071,7 @@
       const simBar = document.getElementById('standaloneSimBar');
 
       if (standaloneMode) {
+        if (frameTimer) clearInterval(frameTimer);
         btnTop.style.background = '#10B981';
         btnTop.style.color = '#042F2E';
         btnHero.textContent = '⚡ INDEPENDIENTE: ON ✓';
@@ -1805,28 +2079,38 @@
         simBar.classList.add('active');
 
         document.getElementById('wsDot').classList.add('online');
-        document.getElementById('wsText').textContent = 'IA LOCAL APK';
+        document.getElementById('wsText').textContent = 'IA MÓVIL';
         document.getElementById('serverHostLabel').textContent = 'Modo Autónomo Offline (Sin PC)';
-        document.getElementById('camHeroTitle').textContent = 'IA Ejecutándose en el Celular (Sin PC)';
-        document.getElementById('camHeroDesc').textContent = 'MediaPipe 21 Landmarks + Red Neuronal MLP corriendo 100% en tu móvil.';
+        document.getElementById('camHeroTitle').textContent = 'IA Ejecutándose en el Celular';
+        document.getElementById('camHeroDesc').textContent = 'MediaPipe GPU + MLP 100% en tu móvil';
 
         await loadOfflineMlpAndMediaPipe();
-        await startWebRTCCamera();
+        if (!stream) {
+          await startWebRTCCamera();
+        } else {
+          localVideo.style.display = 'block';
+          localVideo.style.opacity = '0';
+          localVideo.style.position = 'absolute';
+          localVideo.style.pointerEvents = 'none';
+        }
 
-        localVideo.style.display = standaloneSubSource === 'CAM' ? 'block' : 'none';
         pcHudMirror.style.display = 'none';
         standaloneCanvas.style.display = 'block';
 
         stBuffer = [];
+        stSmoothedPts = null;
+        stLastVideoTime = -1;
         runStandaloneLoop();
       } else {
         if (standaloneRafId) cancelAnimationFrame(standaloneRafId);
-        btnTop.style.background = 'rgba(30, 41, 59, 0.85)';
+        btnTop.style.background = 'rgba(30, 41, 59, 0.88)';
         btnTop.style.color = '#34D399';
-        btnHero.textContent = '⚡ MODO INDEPENDIENTE';
+        btnHero.textContent = '⚡ INDEPENDIENTE';
         btnHero.classList.remove('active');
         simBar.classList.remove('active');
         standaloneCanvas.style.display = 'none';
+        localVideo.style.opacity = '1';
+        localVideo.style.position = 'relative';
         localVideo.style.display = 'none';
         pcHudMirror.style.display = 'block';
         updateHostLabel();
@@ -1837,11 +2121,12 @@
     function setStandaloneSubSource(src) {
       vibrateHaptic(18);
       standaloneSubSource = src;
+      stBuffer = [];
+      stSmoothedPts = null;
       ['CAM', 'G1', 'G2', 'G3', 'G4', 'G5'].forEach(k => {
         const el = document.getElementById('stSrc' + k);
         if (el) el.classList.toggle('active', k === src);
       });
-      localVideo.style.display = (src === 'CAM') ? 'block' : 'none';
     }
 
     window.addEventListener('DOMContentLoaded', () => {

@@ -305,10 +305,14 @@ class LocalGestureClassifier:
             # G2: Solo dedo índice (8) extendido apuntando arriba (pulgar guardado -> Scroll Arriba)
             geom_id = "G2"
             geom_conf = 0.96
-        elif (index and middle and ring and not pinky) or (thumb and pinky and not index and not middle and not ring):
-            # G4: Tres dedos extendidos (8, 12, 16) o Señal Shaka (Pulgar + Meñique)
+        elif (
+            (index and middle and ring and not pinky)
+            or (thumb and pinky and not index and not middle and not ring)
+            or (index and pinky and not middle and not ring)
+        ):
+            # G4: Tres dedos extendidos (8, 12, 16), Señal Shaka (Pulgar + Meñique) o ILY/Rock (Índice + Meñique ± Pulgar)
             geom_id = "G4"
-            geom_conf = 0.93
+            geom_conf = 0.94
         elif index and middle and ring and pinky:
             # G0: Mano abierta (5 dedos o 4 dedos largos abiertos) -> Rechazo activo
             geom_id = "G0"
