@@ -135,6 +135,20 @@ def generate_official_logo(logo_path: Path, force_regenerate: bool = False) -> N
     logo_path.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(logo_path), logo_512)
 
+    # Generar también static/favicon.ico a partir del logo oficial
+    ico_path = logo_path.parent / "favicon.ico"
+    generate_favicon_ico(logo_path, ico_path)
+
+
+def generate_favicon_ico(logo_path: Path, ico_path: Path) -> None:
+    """Genera el archivo multi-resolución static/favicon.ico a partir de static/logo.png."""
+    try:
+        from PIL import Image
+        im = Image.open(logo_path)
+        im.save(ico_path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
+    except Exception:
+        pass
+
 
 def locate_android_toolchain():
     """Localiza el Android SDK (aapt2, d8, zipalign, apksigner, android.jar) y el JDK (javac, keytool)."""
@@ -461,8 +475,11 @@ def compile_apk():
     # 1. Asegurar carpeta de salida apk_estractor y logo oficial
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     logo_path = STATIC_DIR / "logo.png"
-    print("  [1/6] Verificando y generando Logo Oficial (static/logo.png)...")
+    ico_path = STATIC_DIR / "favicon.ico"
+    print("  [1/6] Verificando y generando Logo Oficial y Favicon (static/logo.png, static/favicon.ico)...")
     generate_official_logo(logo_path)
+    if not ico_path.exists():
+        generate_favicon_ico(logo_path, ico_path)
 
     # 2. Localizar Android SDK y JDK
     print("  [2/6] Detectando Android SDK y OpenJDK en el sistema...")

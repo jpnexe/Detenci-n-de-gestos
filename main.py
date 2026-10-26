@@ -171,6 +171,14 @@ async def serve_hud():
         return HTMLResponse(content=f.read())
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def serve_favicon():
+    ico_path = os.path.join("static", "favicon.ico")
+    if os.path.exists(ico_path):
+        return FileResponse(ico_path, media_type="image/x-icon")
+    return FileResponse(os.path.join("static", "logo.png"), media_type="image/png")
+
+
 @app.get("/mini", response_class=HTMLResponse)
 async def serve_mini_hud():
     with open(os.path.join("static", "mini.html"), "r", encoding="utf-8") as f:
