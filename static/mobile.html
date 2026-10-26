@@ -856,6 +856,23 @@
     <section class="view-section" id="viewSystem">
       <div class="sys-card">
         <div class="sys-card-title">
+          <span>0. Modo de Operación (OS vs. Lenguaje de Señas)</span>
+          <button class="icon-btn" onclick="resetMobileDetection()">🔄 Reiniciar</button>
+        </div>
+        <div class="seg-row">
+          <button class="seg-btn active" id="imodeOptOS" onclick="setPcInteractionMode('OS_CONTROL')">
+            <span>🖱️ Control Mouse/OS</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Clics y Scroll en PC</span>
+          </button>
+          <button class="seg-btn" id="imodeOptSIGN" onclick="setPcInteractionMode('SIGN_LANGUAGE')">
+            <span>🖐️ Modo Señas</span>
+            <span style="font-size:0.63rem; color:var(--text-secondary);">Mensajes Expresivos</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sys-card">
+        <div class="sys-card-title">
           <span>1. Fuente de Video Activa en el PC</span>
           <span id="sysActiveSourceBadge" style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:#10B981;">AUTO</span>
         </div>
@@ -1103,9 +1120,22 @@
 
       // Anillo de estabilidad y gesto actual
       const gid = data.stabilized_id || 'G0';
+      const isSignMode = (data.interaction_mode === 'SIGN_LANGUAGE');
       document.getElementById('hudGid').textContent = gid;
-      document.getElementById('hudGName').textContent = data.short_label || 'RECHAZO ACTIVO';
-      document.getElementById('hudGAction').textContent = data.action_label || 'Sin acción';
+      if (isSignMode) {
+        document.getElementById('hudGName').textContent = `[SEÑA] ${data.sign_label || 'DESCONOCIDO'} (${Math.round((data.confidence || 0) * 100)}%)`;
+        document.getElementById('hudGAction').textContent = data.sign_message || 'Esperando gesto intencional...';
+      } else {
+        document.getElementById('hudGName').textContent = data.short_label || 'RECHAZO ACTIVO';
+        document.getElementById('hudGAction').textContent = data.action_label || 'Sin acción';
+      }
+
+      const optOS = document.getElementById('imodeOptOS');
+      const optSIGN = document.getElementById('imodeOptSIGN');
+      if (optOS && optSIGN) {
+        optOS.classList.toggle('active', !isSignMode);
+        optSIGN.classList.toggle('active', isSignMode);
+      }
 
       const pct = Math.max(0, Math.min(1, data.ring_progress || 0));
       const arc = document.getElementById('ringArc');
@@ -1299,6 +1329,25 @@
         ws.send(JSON.stringify({
           type: 'SET_SOURCE',
           source: source
+        }));
+      }
+    }
+
+    function setPcInteractionMode(imode) {
+      vibrateHaptic(24);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SET_INTERACTION_MODE',
+          interaction_mode: imode
+        }));
+      }
+    }
+
+    function resetMobileDetection() {
+      vibrateHaptic(28);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'RESET_DETECTION'
         }));
       }
     }

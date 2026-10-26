@@ -44,8 +44,10 @@ class SignBridgePipeline:
         self.model_dir = model_dir
         self.hand_task_path = os.path.join(model_dir, "hand_landmarker.task")
         self.mode: str = "OFFLINE"  # "OFFLINE" | "ONLINE"
+        self.interaction_mode: str = "OS_CONTROL"  # "OS_CONTROL" | "SIGN_LANGUAGE"
         self.video_source: str = "AUTO"  # "LOCAL" | "MOBILE" | "SIMULATOR" | "AUTO"
         self.simulated_gesture: str = "G1"
+        self.sign_history: List[Dict[str, Any]] = []
 
         self.local_classifier = LocalGestureClassifier(model_dir=model_dir)
         self.gemini_classifier = GeminiGestureClassifier(fallback_classifier=self.local_classifier)
@@ -96,6 +98,25 @@ class SignBridgePipeline:
             self.mode = mode_up
             self.stabilizer.reset()
         return self.mode
+
+    def set_interaction_mode(self, interaction_mode: str) -> str:
+        imode = interaction_mode.upper().strip()
+        if imode in ("OS_CONTROL", "SIGN_LANGUAGE"):
+            self.interaction_mode = imode
+            self.stabilizer.reset()
+            if imode == "SIGN_LANGUAGE":
+                self.hardware.pointer_enabled = False
+        return self.interaction_mode
+
+    def reset_detection(self) -> Dict[str, Any]:
+        """Reinicia el buffer de estabilización temporal y el historial de detección de señas."""
+        self.stabilizer.reset()
+        self.sign_history.clear()
+        return {
+            "reset": True,
+            "interaction_mode": self.interaction_mode,
+            "buffer_size": self.stabilizer.buffer_size,
+        }
 
     def set_simulated_gesture(self, gesture_id: str) -> str:
         gid = gesture_id.upper().strip()
@@ -432,13 +453,34 @@ class SignBridgePipeline:
             # 4. Estabilización Temporal (Buffer N=8, Umbral >= 0.85)
             stabilized = self.stabilizer.update(raw_pred)
 
-            # 5. Ejecución de periféricos si el anillo de retención completó el 100%
+            # 5. Ejecución según Modo de Interacción (Control OS vs Lenguaje de Señas / Mensajes)
             if stabilized["triggered"]:
-                self.hardware.execute_action(
-                    gesture_id=stabilized["stabilized_id"],
-                    action_code=stabilized["action"],
-                    gesture_name=stabilized["name"],
-                )
+                if self.interaction_mode == "SIGN_LANGUAGE":
+                    from datetime import datetime
+                    ts = datetime.now().strftime("%H:%M:%S")
+                    sign_entry = {
+                        "timestamp": ts,
+                        "gesture_id": stabilized["stabilized_id"],
+                        "sign_label": stabilized.get("sign_label", stabilized["short_label"]),
+                        "sign_message": stabilized.get("sign_message", ""),
+                        "confidence": stabilized["confidence"],
+                    }
+                    self.sign_history.insert(0, sign_entry)
+                    self.sign_history = self.sign_history[:15]
+                    self.hardware.event_log.appendleft({
+                        "timestamp": ts,
+                        "gesture_id": stabilized["stabilized_id"],
+                        "gesture_name": f"[SEÑA] {sign_entry['sign_label']}",
+                        "action": "SIGN_MESSAGE",
+                        "executed_os": False,
+                        "detail": sign_entry["sign_message"],
+                    })
+                else:
+                    self.hardware.execute_action(
+                        gesture_id=stabilized["stabilized_id"],
+                        action_code=stabilized["action"],
+                        gesture_name=stabilized["name"],
+                    )
 
         # 5. Renderizado de esqueleto sobre el frame y codificación JPEG para el HUD
         rendered_bgr = self.draw_hud_skeleton(frame_bgr, landmarks, stabilized)
@@ -454,6 +496,7 @@ class SignBridgePipeline:
 
         return {
             "mode": self.mode,
+            "interaction_mode": self.interaction_mode,
             "source": active_source,
             "hand_detected": hand_detected,
             "fps": round(self._fps_ema, 1),
@@ -468,6 +511,7 @@ class SignBridgePipeline:
             "pointer_enabled": self.hardware.pointer_enabled,
             "pointer": pointer_info,
             "events": self.hardware.get_recent_events()[:8],
+            "sign_history": self.sign_history[:8],
             "mobile_connected": self.mobile_connected,
             "simulated_gesture": self.simulated_gesture,
             "frame_b64": frame_b64,

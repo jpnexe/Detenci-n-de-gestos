@@ -154,7 +154,8 @@ class ModeSwitchRequest(BaseModel):
 
 class ConfigUpdateRequest(BaseModel):
     video_source: Optional[str] = None  # "AUTO" | "LOCAL" | "MOBILE" | "SIMULATOR"
-    simulated_gesture: Optional[str] = None  # "G0".."G4"
+    interaction_mode: Optional[str] = None  # "OS_CONTROL" | "SIGN_LANGUAGE"
+    simulated_gesture: Optional[str] = None  # "G0".."G5"
     hardware_enabled: Optional[bool] = None
     pointer_enabled: Optional[bool] = None  # Modo control directo de mouse
     min_confidence: Optional[float] = None
@@ -287,13 +288,15 @@ async def api_set_mode(payload: ModeSwitchRequest):
 async def api_update_config(payload: ConfigUpdateRequest):
     if payload.video_source is not None:
         pipeline.set_video_source(payload.video_source)
+    if payload.interaction_mode is not None:
+        pipeline.set_interaction_mode(payload.interaction_mode)
     if payload.simulated_gesture is not None:
         pipeline.set_simulated_gesture(payload.simulated_gesture)
     if payload.hardware_enabled is not None:
         pipeline.hardware.enabled = bool(payload.hardware_enabled)
     if payload.pointer_enabled is not None:
-        # Solo permitir activar puntero si NO estamos en modo SIMULATOR
-        if pipeline.video_source != "SIMULATOR":
+        # Solo permitir activar puntero si NO estamos en modo SIMULATOR ni en SIGN_LANGUAGE
+        if pipeline.video_source != "SIMULATOR" and pipeline.interaction_mode != "SIGN_LANGUAGE":
             pipeline.hardware.pointer_enabled = bool(payload.pointer_enabled)
         else:
             pipeline.hardware.pointer_enabled = False
@@ -307,12 +310,19 @@ async def api_update_config(payload: ConfigUpdateRequest):
 
     return {
         "video_source": pipeline.video_source,
+        "interaction_mode": pipeline.interaction_mode,
         "simulated_gesture": pipeline.simulated_gesture,
         "hardware_enabled": pipeline.hardware.enabled,
         "pointer_enabled": pipeline.hardware.pointer_enabled,
         "min_confidence": pipeline.stabilizer.min_confidence,
         "buffer_size": pipeline.stabilizer.buffer_size,
     }
+
+
+@app.post("/api/reset")
+async def api_reset_detection():
+    """Reinicia el buffer de estabilidad temporal y la detección activa."""
+    return pipeline.reset_detection()
 
 
 @app.post("/api/trigger")
@@ -345,10 +355,14 @@ async def ws_hud_endpoint(websocket: WebSocket):
                     cmd = data.get("type")
                     if cmd == "SET_MODE":
                         pipeline.set_mode(data.get("mode", "OFFLINE"))
+                    elif cmd == "SET_INTERACTION_MODE":
+                        pipeline.set_interaction_mode(data.get("interaction_mode", "OS_CONTROL"))
+                    elif cmd == "RESET_DETECTION":
+                        pipeline.reset_detection()
                     elif cmd == "SET_GESTURE":
                         pipeline.set_simulated_gesture(data.get("gesture_id", "G1"))
                     elif cmd == "SET_POINTER":
-                        if pipeline.video_source != "SIMULATOR":
+                        if pipeline.video_source != "SIMULATOR" and pipeline.interaction_mode != "SIGN_LANGUAGE":
                             pipeline.hardware.pointer_enabled = bool(data.get("enabled", False))
                         else:
                             pipeline.hardware.pointer_enabled = False
@@ -414,8 +428,12 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                     pipeline.set_video_source("MOBILE" if enabled else "AUTO")
                 elif msg_type == "SET_SOURCE":
                     pipeline.set_video_source(payload.get("source", "MOBILE"))
+                elif msg_type == "SET_INTERACTION_MODE":
+                    pipeline.set_interaction_mode(payload.get("interaction_mode", "OS_CONTROL"))
+                elif msg_type == "RESET_DETECTION":
+                    pipeline.reset_detection()
                 elif msg_type == "SET_POINTER":
-                    if pipeline.video_source != "SIMULATOR":
+                    if pipeline.video_source != "SIMULATOR" and pipeline.interaction_mode != "SIGN_LANGUAGE":
                         pipeline.hardware.pointer_enabled = bool(payload.get("enabled", False))
                     else:
                         pipeline.hardware.pointer_enabled = False
@@ -469,6 +487,7 @@ async def ws_mobile_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "status": "streaming",
                 "mode": pipeline.mode,
+                "interaction_mode": pipeline.interaction_mode,
                 "video_source": pipeline.video_source,
                 "simulated_gesture": pipeline.simulated_gesture,
                 "mobile_cam_active": pipeline.video_source == "MOBILE",
@@ -479,6 +498,8 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 "gemini_model": gem_status.get("model", "gemini-3-flash-preview"),
                 "stabilized_id": cur_gid,
                 "short_label": meta_cur["short_label"],
+                "sign_label": meta_cur.get("sign_label", meta_cur["short_label"]),
+                "sign_message": meta_cur.get("sign_message", ""),
                 "action_label": meta_cur["action_label"],
                 "ring_progress": (
                     sum(1 for x in pipeline.stabilizer.buffer if x == cur_gid)
@@ -490,6 +511,7 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                     pipeline.stabilizer.conf_buffer[-1] if pipeline.stabilizer.conf_buffer else 0.0, 3
                 ),
                 "events": pipeline.hardware.get_recent_events()[:6],
+                "sign_history": pipeline.sign_history[:6],
                 "hud_frame_b64": pipeline.latest_rendered_b64,
             })
     except WebSocketDisconnect:

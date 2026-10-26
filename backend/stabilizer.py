@@ -32,6 +32,8 @@ class TemporalStabilizer:
     def reset(self) -> None:
         self.buffer.clear()
         self.conf_buffer.clear()
+        self.last_triggered_gesture = None
+        self.pulse_until = 0.0
 
     def update(self, raw_prediction: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -78,6 +80,8 @@ class TemporalStabilizer:
             "stabilized_id": gid,
             "name": meta["name"],
             "short_label": meta["short_label"],
+            "sign_label": meta.get("sign_label", meta["short_label"]),
+            "sign_message": meta.get("sign_message", ""),
             "action": meta["action"],
             "action_label": meta["action_label"],
             "confidence": round(conf, 4),

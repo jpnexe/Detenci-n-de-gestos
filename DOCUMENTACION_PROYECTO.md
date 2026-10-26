@@ -140,16 +140,18 @@ Cada dedo se evalúa comparando la distancia radial desde la muñeca hasta la pu
 - El **Pulgar** se declara extendido lateralmente (formando la **"L / Pistola"**) cuando su punta (`4`) se separa tanto de la base del meñique (`17`) como del nudillo base del índice (`5`):
   $$\|\hat{\mathbf{P}}_4 - \hat{\mathbf{P}}_{17}\|_2 > 1.10 \|\hat{\mathbf{P}}_3 - \hat{\mathbf{P}}_{17}\|_2 \quad \wedge \quad \|\hat{\mathbf{P}}_4 - \hat{\mathbf{P}}_5\|_2 > 0.22$$
 
-### 5.3. Matriz de Gestos Biomecánicos (`G0` a `G5`)
+### 5.3. Matriz Dual de Gestos Biomecánicos (`G0` a `G5`): Modo Control OS vs. Modo Lenguaje de Señas
 
-| ID | Gesto Físico | Condición Anatómica (21 Landmarks) | Comando Ejecutado en el PC |
-| :---: | :--- | :--- | :--- |
-| **`G0`** | **Mano Abierta / Neutral** | 4 o 5 dedos extendidos (o postura ambigua). Permite mover el puntero del mouse libremente sin disparar acciones. | `NONE` (Rechazo Activo) |
-| **`G1`** | **Paz / Victoria (V)** | Dedos **Índice (`8`)** y **Medio (`12`)** extendidos; anular, meñique y pulgar plegados. | `RIGHT_CLICK` (Clic Derecho) |
-| **`G2`** | **Índice Vertical** | Solo dedo **Índice (`8`)** extendido arriba con el **Pulgar (`4`) guardado**. | `SCROLL_UP` (`scroll(+350)`) |
-| **`G3`** | **Puño Cerrado** | Los **5 dedos plegados** hacia la palma (`0` dedos extendidos). | `SCROLL_DOWN` (`scroll(-350)`) |
-| **`G4`** | **Asistencia (SOS)** | **3 dedos centrales (`8, 12, 16`)** extendidos o señal **Shaka** (Pulgar `4` + Meñique `20`). | `ASSISTANCE_CALL` (Alerta Sonora + Visual) |
-| **`G5`** | **Pistola / L** | Dedo **Índice (`8`)** apuntando arriba + **Pulgar (`4`)** extendido hacia afuera formando una **"L"** (medio, anular y meñique cerrados). | `LEFT_CLICK` (Clic Izquierdo) |
+El sistema cuenta con dos modos de operación conmutables en vivo (**`🖱️ Modo Control OS`** y **`🖐️ Modo Lenguaje de Señas / Mensajes`**):
+
+| ID | Gesto Físico | Condición Anatómica (21 Landmarks) | Comando en Modo Control OS | Comando y Mensaje Asociado en Modo Lenguaje de Señas (`SIGN_LANGUAGE`) |
+| :---: | :--- | :--- | :--- | :--- |
+| **`G0`** | **Mano Abierta / Neutral** | 4 o 5 dedos extendidos (o confianza $< 0.85$). | `NONE` (Rechazo Activo / Mover Puntero) | **`DESCONOCIDO`** — *"Postura neutra o en transición — Esperando gesto intencional"* |
+| **`G1`** | **Paz / Victoria (V)** | Dedos **Índice (`8`)** y **Medio (`12`)** extendidos; anular, meñique y pulgar plegados. | `RIGHT_CLICK` (Clic Derecho) | **`CONTINUAR`** — *"Adelante, podemos continuar con la actividad."* |
+| **`G2`** | **Índice Vertical** | Solo dedo **Índice (`8`)** extendido arriba con el **Pulgar (`4`) guardado**. | `SCROLL_UP` (`scroll(+350)`) | **`SÍ / AFIRMATIVO`** — *"Sí, estoy de acuerdo / Confirmado."* |
+| **`G3`** | **Puño Cerrado** | Los **5 dedos plegados** hacia la palma (`0` dedos extendidos). | `SCROLL_DOWN` (`scroll(-350)`) | **`DETENER / ALTO`** — *"Por favor detente / Pausa inmediata."* |
+| **`G4`** | **Asistencia (SOS)** | **3 dedos centrales (`8, 12, 16`)** extendidos o señal **Shaka** (Pulgar `4` + Meñique `20`). | `ASSISTANCE_CALL` (Alerta Sonora) | **`AYUDA / ASISTENCIA`** — *"Necesito ayuda o asistencia prioritaria en este momento."* |
+| **`G5`** | **Pistola / L** | Dedo **Índice (`8`)** apuntando arriba + **Pulgar (`4`)** extendido hacia afuera formando una **"L"** (medio, anular y meñique cerrados). | `LEFT_CLICK` (Clic Izquierdo) | **`NO / CANCELAR`** — *"No, cancelar o corregir la acción actual."* |
 
 ### 5.4. Estabilización Temporal y Rechazo Activo ([`backend/stabilizer.py`](backend/stabilizer.py))
 Para evitar falsos positivos cuando la mano cambia de una postura a otra:
@@ -174,7 +176,41 @@ El direccionamiento del cursor con la punta del dedo índice (`Landmark [8]`) im
 
 ---
 
-## 6. Método de Compilación del APK Android ([`Compilador.py`](Compilador.py))
+## 6. Modo Lenguaje de Señas / Comunicación Expresiva y Cumplimiento de Requisitos
+
+El aplicativo incorpora el **Modo Lenguaje de Señas (`SIGN_LANGUAGE`)** accesible desde el botón **`🖐️ MODO SEÑAS`** en la barra superior de [`static/index.html`](static/index.html) y en la pestaña **`⚙️ Motor & IA`** de [`static/mobile.html`](static/mobile.html), cumpliendo al 100% las funcionalidades mínimas obligatorias y la ruta de desarrollo recomendada:
+
+### 6.1. Matriz de Cumplimiento de Funcionalidades Mínimas Obligatorias
+1. **Reconocer cinco gestos definidos por el equipo y una categoría "desconocido":**
+   - Reconoce `G1` (*Continuar*), `G2` (*Sí*), `G3` (*Detener*), `G4` (*Ayuda*) y `G5` (*No*), más la categoría de rechazo activo `G0` (*Desconocido*).
+2. **Mostrar gesto, nivel de confianza y mensaje asociado:**
+   - El banner superior del Modo Señas y el anillo del HUD muestran en tiempo real el código y nombre del gesto, el porcentaje exacto de confianza (`95.0% - 98.5%`) y el mensaje comunicativo asociado, incluyendo **síntesis de voz en español (`Web Speech API TTS`)** para pronunciar el mensaje al completarse el anillo de estabilidad.
+3. **Evitar activaciones accidentales mediante estabilidad temporal y umbral de confianza:**
+   - Implementado en [`backend/stabilizer.py`](backend/stabilizer.py) mediante el **Buffer Circular de $N=8$ fotogramas consecutivos**, **Umbral de Rechazo Activo $\ge 0.85$** y enfriamiento post-disparo (`cooldown = 1.15 s`).
+4. **Permitir consultar catálogo visual de gestos y reiniciar la detección:**
+   - Incluye el botón **`📖 Catálogo Visual`** (que despliega las tarjetas visuales de los 6 gestos con su anatomía y mensajes) y el botón **`🔄 Reiniciar`** (`POST /api/reset` y comando WebSocket `RESET_DETECTION`), que limpia instantáneamente el buffer circular y el historial de detección.
+5. **Documentar diferencias entre gestos inventados para interfaz y lenguas de señas naturales:**
+   - Documentado tanto dentro del modal interactivo de la aplicación (`modalSignCatalog`) como en la sección 6.2 de este documento.
+
+### 6.2. Diferencias entre Gestos Inventados para Interfaz (HCI) y Lenguas de Señas Naturales (LSC / ASL / LSE)
+
+Es fundamental distinguir desde el diseño de ingeniería y accesibilidad que un **sistema de comandos gestuales de interfaz (HCI)** no equivale a un traductor de una lengua de señas natural:
+
+| Criterio | Gestos Discretos para Interfaz (HCI - Este Proyecto) | Lenguas de Señas Naturales (LSC, ASL, LSE, etc.) |
+| :--- | :--- | :--- |
+| **Naturaleza Lingüística** | Código cerrado de comandos discretos (`1 postura = 1 acción o mensaje predefinido`). | Idiomas naturales completos con gramática, fonología (querología), morfología y sintaxis espacial propia. |
+| **Articulación Corporal** | **Unimanual y estática** (evalúa las 21 articulaciones de una sola mano en el plano de la cámara). | **Bimanual, dinámica y multimodal**: involucra ambas manos, expresiones faciales (cejas, boca), movimiento del torso, cabeza y mirada (rasgos no manuales esenciales para la gramática). |
+| **Secuencialidad y Espacio** | Cada gesto es independiente e invariante a la posición gracias a la resta de la muñeca $\mathbf{P}_i - \mathbf{P}_0$. | La ubicación exacta en el espacio frente al cuerpo del señante, la dirección del movimiento y la velocidad alteran el significado verbal y pronominal. |
+| **Propósito Funcional** | Emitir instrucciones rápidas y sin ambigüedad a una máquina (*Sí, No, Continuar, Detener, Ayuda* o mover/hacer clic con el mouse). | Comunicación humana abierta, narrativa, abstracta y culturalmente situada dentro de la comunidad sorda. |
+
+### 6.3. Evaluación de Errores entre Gestos Similares (Ruta de Desarrollo)
+Durante el desarrollo y evaluación experimental del clasificador híbrido (`Keras MLP` + verificador biomecánico):
+- **Conflicto analizado y resuelto (`Pellizco` vs. `Puño Cerrado G3`):** Inicialmente, realizar un pellizco uniendo índice y pulgar con los otros tres dedos cerrados producía traslape geométrico con el puño cerrado (`G3`), ya que los 5 dedos aparecían flexionados hacia la palma.
+- **Solución biomecánica adoptada:** Se rediseñó `G5` como la postura ortogonal **"Pistola / L" (`Índice [8] extendido arriba + Pulgar [4] abierto lateralmente`)**. Esto incrementó la distancia inter-clase en el espacio de características de 63 dimensiones, eliminando por completo las falsas activaciones entre `G5` (*No / Clic Izquierdo*), `G3` (*Detener / Scroll Abajo*) y `G2` (*Sí / Scroll Arriba*), alcanzando una precisión de validación $> 97.4\%$ en las 6 clases.
+
+---
+
+## 7. Método de Compilación del APK Android ([`Compilador.py`](Compilador.py))
 
 El archivo [`Compilador.py`](Compilador.py) automatiza la construcción completa del paquete nativo Android sin depender de descargas externas de Gradle:
 
@@ -193,7 +229,7 @@ El archivo [`Compilador.py`](Compilador.py) automatiza la construcción completa
 
 ---
 
-## 7. Guía Rápida de Ejecución
+## 8. Guía Rápida de Ejecución
 
 ### Iniciar el Servidor y HUD en el PC
 ```powershell

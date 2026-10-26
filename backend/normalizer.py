@@ -44,6 +44,11 @@ def normalize_landmarks(landmarks_3d: List[Tuple[float, float, float]] | np.ndar
     normalized_pts = translated / max_dist
     vector_63d = normalized_pts.flatten().astype(np.float32)
 
+    # 4. Ángulo de orientación planar (eje Muñeca [0] -> Nudillo Medio [9])
+    axis_vec = normalized_pts[MIDDLE_MCP, :2]
+    orientation_rad = float(np.arctan2(axis_vec[1], axis_vec[0]))
+    orientation_deg = round(float(np.degrees(orientation_rad)), 2)
+
     # Análisis geométrico de extensión de dedos y gesto Pistola / L (Índice + Pulgar = Clic Izquierdo)
     finger_states = analyze_finger_extension(normalized_pts)
     thumb_index_dist = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[INDEX_TIP, :2]))
@@ -60,6 +65,7 @@ def normalize_landmarks(landmarks_3d: List[Tuple[float, float, float]] | np.ndar
         "index_tip": [round(float(pts[INDEX_TIP][0]), 4), round(float(pts[INDEX_TIP][1]), 4), round(float(pts[INDEX_TIP][2]), 4)],
         "middle_tip": [round(float(pts[MIDDLE_TIP][0]), 4), round(float(pts[MIDDLE_TIP][1]), 4), round(float(pts[MIDDLE_TIP][2]), 4)],
         "euclidean_scale": round(max_dist, 4),
+        "orientation_deg": orientation_deg,
         "vector_norm": round(float(np.linalg.norm(vector_63d)), 4),
         "vector_sample": [round(float(x), 3) for x in vector_63d[:12]],
         "fingers": finger_states,

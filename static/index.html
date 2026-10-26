@@ -227,8 +227,39 @@
       </button>
     </div>
 
-    <!-- Controles de Hardware, API Key y Emparejamiento QR -->
-    <div class="flex items-center gap-2">
+    <!-- Controles de Hardware, Modo Señas, API Key y Emparejamiento QR -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Toggle Modo Lenguaje de Señas / Comandos Expresivos -->
+      <button
+        id="btnToggleSignMode"
+        onclick="toggleSignLanguageMode()"
+        title="Activar Modo Lenguaje de Señas / Mensajes Asociados (Ayuda, Detener, Continuar, Sí, No)"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="hand" class="w-4 h-4"></i>
+        <span id="labelToggleSignMode">MODO SEÑAS: OFF</span>
+      </button>
+
+      <!-- Botón Catálogo Visual & Lenguas de Señas -->
+      <button
+        onclick="openModal('modalSignCatalog')"
+        title="Consultar catálogo visual de gestos y diferencias con lenguas de señas naturales"
+        class="min-h-[48px] px-3.5 py-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-textPrimary text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="book-open" class="w-4 h-4 text-amberLiquid"></i>
+        <span>Catálogo Visual</span>
+      </button>
+
+      <!-- Botón Reiniciar Detección -->
+      <button
+        onclick="resetDetectionState()"
+        title="Reiniciar buffer de estabilidad temporal y detección activa"
+        class="min-h-[48px] px-3 py-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-textSecondary hover:text-textPrimary text-xs font-semibold flex items-center gap-1.5 active:scale-95 transition-transform duration-150"
+      >
+        <i data-lucide="rotate-ccw" class="w-4 h-4 text-roseLiquid"></i>
+        <span class="hidden xl:inline">Reiniciar</span>
+      </button>
+
       <!-- Toggle Dirigir Mouse con el Dedo Índice -->
       <button
         id="btnTogglePointer"
@@ -297,6 +328,46 @@
 
     <!-- COLUMNA IZQUIERDA / CENTRAL (7 cols): Capa 1 Visualizador de Cámara + Anillo de Estabilidad Temporal -->
     <section class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- BANNER MODO LENGUAJE DE SEÑAS / MENSAJES EXPRESIVOS -->
+      <div id="signLanguageBanner" class="hidden glass-layer-2 p-4 border-cyanLiquid/50 bg-cyanLiquid/10 transition-all duration-300">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-cyanLiquid/20 border border-cyanLiquid/50 flex items-center justify-center text-cyanLiquid font-display font-bold text-lg" id="signBannerGid">
+              G0
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40">
+                  MODO COMUNICACIÓN / SEÑAS ACTIVO
+                </span>
+                <span id="signBannerConf" class="text-xs font-mono text-cyanLiquid font-bold">95.0% Confianza</span>
+              </div>
+              <h3 id="signBannerTitle" class="font-display font-bold text-lg text-textPrimary mt-1">
+                DESCONOCIDO — En espera de gesto intencional
+              </h3>
+              <p id="signBannerMessage" class="text-sm text-cyanLiquid font-medium">
+                Realiza uno de los 5 gestos frente a la cámara para transmitir el mensaje asociado.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              id="btnToggleTTS"
+              onclick="toggleSignTTS()"
+              class="min-h-[42px] px-3.5 py-1.5 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid text-xs font-mono font-semibold"
+            >
+              🔊 Voz TTS: ON
+            </button>
+            <button
+              onclick="resetDetectionState()"
+              class="min-h-[42px] px-3.5 py-1.5 rounded-full border border-roseLiquid/40 bg-roseLiquid/15 text-roseLiquid text-xs font-mono font-semibold"
+            >
+              🔄 Reiniciar
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- CAPA 1: Visualizador de Cámara (HUD Principal) -->
       <div id="hudViewportCard" class="glass-layer-1 relative flex-1 min-h-[380px] md:min-h-[470px] overflow-hidden flex flex-col justify-between p-4 transition-all duration-300">
@@ -752,11 +823,118 @@
     </div>
   </div>
 
+  <!-- MODAL CATÁLOGO VISUAL DE GESTOS Y DIFERENCIAS CON LENGUAS DE SEÑAS NATURALES -->
+  <div id="modalSignCatalog" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-void/85 backdrop-blur-xl">
+    <div class="glass-layer-2 w-full max-w-3xl max-h-[88vh] overflow-y-auto p-6 relative border border-white/20">
+      <button onclick="closeModal('modalSignCatalog')" class="absolute top-4 right-4 min-w-[48px] min-h-[48px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 rounded-2xl bg-amberLiquid/15 border border-amberLiquid/40 flex items-center justify-center text-amberLiquid">
+          <i data-lucide="book-open" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-lg tracking-tight text-textPrimary">
+            Catálogo Visual de Gestos (5 Comandos + Rechazo G0)
+          </h3>
+          <p class="text-xs text-textSecondary">
+            Referencia visual de posturas, mensajes asociados y diferenciación lingüística con lenguas de señas naturales
+          </p>
+        </div>
+      </div>
+
+      <!-- Catálogo Visual de las 6 Clases -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-5">
+        <div class="p-3 rounded-xl border border-roseLiquid/40 bg-roseLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-roseLiquid">G0 • DESCONOCIDO (Rechazo Activo)</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-roseLiquid">Umbral &lt; 0.85</span>
+          </div>
+          <p class="text-textPrimary font-semibold">🖐️ Mano Abierta (4-5 dedos) o postura fuera de catálogo</p>
+          <p class="text-textSecondary mt-1">Mensaje: "Postura neutra o en transición — Esperando gesto intencional"</p>
+        </div>
+
+        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-cyanLiquid">G1 • CONTINUAR / CLIC DERECHO</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Paz / Victoria</span>
+          </div>
+          <p class="text-textPrimary font-semibold">✌️ Índice (8) y Medio (12) extendidos juntos</p>
+          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Adelante, podemos continuar con la actividad."</p>
+        </div>
+
+        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-cyanLiquid">G2 • SÍ / SCROLL ARRIBA</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Índice Vertical</span>
+          </div>
+          <p class="text-textPrimary font-semibold">☝️ Solo Dedo Índice (8) extendido arriba (pulgar guardado)</p>
+          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Sí, estoy de acuerdo / Confirmado."</p>
+        </div>
+
+        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-cyanLiquid">G3 • DETENER / SCROLL ABAJO</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Puño Cerrado</span>
+          </div>
+          <p class="text-textPrimary font-semibold">✊ Los 5 dedos plegados en la palma</p>
+          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Por favor detente / Pausa inmediata."</p>
+        </div>
+
+        <div class="p-3 rounded-xl border border-amberLiquid/40 bg-amberLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-amberLiquid">G4 • AYUDA / ASISTENCIA SOS</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-amberLiquid">3 Dedos / Shaka</span>
+          </div>
+          <p class="text-textPrimary font-semibold">🤟 Tres dedos centrales (8, 12, 16) o Pulgar + Meñique</p>
+          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Necesito ayuda o asistencia prioritaria en este momento."</p>
+        </div>
+
+        <div class="p-3 rounded-xl border border-emeraldLiquid/40 bg-emeraldLiquid/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-display font-bold text-sm text-emeraldLiquid">G5 • NO / CLIC IZQUIERDO</span>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">Pistola / L</span>
+          </div>
+          <p class="text-textPrimary font-semibold">👆 Índice (8) arriba + Pulgar (4) abierto en forma de "L"</p>
+          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "No, cancelar o corregir la acción actual."</p>
+        </div>
+      </div>
+
+      <!-- Diferencias entre Gestos Inventados para Interfaz y Lenguas de Señas Naturales -->
+      <div class="p-4 rounded-2xl bg-void/80 border border-white/15 space-y-2 text-xs">
+        <h4 class="font-display font-bold text-sm text-amberLiquid flex items-center gap-2">
+          <span>⚠️ Diferencia entre Gestos de Interfaz (HCI) y Lenguas de Señas Naturales (LSC / ASL / LSE)</span>
+        </h4>
+        <p class="text-textSecondary leading-relaxed">
+          Los 5 comandos de este sistema (<strong>Continuar, Sí, Detener, Ayuda, No</strong>) son <strong>gestos discretos de control de interfaz (HCI)</strong> diseñados ergonómicamente para no ser ambiguos frente a una cámara monocular, y <strong>no constituyen una traducción de una lengua de señas natural</strong>:
+        </p>
+        <ul class="list-disc pl-5 space-y-1 text-textSecondary">
+          <li><strong>Gramática y Sintaxis Propia:</strong> Las lenguas de señas naturales (como la Lengua de Señas Colombiana LSC o ASL) son idiomas completos con estructura gramatical, morfología y sintaxis espacial propia, no códigos de 1 gesto = 1 comando.</li>
+          <li><strong>Componente No Manual y Bimanual:</strong> Las lenguas de señas naturales requieren simultáneamente ambas manos, expresiones faciales (cejas, boca), postura del torso, dirección de la mirada y trayectorias dinámicas en el espacio.</li>
+          <li><strong>Vocabulario Cerrado vs. Lenguaje Abierto:</strong> Un controlador gestual de interfaz clasifica un conjunto finito de posturas estáticas unimanuales (21 landmarks) con filtro de retención temporal ($N=8$), mientras que una lengua de señas es productiva, contextual y culturalmente situada.</li>
+        </ul>
+      </div>
+
+      <div class="mt-4 flex justify-between items-center">
+        <button onclick="resetDetectionState(); closeModal('modalSignCatalog');" class="min-h-[44px] px-4 rounded-full bg-roseLiquid/20 border border-roseLiquid/50 text-roseLiquid text-xs font-semibold">
+          🔄 Reiniciar Detección Ahora
+        </button>
+        <button onclick="closeModal('modalSignCatalog')" class="min-h-[44px] px-5 rounded-full bg-cyanLiquid/20 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     lucide.createIcons();
 
     let ws = null;
     let currentMode = 'OFFLINE';
+    let interactionMode = 'OS_CONTROL';
+    let signTtsEnabled = true;
+    let lastSpokenTs = '';
     let hardwareEnabled = true;
     let pointerActive = false;
     let currentSource = 'AUTO';
@@ -877,9 +1055,30 @@
       document.getElementById('hudGestureId').textContent = gid;
       document.getElementById('hudGestureId').style.color = activeColor;
       document.getElementById('hudRingPercent').textContent = `${Math.round(progress * 100)}%`;
-      document.getElementById('hudGestureShortLabel').textContent = stab.short_label || 'DESCONOCIDO';
-      document.getElementById('hudGestureName').textContent = stab.name || '';
-      document.getElementById('hudActionCommand').innerHTML = `<span>▸ ${stab.action_label || ''}</span>`;
+
+      const isSignMode = (data.interaction_mode === 'SIGN_LANGUAGE');
+      if (data.interaction_mode && data.interaction_mode !== interactionMode) {
+        updateSignModeUI(data.interaction_mode);
+      }
+
+      if (isSignMode) {
+        document.getElementById('hudGestureShortLabel').textContent = stab.sign_label || stab.short_label || 'DESCONOCIDO';
+        document.getElementById('hudGestureName').textContent = stab.name || '';
+        document.getElementById('hudActionCommand').innerHTML = `<span>💬 ${stab.sign_message || ''}</span>`;
+
+        document.getElementById('signBannerGid').textContent = gid;
+        document.getElementById('signBannerConf').textContent = `${(Number(stab.confidence || 0) * 100).toFixed(1)}% Confianza`;
+        document.getElementById('signBannerTitle').textContent = `${stab.sign_label || 'DESCONOCIDO'} (${stab.name || ''})`;
+        document.getElementById('signBannerMessage').textContent = stab.sign_message || 'Esperando gesto intencional...';
+
+        if (stab.triggered && signTtsEnabled && stab.sign_message && gid !== 'G0') {
+          speakSignMessage(stab.sign_message);
+        }
+      } else {
+        document.getElementById('hudGestureShortLabel').textContent = stab.short_label || 'DESCONOCIDO';
+        document.getElementById('hudGestureName').textContent = stab.name || '';
+        document.getElementById('hudActionCommand').innerHTML = `<span>▸ ${stab.action_label || ''}</span>`;
+      }
 
       const confPct = `${(Number(stab.confidence || 0) * 100).toFixed(1)}%`;
       const confPill = document.getElementById('hudConfidencePill');
@@ -983,14 +1182,14 @@
         thumb.className = 'liquid-switch-thumb mode-online';
         btnOn.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-cyanLiquid';
         btnOff.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-textSecondary hover:text-textPrimary';
-        orb.className = 'w-11 h-11 rounded-2xl flex items-center justify-center border border-cyanLiquid/50 bg-cyanLiquid/10 shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all duration-300';
-        icon.setAttribute('class', 'w-6 h-6 text-cyanLiquid');
+        orb.className = 'w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center border border-cyanLiquid/50 bg-obsidian shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all duration-300';
+        if (icon) icon.setAttribute('class', 'w-6 h-6 text-cyanLiquid');
       } else {
         thumb.className = 'liquid-switch-thumb mode-offline';
         btnOff.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-amberLiquid';
         btnOn.className = 'relative z-10 flex-1 min-h-[44px] px-4 py-2 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-semibold active:scale-95 transition-transform duration-150 text-textSecondary hover:text-textPrimary';
-        orb.className = 'w-11 h-11 rounded-2xl flex items-center justify-center border border-amberLiquid/50 bg-amberLiquid/10 shadow-[0_0_20px_rgba(255,184,0,0.25)] transition-all duration-300';
-        icon.setAttribute('class', 'w-6 h-6 text-amberLiquid');
+        orb.className = 'w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center border border-amberLiquid/50 bg-obsidian shadow-[0_0_20px_rgba(255,184,0,0.25)] transition-all duration-300';
+        if (icon) icon.setAttribute('class', 'w-6 h-6 text-amberLiquid');
       }
     }
 
@@ -1027,6 +1226,60 @@
         'SignBridgeMobileAPK',
         `width=${w},height=${h},top=${top},left=${left},resizable=yes,status=no,toolbar=no,menubar=no`
       );
+    }
+
+    function updateSignModeUI(mode) {
+      interactionMode = mode;
+      const btn = document.getElementById('btnToggleSignMode');
+      const lbl = document.getElementById('labelToggleSignMode');
+      const banner = document.getElementById('signLanguageBanner');
+      if (mode === 'SIGN_LANGUAGE') {
+        lbl.textContent = 'MODO SEÑAS: ON';
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-emeraldLiquid/60 bg-emeraldLiquid/20 text-emeraldLiquid text-xs font-semibold flex items-center gap-2 shadow-[0_0_16px_rgba(0,255,157,0.28)]';
+        banner.classList.remove('hidden');
+      } else {
+        lbl.textContent = 'MODO SEÑAS: OFF';
+        btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center gap-2';
+        banner.classList.add('hidden');
+      }
+    }
+
+    async function toggleSignLanguageMode() {
+      const next = interactionMode === 'SIGN_LANGUAGE' ? 'OS_CONTROL' : 'SIGN_LANGUAGE';
+      updateSignModeUI(next);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_INTERACTION_MODE', interaction_mode: next }));
+      }
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interaction_mode: next })
+      });
+    }
+
+    function toggleSignTTS() {
+      signTtsEnabled = !signTtsEnabled;
+      const btn = document.getElementById('btnToggleTTS');
+      btn.textContent = signTtsEnabled ? '🔊 Voz TTS: ON' : '🔇 Voz TTS: OFF';
+    }
+
+    function speakSignMessage(text) {
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = 'es-ES';
+          utter.rate = 1.05;
+          window.speechSynthesis.speak(utter);
+        }
+      } catch (e) {}
+    }
+
+    async function resetDetectionState() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RESET_DETECTION' }));
+      }
+      await fetch('/api/reset', { method: 'POST' });
     }
 
     function selectSimulatedGesture(gid) {
