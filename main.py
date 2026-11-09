@@ -89,13 +89,11 @@ class LocalCameraWorker:
 
     def _loop(self) -> None:
         try:
+            # Abrir cámara local usando DirectShow sin forzar configuraciones que desestabilicen el sensor
             cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
             if not cap.isOpened():
                 cap = cv2.VideoCapture(0)
             if cap.isOpened():
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                cap.set(cv2.CAP_PROP_FPS, 30)
                 self.cap = cap
                 while self.running:
                     ok, frame = cap.read()
@@ -103,12 +101,20 @@ class LocalCameraWorker:
                         with self._lock:
                             self.latest_frame = frame
                             self.available = True
+                        time.sleep(0.015)
                     else:
-                        time.sleep(0.05)
+                        time.sleep(0.04)
             else:
                 self.available = False
         except Exception:
             self.available = False
+        finally:
+            if self.cap is not None:
+                try:
+                    self.cap.release()
+                except Exception:
+                    pass
+                self.cap = None
 
     def read(self):
         with self._lock:

@@ -435,8 +435,48 @@
         </div>
       </div>
 
-      <!-- CAPA 1: Visualizador de Cámara (HUD Principal) -->
-      <div id="hudViewportCard" class="glass-layer-1 relative flex-1 min-h-[380px] md:min-h-[470px] overflow-hidden flex flex-col justify-between p-4 transition-all duration-300">
+      <!-- CONTENEDOR CONTROLES SUPERIORES (Fuera del visor de la cámara para que no tape los gestos) -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-mono">
+            <span id="sourceIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-cyanLiquid"></span>
+            <span id="hudSourceLabel" class="text-textPrimary font-semibold">SIMULATOR_3D</span>
+          </div>
+
+          <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
+            <i data-lucide="gauge" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
+            <span id="hudFpsValue" class="tabular-nums-metric text-textPrimary">30.0</span>
+            <span class="text-textSecondary">FPS</span>
+          </div>
+
+          <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
+            <i data-lucide="activity" class="w-3.5 h-3.5 text-amberLiquid"></i>
+            <span id="hudLatencyValue" class="tabular-nums-metric text-textPrimary">12.4</span>
+            <span class="text-textSecondary">ms</span>
+          </div>
+        </div>
+
+        <!-- Selector de Fuente de Video + Botón PiP -->
+        <div class="glass-layer-2 p-1 rounded-full flex flex-wrap items-center gap-1 text-xs">
+          <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2.5 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150">Auto</button>
+          <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" title="Modo Independiente en el PC (usa la webcam del PC sin depender del celular)" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
+            <span>⚡ Independiente PC</span>
+          </button>
+          <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
+            <span>Cámara Móvil</span>
+          </button>
+          <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Cam Navegador</button>
+          <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Simulador 3D</button>
+          <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1">
+            <i data-lucide="picture-in-picture-2" class="w-3.5 h-3.5"></i>
+            <span>PiP</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CAPA 1: Visualizador de Cámara (HUD Principal 100% Despejado) -->
+      <div id="hudViewportCard" class="glass-layer-1 relative flex-1 min-h-[380px] md:min-h-[470px] overflow-hidden flex flex-col justify-center items-center p-2 transition-all duration-300">
 
         <!-- Video / Canvas de Transmisión en Vivo -->
         <div class="absolute inset-0 flex items-center justify-center bg-void/80">
@@ -451,46 +491,6 @@
           <canvas id="browserWebcamCanvas" class="hidden" width="640" height="480"></canvas>
         </div>
 
-        <!-- Overlay Superior del Visor: Telemetría de Latencia, FPS y Fuente -->
-        <div class="relative z-10 flex flex-wrap items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-mono">
-              <span id="sourceIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-cyanLiquid"></span>
-              <span id="hudSourceLabel" class="text-textPrimary font-semibold">SIMULATOR_3D</span>
-            </div>
-
-            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
-              <i data-lucide="gauge" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
-              <span id="hudFpsValue" class="tabular-nums-metric text-textPrimary">30.0</span>
-              <span class="text-textSecondary">FPS</span>
-            </div>
-
-            <div class="glass-layer-2 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-mono">
-              <i data-lucide="activity" class="w-3.5 h-3.5 text-amberLiquid"></i>
-              <span id="hudLatencyValue" class="tabular-nums-metric text-textPrimary">12.4</span>
-              <span class="text-textSecondary">ms</span>
-            </div>
-          </div>
-
-          <!-- Selector de Fuente de Video + Botón PiP -->
-          <div class="glass-layer-2 p-1 rounded-full flex flex-wrap items-center gap-1 text-xs">
-            <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2.5 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150">Auto</button>
-            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" title="Modo Independiente en el PC (usa la webcam del PC sin depender del celular)" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
-              <span>⚡ Independiente PC</span>
-            </button>
-            <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1">
-              <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
-              <span>Cámara Móvil</span>
-            </button>
-            <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Cam Navegador</button>
-            <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">Simulador 3D</button>
-            <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1">
-              <i data-lucide="picture-in-picture-2" class="w-3.5 h-3.5"></i>
-              <span>PiP</span>
-            </button>
-          </div>
-        </div>
-
         <!-- Alerta de Llamada de Asistencia Flotante (G4) -->
         <div id="assistanceBanner" class="hidden relative z-20 mx-auto my-auto glass-layer-3 px-6 py-4 border-2 border-amberLiquid text-center max-w-md animate-bounce">
           <div class="flex items-center justify-center gap-2 text-amberLiquid font-display font-bold text-lg">
@@ -499,77 +499,75 @@
           </div>
           <p class="text-xs text-textSecondary mt-1">Señal prioritaria confirmada tras estabilización N=8.</p>
         </div>
+      </div>
 
-        <!-- Overlay Inferior del Visor: COMPONENTE CLAVE 2 (Anillo de Estabilidad Temporal) + Coordenadas 3D -->
-        <div class="relative z-10 flex flex-wrap items-end justify-between gap-3 mt-auto pt-12">
-
-          <!-- Anillo de Estabilidad Temporal + Etiqueta de Gesto Detectado -->
-          <div id="gestureBadgeContainer" class="glass-layer-2 p-3 pr-5 flex items-center gap-3.5 transition-all duration-300">
-            <div class="relative w-16 h-16 flex items-center justify-center">
-              <svg class="w-16 h-16" viewBox="0 0 68 68">
-                <circle
-                  cx="34" cy="34" r="28"
-                  stroke="rgba(255, 255, 255, 0.12)"
-                  stroke-width="5"
-                  fill="rgba(8, 9, 13, 0.65)"
-                />
-                <circle
-                  id="stabilityRingCircle"
-                  class="stability-ring-circle"
-                  cx="34" cy="34" r="28"
-                  stroke="#00F0FF"
-                  stroke-width="5"
-                  stroke-linecap="round"
-                  fill="transparent"
-                  stroke-dasharray="175.93"
-                  stroke-dashoffset="175.93"
-                />
-              </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span id="hudGestureId" class="tabular-nums-metric text-base text-cyanLiquid">G1</span>
-                <span id="hudRingPercent" class="font-mono text-[10px] text-textSecondary">0%</span>
-              </div>
-            </div>
-
-            <div>
-              <div class="flex items-center gap-2">
-                <span id="hudGestureShortLabel" class="font-display font-bold text-base md:text-lg tracking-tight text-textPrimary">
-                  CLIC DERECHO
-                </span>
-                <span id="hudConfidencePill" class="font-mono text-xs px-2 py-0.5 rounded-full bg-cyanLiquid/15 border border-cyanLiquid/40 text-cyanLiquid">
-                  95.0%
-                </span>
-              </div>
-              <p id="hudGestureName" class="text-xs text-textSecondary mt-0.5">
-                Paz / Victoria (Índice + Medio)
-              </p>
-              <p id="hudActionCommand" class="font-mono text-[11px] text-emeraldLiquid mt-1 flex items-center gap-1">
-                <i data-lucide="terminal" class="w-3 h-3"></i>
-                <span>pyautogui.rightClick()</span>
-              </p>
+      <!-- CONTENEDOR INFERIOR: Telemetría 3D y Anillo de Retención (Fuera del visor) -->
+      <div class="flex flex-wrap items-stretch justify-between gap-3">
+        <!-- Anillo de Estabilidad Temporal + Etiqueta de Gesto Detectado -->
+        <div id="gestureBadgeContainer" class="glass-layer-2 p-3 pr-5 flex-1 min-w-[280px] flex items-center gap-3.5 transition-all duration-300">
+          <div class="relative w-16 h-16 flex items-center justify-center shrink-0">
+            <svg class="w-16 h-16" viewBox="0 0 68 68">
+              <circle
+                cx="34" cy="34" r="28"
+                stroke="rgba(255, 255, 255, 0.12)"
+                stroke-width="5"
+                fill="rgba(8, 9, 13, 0.65)"
+              />
+              <circle
+                id="stabilityRingCircle"
+                class="stability-ring-circle"
+                cx="34" cy="34" r="28"
+                stroke="#00F0FF"
+                stroke-width="5"
+                stroke-linecap="round"
+                fill="transparent"
+                stroke-dasharray="175.93"
+                stroke-dashoffset="175.93"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="hudGestureId" class="tabular-nums-metric text-base text-cyanLiquid">G1</span>
+              <span id="hudRingPercent" class="font-mono text-[10px] text-textSecondary">0%</span>
             </div>
           </div>
 
-          <!-- Coordenadas 3D en Tiempo Real (JetBrains Mono) -->
-          <div class="glass-layer-2 px-3.5 py-2.5 font-mono text-xs flex flex-col gap-1 min-w-[235px]">
-            <div class="flex items-center justify-between text-[11px] text-textSecondary border-b border-white/10 pb-1">
-              <span>TELEMETRÍA 3D (21 LANDMARKS)</span>
-              <span id="hudVectorNorm" class="text-cyanLiquid">||V||=1.00</span>
+          <div class="truncate">
+            <div class="flex items-center gap-2">
+              <span id="hudGestureShortLabel" class="font-display font-bold text-base md:text-lg tracking-tight text-textPrimary truncate">
+                CLIC DERECHO
+              </span>
+              <span id="hudConfidencePill" class="font-mono text-xs px-2 py-0.5 rounded-full bg-cyanLiquid/15 border border-cyanLiquid/40 text-cyanLiquid shrink-0">
+                95.0%
+              </span>
             </div>
-            <div class="flex justify-between gap-3">
-              <span class="text-textSecondary">MUÑECA [0]:</span>
-              <span id="coordWrist" class="text-textPrimary">(0.50, 0.78, 0.00)</span>
-            </div>
-            <div class="flex justify-between gap-3">
-              <span class="text-textSecondary">ÍNDICE [8]:</span>
-              <span id="coordIndex" class="text-cyanLiquid">(0.40, 0.29, -0.04)</span>
-            </div>
-            <div class="flex justify-between gap-3">
-              <span class="text-textSecondary">MEDIO [12]:</span>
-              <span id="coordMiddle" class="text-amberLiquid">(0.51, 0.25, -0.04)</span>
-            </div>
+            <p id="hudGestureName" class="text-xs text-textSecondary mt-0.5 truncate">
+              Paz / Victoria (Índice + Medio)
+            </p>
+            <p id="hudActionCommand" class="font-mono text-[11px] text-emeraldLiquid mt-1 flex items-center gap-1 truncate">
+              <i data-lucide="terminal" class="w-3 h-3 shrink-0"></i>
+              <span class="truncate">pyautogui.rightClick()</span>
+            </p>
           </div>
+        </div>
 
+        <!-- Coordenadas 3D en Tiempo Real (JetBrains Mono) -->
+        <div class="glass-layer-2 px-3.5 py-2.5 font-mono text-xs flex flex-col justify-center gap-1 min-w-[240px]">
+          <div class="flex items-center justify-between text-[11px] text-textSecondary border-b border-white/10 pb-1">
+            <span>TELEMETRÍA 3D (21 LANDMARKS)</span>
+            <span id="hudVectorNorm" class="text-cyanLiquid">||V||=1.00</span>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-textSecondary">MUÑECA [0]:</span>
+            <span id="coordWrist" class="text-textPrimary">(0.50, 0.78, 0.00)</span>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-textSecondary">ÍNDICE [8]:</span>
+            <span id="coordIndex" class="text-cyanLiquid">(0.40, 0.29, -0.04)</span>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-textSecondary">MEDIO [12]:</span>
+            <span id="coordMiddle" class="text-amberLiquid">(0.51, 0.25, -0.04)</span>
+          </div>
         </div>
       </div>
 
@@ -1463,7 +1461,13 @@
         sosBanner.classList.add('hidden');
       }
 
-      document.getElementById('hudGestureId').textContent = gid;
+      let ringCenterCode = gid;
+      if (gid.startsWith('L_')) {
+        ringCenterCode = gid === 'L_NTILDE' ? 'Ñ' : gid.slice(2);
+      } else if (gid.startsWith('S_')) {
+        ringCenterCode = stab.sign_emoji || '💬';
+      }
+      document.getElementById('hudGestureId').textContent = ringCenterCode;
       document.getElementById('hudGestureId').style.color = activeColor;
       document.getElementById('hudRingPercent').textContent = `${Math.round(progress * 100)}%`;
 
