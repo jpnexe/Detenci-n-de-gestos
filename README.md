@@ -1,254 +1,261 @@
-# SignBridge Extended v2.0 — Documentación Técnica y Arquitectura Completa
+# SignBridge Extended v3.0 — Documentación Técnica y Arquitectura del Sistema
 
-**SignBridge Extended v2.0** es un sistema multiplataforma de **Visión Artificial, Reconocimiento Biomecánico de Gestos Manuales y Control de Periféricos del Sistema Operativo** ( Escritorio Windows + Aplicación Nativa Android APK), diseñado bajo una interfaz **Liquid Glassmorphic HUD** de baja latencia.
+**SignBridge Extended v3.0** es una plataforma integral de **Traducción Conversacional Bidireccional de Lengua de Señas (1 y 2 Manos), Visión Artificial Biomecánica y Control Periférico del Sistema Operativo** (Escritorio Windows + Aplicación Android APK Offline), desarrollada bajo una interfaz **Liquid Glassmorphic HUD** de ultra-baja latencia.
 
-El sistema transforma cualquier cámara (webcam de PC o cámara inalámbrica de un teléfono móvil Android) en un sensor espacial 3D capaz de rastrear los **21 puntos anatómicos (landmarks)** de la mano en tiempo real, clasificar intenciones gestuales mediante una arquitectura neuronal dual (**Inferencia Local Offline con TensorFlow/Keras MLP** e **Inferencia Multimodal Online con Google Gemini 3**), filtrar temblores involuntarios y ejecutar acciones físicas de mouse y sistema operativo a **120 Hz**.
-
----
-
-## 1. ¿Qué hace el Proyecto? (Propósito y Capacidades)
-
-1. **Control sin Contacto del Computador (Hands-Free HCI & Accesibilidad):**
-   - Permite dirigir el cursor del mouse en Windows moviendo el dedo índice en el aire, hacer **Clic Izquierdo**, **Clic Derecho**, **Scroll Arriba**, **Scroll Abajo** y emitir **Llamadas de Asistencia Prioritaria (SOS)** sin tocar un mouse físico.
-2. **Arquitectura de Inferencia Híbrida Dual (Offline vs. Online):**
-   - **Modo Offline (Baja Latencia ~12 ms):** Utiliza `MediaPipe Hand Landmarker` junto con una red neuronal **Perceptrón Multicapa (MLP)** entrenada en `TensorFlow/Keras` y acelerada en `NumPy` sobre vectores geométricos normalizados de 63 dimensiones, combinada con reglas biomecánicas deterministas.
-   - **Modo Online (Comprensión Contextual con Gemini 3):** Conecta de forma asíncrona no-bloqueante con el modelo multimodal **`gemini-3-flash-preview`** mediante el SDK oficial `google-genai`, enviando tanto el fotograma comprimido en JPEG como la telemetría 3D para interpretación semántica avanzada.
-3. **Ecosistema Móvil Android (APK Nativa con Modo Independiente Offline + Cámara Inalámbrica + Touchpad Háptico):**
-   - Incluye una vista móvil optimizada ([`static/mobile.html`](static/mobile.html)) y un compilador automatizado ([`Compilador.py`](Compilador.py)) que empaqueta el proyecto en un archivo instalable Android ([`apk_estractor/SignBridge_v2.apk`](apk_estractor/SignBridge_v2.apk)).
-   - **Modo Independiente Offline en el APK (`⚡ Modo Independiente`):** Empaqueta directamente dentro del APK los binarios WebAssembly de `MediaPipe Hand Landmarker` ([`static/mediapipe/`](static/mediapipe)), el archivo de modelo `hand_landmarker.task` y los pesos matriciales de la red neuronal entrenada ([`static/mlp_weights.json`](static/mlp_weights.json)). Esto permite que el APK ejecute la detección de 21 puntos 3D, la normalización de 63 floats, el clasificador MLP, el buffer circular $N=8$ y la síntesis de voz **100% dentro del procesador del teléfono sin conexión Wi-Fi ni necesidad de encender el PC**.
-   - **Modo Enlace al PC:** Permite activar el **Modo Cámara Móvil hacia el PC**, usar el **Touchpad Biomecánico Háptico**, disparar gestos remotos o usar el botón **`⚡ Independiente PC`** en el escritorio para que el computador opere de forma autónoma sin depender del celular.
-4. **Ventana Flotante Mini HUD (Picture-in-Picture):**
-   - Incluye una vista compacta ([`static/mini.html`](static/mini.html)) y soporte de `Document Picture-in-Picture API` para mantener una pequeña cámara flotante siempre visible mientras se navega o controla el mouse sobre otras aplicaciones de Windows.
+El sistema transforma cualquier cámara (webcam del PC o cámara inalámbrica de un celular Android) en un sensor biomecánico 3D capaz de detectar y rastrear simultáneamente **hasta 2 manos (42 landmarks tridimensionales)**, procesar señas bimanuales y unimanuales, acumular frases conversacionales fluidas, comunicarse bidireccionalmente con personas oyentes (mediante **Voz a Texto / STT** y **Texto a Voz / TTS**) y mantener intactas todas las capacidades de **control de periféricos del sistema operativo a 120 Hz**.
 
 ---
 
-## 2. Lenguajes de Programación y Tecnologías Utilizadas
+## 1. Propósito del Proyecto y Evolución a Traductor Conversacional
 
-| Capa / Subsistema | Lenguajes | Frameworks, Librerías y APIs | Propósito en el Proyecto |
-| :--- | :--- | :--- | :--- |
-| **Backend & Motor IA** | **Python 3.11+** | `FastAPI`, `Uvicorn`, `WebSockets`, `NumPy`, `OpenCV (cv2)`, `MediaPipe`, `TensorFlow / Keras`, `google-genai`, `PyAutoGUI`, `Pillow`, `qrcode`, `python-dotenv` | Servidor asíncrono ASGI, captura y decodificación de video, extracción de 21 landmarks 3D, inferencia neuronal local y en la nube, estabilización temporal y emulación de hardware. |
-| **Control Nativo de Sistema Operativo** | **Python + C ABI (Win32)** | `ctypes.windll.user32` (`SetCursorPos`), `PyAutoGUI`, `winsound` | Movimiento del puntero del mouse a **120 Hz** con **0 ms de latencia de bloqueo** mediante la API nativa de Windows (`user32.dll`) y ejecución de clics/scrolls en hilos daemon. |
-| **Frontend Desktop & Mini HUD** | **HTML5, CSS3, JavaScript (ES6+)** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D API`, `WebSockets API`, `WebRTC (getUserMedia)`, `Picture-in-Picture API` | Interfaz **Liquid Glassmorphic** de 3 capas de profundidad, renderizado de telemetría 3D a 60 FPS, anillo de progreso horario y gráficas de confianza. |
-| **Aplicación Móvil & Empaquetado APK** | **Java (Android SDK API 35), XML, JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `Vibrator API`, `aapt2`, `javac`, `d8`, `zipalign`, `apksigner`, `keytool` | Contenedor nativo Android (`com.signbridge.extended`) con permisos de cámara en tiempo de ejecución, servidor virtual HTTPS de assets, vibración háptica física y firma criptográfica v2/v3. |
-
----
-
-## 3. Estructura Completa del Proyecto
-
-```text
-Detencion de movimiento/
-├── main.py                         # Punto de entrada principal: Servidor FastAPI, endpoints REST y canales WebSocket (/ws/hud y /ws/mobile)
-├── Compilador.py                   # Compilador automático de APK Android: genera logo, iconos mipmap, compila Java/DEX y firma el APK
-├── test_pipeline.py                # Suite de pruebas automatizadas del pipeline (normalización, MLP, estabilizador y poses G0..G5)
-├── requirements.txt                # Dependencias de Python del proyecto
-├── .env.example                    # Plantilla de variables de entorno (GEMINI_API_KEY, GEMINI_MODEL)
-├── .gitignore                      # Reglas de exclusión de Git (protección de claves .env, keystores y cachés)
-├── capacitor.config.json           # Configuración base multiplataforma para el paquete com.signbridge.extended
-├── instrucciones.md                # Especificación funcional y reglas de negocio del sistema
-├── Desing.md                       # Sistema de diseño visual Liquid Glassmorphic (paleta, tipografía, layouts)
-├── DOCUMENTACION_PROYECTO.md       # Este documento técnico detallado
-│
-├── apk_estractor/                  # Carpeta de salida donde Compilador.py deposita el APK compilado
-│   └── SignBridge_v2.apk           # Aplicación Android compilada, alineada y firmada lista para instalar
-│
-├── backend/                        # Módulos del motor biomecánico e inteligencia artificial
-│   ├── __init__.py
-│   ├── normalizer.py               # Normalización matemática 3D (21 puntos -> 63 floats) y análisis de extensión de dedos
-│   ├── classifier_local.py         # Red Neuronal MLP en TensorFlow/Keras + verificador geométrico biomecánico (G0..G5)
-│   ├── classifier_gemini.py        # Cliente multimodal asíncrono para Google Gemini 3 (google-genai SDK)
-│   ├── stabilizer.py               # Filtro de estabilización temporal por ventana deslizante (Buffer circular N=8)
-│   ├── hardware_controller.py      # Controlador de mouse a 120 Hz con Filtro 1€ adaptativo y llamadas Win32 SetCursorPos
-│   └── pipeline.py                 # Orquestador central que integra cámara local, cámara móvil, simulador 3D, IA y HUD
-│
-├── models/                         # Modelos de IA preentrenados y pesos locales
-│   ├── hand_landmarker.task        # Modelo oficial de MediaPipe Hand Landmarker (detección de 21 articulaciones 3D)
-│   ├── gesture_mlp.keras           # Modelo neuronal secuencial entrenado en TensorFlow/Keras
-│   └── gesture_mlp_weights.npz     # Pesos matriciales (W1, b1, W2, b2, W3, b3) exportados para inferencia en < 1 ms
-│
-└── static/                         # Interfaces gráficas de usuario y recursos estáticos
-    ├── index.html                  # HUD Principal de Escritorio (Liquid Glassmorphic UI)
-    ├── mini.html                   # Ventana Flotante Compacta (Mini HUD para dirigir el mouse sobre otras apps)
-    ├── mobile.html                 # Interfaz Móvil APK (Modo Cámara al PC, Touchpad Háptico y Control de Motor IA)
-    ├── logo.png                    # Logo oficial de alta definición (512x512 RGBA) generado por Compilador.py
-    ├── favicon.ico                 # Favicon multi-resolución (16x16 a 64x64) para navegadores
-    └── manifest.json               # Manifiesto PWA / Web App instalable
-```
-
----
-
-## 4. Modelos de Inteligencia Artificial Utilizados
-
-### 4.1. MediaPipe Hand Landmarker (`models/hand_landmarker.task`)
-- **Función:** Extracción de esqueleto anatómico 3D de la mano a partir de imágenes RGB.
-- **Salida:** 21 puntos clave tridimensionales $(x_i, y_i, z_i)$ normalizados respecto al cuadro de imagen:
-  - `0`: Muñeca (`WRIST`)
-  - `1..4`: Pulgar (`CMC`, `MCP`, `IP`, `TIP`)
-  - `5..8`: Índice (`MCP`, `PIP`, `DIP`, `TIP`)
-  - `9..12`: Medio (`MCP`, `PIP`, `DIP`, `TIP`)
-  - `13..16`: Anular (`MCP`, `PIP`, `DIP`, `TIP`)
-  - `17..20`: Meñique (`MCP`, `PIP`, `DIP`, `TIP`)
-
-### 4.2. Red Neuronal Perceptrón Multicapa — `TensorFlow / Keras MLP` (`models/gesture_mlp.keras`)
-- **Función:** Clasificación local ultrarrápida (Modo `OFFLINE`) de la postura 3D en una de las 6 clases (`G0` a `G5`).
-- **Arquitectura de la Red ([`backend/classifier_local.py`](backend/classifier_local.py)):**
-  - **Capa de Entrada:** Vector denso de `63` números en coma flotante (`float32`), correspondiente a las coordenadas $(x', y', z')$ normalizadas de los 21 puntos.
-  - **Capa Oculta 1:** `Dense(128, activation='relu')` — proyecta las relaciones angulares entre falanges.
-  - **Capa Oculta 2:** `Dense(64, activation='relu')` — comprime las combinaciones de extensión/flexión de los 5 dedos.
-  - **Capa de Salida:** `Dense(6, activation='softmax')` — entrega la distribución de probabilidad $P(G_k \mid \mathbf{v})$ para $k \in \{0,1,2,3,4,5\}$.
-- **Aceleración NumPy (`models/gesture_mlp_weights.npz`):**
-  - Una vez entrenado el modelo en Keras con aumento de datos sintéticos (rotaciones 2D en $[-18^\circ, +18^\circ]$ y ruido gaussiano anatómico $\sigma = 0.012$), los tensores de pesos $(\mathbf{W}_1, \mathbf{b}_1, \mathbf{W}_2, \mathbf{b}_2, \mathbf{W}_3, \mathbf{b}_3)$ se cachean en disco para ejecutar el *forward pass* matricial directamente en `NumPy` en **menos de 0.4 ms** por fotograma.
-
-### 4.3. Google Gemini 3 Flash Preview (`gemini-3-flash-preview`)
-- **Función:** Inferencia multimodal contextual en la nube (Modo `ONLINE`) implementada en [`backend/classifier_gemini.py`](backend/classifier_gemini.py).
-- **Integración:** Utiliza el SDK oficial `google-genai` con salida estructurada (`response_mime_type="application/json"`) y `temperature=0.1`.
-- **Ejecución Asíncrona No-Bloqueante:** Para jamás congelar el renderizado de video a 30 FPS mientras se espera la respuesta HTTP de la nube, las consultas a Gemini se despachan en un hilo secundario (`threading.Thread(target=self._async_infer, daemon=True)`) con control de concurrencia (`self._in_flight`), fusionando su diagnóstico semántico en vivo con el flujo local.
-
----
-
-## 5. Métodos Matemáticos y Algoritmos del Pipeline
+A partir de las directrices académicas y de usabilidad docente, el sistema evolucionó de un controlador gestual aislado a un **Traductor Conversacional Bidireccional Completo** que permite mantener un diálogo interactivo entre una persona sorda y una persona oyente, sin sacrificar el control de hardware previo:
 
 ```mermaid
 flowchart LR
-    A["Fuente de Video\n(Webcam PC / Cámara Móvil APK / Simulador 3D)"] --> B["MediaPipe Hand Landmarker\n(21 Landmarks 3D)"]
-    B --> C["Normalizador Matemático\n(Invarianza Traslacional + Escala Euclidiana -> 63 floats)"]
-    C --> D{"Switch de Inferencia"}
-    D -->|OFFLINE| E["Keras MLP (63->128->64->6)\n+ Verificador Biomecánico"]
-    D -->|ONLINE| F["Google Gemini 3 Multimodal\n(JPEG + Telemetría 3D)"]
-    E --> G["Estabilizador Temporal\n(Buffer Circular N=8, Confianza >= 0.85)"]
-    F --> G
-    C --> H["Controlador de Puntero 120 Hz\n(Filtro 1€ Adaptativo + Win32 SetCursorPos)"]
-    G --> I["Ejecutor de Periféricos OS\n(Clic Izq/Der, Scroll +/-, Alerta SOS)"]
+    subgraph Sorda["Persona Sorda"]
+        A["Señas Canónicas\n(1 o 2 Manos)"]
+    end
+    subgraph Sistema["SignBridge v3.0"]
+        B["MediaPipe Landmarker\n(Hasta 2 Manos / 42 Puntos)"]
+        C["Motor Conversacional\n(Buffer de Tokens + Frases)"]
+        D["Voz TTS\n(Sintetizador en Español)"]
+        E["Micrófono STT\n(Transcripción del Oyente)"]
+    end
+    subgraph Oyente["Persona Oyente"]
+        F["Escucha Audio TTS\n(Parlantes PC / Celular)"]
+        G["Responde por Voz\n(Micrófono en Vivo)"]
+    end
+
+    A --> B --> C --> D --> F
+    G --> E --> C -->|Subtítulos Grandes / Chat| Sorda
 ```
 
-### 5.1. Método de Normalización Espacial Invariante ([`backend/normalizer.py`](backend/normalizer.py))
-Para que el reconocimiento funcione sin importar si la mano está a 20 cm o a 1 metro de la cámara, ni en qué esquina del encuadre se ubique, [`normalize_landmarks`](backend/normalizer.py) aplica tres transformaciones matemáticas a los puntos $\mathbf{P}_i = (x_i, y_i, z_i) \in \mathbb{R}^3$ para $i \in \{0, \dots, 20\}$:
+### 1.1. Las Dos Vías de la Conversación
+1. **Vía 1: Persona Sorda $\rightarrow$ Persona Oyente:**
+   - La persona sorda realiza señas con **1 o 2 manos** frente a la cámara.
+   - El sistema clasifica la postura con estabilidad temporal ($N=8$ o retención de $0.65\text{ s}$) y añade la palabra al **Buffer Constructor de Frases**.
+   - Al pulsar *"Pronunciar"* o *"Enviar al Chat"*, el motor vocal sintético (**Web Speech API TTS**) pronuncia la frase en voz alta en español y la añade a la línea de tiempo del chat.
+2. **Vía 2: Persona Oyente $\rightarrow$ Persona Sorda:**
+   - El oyente presiona el botón **`🎤 Oyente Habla`** y responde naturalmente por voz.
+   - El transcriptor en vivo (**Web Speech API STT**) procesa el audio y proyecta el mensaje en texto grande y de alto contraste dentro de una burbuja de chat verde esmeralda para que la persona sorda pueda leerla al instante.
 
-1. **Invarianza a la Traslación (Resta de la Muñeca $\mathbf{P}_0$):**
-   $$\mathbf{P}'_i = \mathbf{P}_i - \mathbf{P}_0, \quad \forall i \in \{0, \dots, 20\}$$
-   Con esto, la muñeca queda anclada siempre en el origen $(0, 0, 0)$.
-
-2. **Invarianza a la Escala (Distancia Euclidiana Máxima $d_{\max}$):**
-   $$d_{\max} = \max_{0 \le i \le 20} \|\mathbf{P}'_i\|_2 = \max_{0 \le i \le 20} \sqrt{(x'_i)^2 + (y'_i)^2 + (z'_i)^2}$$
-   $$\hat{\mathbf{P}}_i = \frac{\mathbf{P}'_i}{\max(d_{\max}, 10^{-6})}$$
-
-3. **Vectorización 63-D:**
-   $$\mathbf{v} = \text{flatten}(\hat{\mathbf{P}}_0, \hat{\mathbf{P}}_1, \dots, \hat{\mathbf{P}}_{20}) \in [-1.0, 1.0]^{63}$$
-
-### 5.2. Evaluación Geométrica de Extensión de Dedos ([`analyze_finger_extension`](backend/normalizer.py))
-Cada dedo se evalúa comparando la distancia radial desde la muñeca hasta la punta (`TIP`) frente a sus articulaciones intermedias (`PIP` y `MCP`):
-- Un dedo largo (`Índice`, `Medio`, `Anular`, `Meñique`) se declara **extendido** si:
-  $$\|\hat{\mathbf{P}}_{\text{TIP}}\|_2 > 1.12 \|\hat{\mathbf{P}}_{\text{PIP}}\|_2 \quad \wedge \quad \|\hat{\mathbf{P}}_{\text{TIP}}\|_2 > 1.25 \|\hat{\mathbf{P}}_{\text{MCP}}\|_2 \quad \wedge \quad \hat{y}_{\text{TIP}} < \hat{y}_{\text{PIP}} - 0.04$$
-- El **Pulgar** se declara extendido lateralmente (formando la **"L / Pistola"**) cuando su punta (`4`) se separa tanto de la base del meñique (`17`) como del nudillo base del índice (`5`):
-  $$\|\hat{\mathbf{P}}_4 - \hat{\mathbf{P}}_{17}\|_2 > 1.10 \|\hat{\mathbf{P}}_3 - \hat{\mathbf{P}}_{17}\|_2 \quad \wedge \quad \|\hat{\mathbf{P}}_4 - \hat{\mathbf{P}}_5\|_2 > 0.22$$
-
-### 5.3. Matriz Dual de Gestos Biomecánicos (`G0` a `G5`): Modo Control OS vs. Modo Lenguaje de Señas
-
-El sistema cuenta con dos modos de operación conmutables en vivo (**`🖱️ Modo Control OS`** y **`🖐️ Modo Lenguaje de Señas / Mensajes`**):
-
-| ID | Gesto Físico | Condición Anatómica (21 Landmarks) | Comando en Modo Control OS | Comando y Mensaje Asociado en Modo Lenguaje de Señas (`SIGN_LANGUAGE`) |
-| :---: | :--- | :--- | :--- | :--- |
-| **`G0`** | **Mano Abierta / Neutral** | 4 o 5 dedos extendidos (o confianza $< 0.85$). | `NONE` (Rechazo Activo / Mover Puntero) | **`DESCONOCIDO`** — *"Postura neutra o en transición — Esperando gesto intencional"* |
-| **`G1`** | **Paz / Victoria (V)** | Dedos **Índice (`8`)** y **Medio (`12`)** extendidos; anular, meñique y pulgar plegados. | `RIGHT_CLICK` (Clic Derecho) | **`CONTINUAR`** — *"Adelante, podemos continuar con la actividad."* |
-| **`G2`** | **Índice Vertical** | Solo dedo **Índice (`8`)** extendido arriba con el **Pulgar (`4`) guardado**. | `SCROLL_UP` (`scroll(+350)`) | **`SÍ / AFIRMATIVO`** — *"Sí, estoy de acuerdo / Confirmado."* |
-| **`G3`** | **Puño Cerrado** | Los **5 dedos plegados** hacia la palma (`0` dedos extendidos). | `SCROLL_DOWN` (`scroll(-350)`) | **`DETENER / ALTO`** — *"Por favor detente / Pausa inmediata."* |
-| **`G4`** | **Asistencia (SOS)** | **3 dedos centrales (`8, 12, 16`)** extendidos o señal **Shaka** (Pulgar `4` + Meñique `20`). | `ASSISTANCE_CALL` (Alerta Sonora) | **`AYUDA / ASISTENCIA`** — *"Necesito ayuda o asistencia prioritaria en este momento."* |
-| **`G5`** | **Pistola / L** | Dedo **Índice (`8`)** apuntando arriba + **Pulgar (`4`)** extendido hacia afuera formando una **"L"** (medio, anular y meñique cerrados). | `LEFT_CLICK` (Clic Izquierdo) | **`NO / CANCELAR`** — *"No, cancelar o corregir la acción actual."* |
-
-### 5.4. Estabilización Temporal y Rechazo Activo ([`backend/stabilizer.py`](backend/stabilizer.py))
-Para evitar falsos positivos cuando la mano cambia de una postura a otra:
-1. **Umbral de Rechazo Activo (`min_confidence = 0.85`):** Toda predicción cuya confianza fusionada sea $< 0.85$ se convierte automáticamente en `G0` (`NONE`).
-2. **Buffer Circular Deslizante ($N = 8$ fotogramas):** Se almacena una cola FIFO (`collections.deque(maxlen=8)`) con los últimos 8 fotogramas.
-3. **Progreso del Anillo Horario (`ring_progress`):**
-   $$\text{progreso} = \frac{\text{conteo}(G_{\text{actual}} \text{ en buffer})}{N}$$
-   Solo cuando los $N=8$ fotogramas consecutivos coinciden en el mismo gesto ($100\%$ del anillo completado) y ha transcurrido el tiempo de enfriamiento (`cooldown = 1.15 s`), se dispara la acción de hardware y el HUD emite un pulso verde esmeralda.
-
-### 5.5. Suavizado Adaptativo de Mouse (Filtro 1€ + Interpolador a 120 Hz en [`backend/hardware_controller.py`](backend/hardware_controller.py))
-El direccionamiento del cursor con la punta del dedo índice (`Landmark [8]`) implementa cuatro mecanismos para lograr precisión quirúrgica sin rezago:
-1. **Mapeo de Zona Activa Ergonómica:**
-   - El rectángulo central de la cámara $x \in [0.24, 0.76]$, $y \in [0.18, 0.64]$ con ganancia `1.26` se proyecta sobre el $100\%$ de la resolución del monitor ($1920 \times 1080$), permitiendo llegar al botón Inicio de Windows en la esquina inferior izquierda sin tener que bajar el brazo fuera de la mesa.
-2. **Filtro 1€ Adaptativo por Velocidad (`OneEuroFilter1D`):**
-   - Calcula la velocidad instantánea de la mano $\dot{x}$ y adapta la frecuencia de corte del filtro pasa-bajos:
-     $$f_c = f_{c,\min} + \beta \cdot |\dot{\hat{x}}| \quad (f_{c,\min} = 1.60\text{ Hz},\ \beta = 2.80)$$
-   - Si la mano se mueve lento (apuntando a un botón), $f_c$ baja y elimina el temblor del sensor; si la mano cruza la pantalla rápido, $f_c$ sube automáticamente eliminando cualquier sensación de cursor "pegado".
-3. **Anclaje de Puntería (`stabilize_aim`):**
-   - Cuando el usuario extiende el pulgar para formar la **"L" (`G5` - Clic Izquierdo)**, el controlador amortigua el desplazamiento del cursor (`anchor_blend = 0.16`) para que el puntero no se mueva del botón mientras se completa el clic.
-4. **Hilo Interpolador a 120 Hz + `user32.SetCursorPos`:**
-   - Un hilo secundario interpola sub-frames cada `8 ms` (`120 FPS`) e invoca directamente `ctypes.windll.user32.SetCursorPos(px, py)` en el kernel de Windows sin bloqueo de E/S.
+### 1.2. Coexistencia con el Control de Mouse del Sistema Operativo (`OS_CONTROL`)
+El sistema mantiene dos modos de interacción totalmente desacoplados:
+- **`MODO TRADUCTOR DE SEÑAS` (`SIGN_LANGUAGE`):** Activa la detección bimanual (`num_hands=2`), el buffer acumulador de frases, el historial de chat interactivo y el sintetizador de voz.
+- **`MODO CONTROL OS` (`OS_CONTROL`):** Opera con la mano dominante sobre la API nativa de Windows (`ctypes.windll.user32.SetCursorPos`) con el **Filtro 1€ Adaptativo** a **120 Hz**, permitiendo dirigir el cursor y ejecutar clics/scrolls con latencia inferior a **10 ms**.
 
 ---
 
-## 6. Modo Lenguaje de Señas / Comunicación Expresiva y Cumplimiento de Requisitos
+## 2. Lenguajes de Programación y Tecnologías
 
-El aplicativo incorpora el **Modo Lenguaje de Señas (`SIGN_LANGUAGE`)** accesible desde el botón **`🖐️ MODO SEÑAS`** en la barra superior de [`static/index.html`](static/index.html) y en la pestaña **`⚙️ Motor & IA`** de [`static/mobile.html`](static/mobile.html), cumpliendo al 100% las funcionalidades mínimas obligatorias y la ruta de desarrollo recomendada:
+| Capa / Subsistema | Lenguajes | Tecnologías, Librerías y APIs | Propósito en el Proyecto |
+| :--- | :--- | :--- | :--- |
+| **Backend & Motor IA** | **Python 3.11+** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe (Hand Landmarker)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai` | Servidor ASGI asíncrono, captura de video, detección de 1 o 2 manos (42 puntos 3D), motor conversacional, API REST y WebSocket. |
+| **Control de Periféricos OS** | **Python + C ABI (Win32)** | `ctypes.windll.user32`, `PyAutoGUI`, `winsound` | Movimiento de mouse a 120 Hz, anclaje de puntería ortogonal y ejecución de clics/scrolls en hilos daemon. |
+| **Frontend Desktop & HUD** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API` | Interfaz vidriada Liquid Glassmorphic, HUD bimanual con código de color dual, timeline de chat y modal con catálogo de 18 señas. |
+| **Aplicación Móvil APK** | **Java (Android SDK API 35), JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `MediaPipe Vision WASM`, `aapt2`, `d8`, `apksigner` | Contenedor nativo Android (`SignBridge_v3.apk`) con modo independiente offline, cámara WebRTC con selector frontal/trasera libre de errores, touchpad háptico y STT/TTS local. |
 
-### 6.1. Matriz de Cumplimiento de Funcionalidades Mínimas Obligatorias
+---
+
+## 3. Estructura del Código Fuente
+
+```text
+Detencion de movimiento/
+├── main.py                         # Servidor FastAPI, endpoints REST de conversación y WebSockets (/ws/hud y /ws/mobile)
+├── Compilador.py                   # Compilador nativo de APK Android (genera SignBridge_v3.apk y v2.apk firmados)
+├── test_pipeline.py                # Suite de pruebas automatizadas del pipeline, estabilizador y motor de señas
+├── requirements.txt                # Dependencias Python del proyecto
+├── .env.example                    # Plantilla de variables de entorno (GEMINI_API_KEY, GEMINI_MODEL)
+├── capacitor.config.json           # Configuración base del paquete Android com.signbridge.extended
+├── DOCUMENTACION_PROYECTO.md       # Esta documentación técnica y académica exhaustiva
+├── README.md                       # Resumen rápido del repositorio
+│
+├── apk_estractor/                  # Directorio de salida del APK compilado
+│   ├── SignBridge_v3.apk           # APK oficial con soporte bimanual y traductor conversacional
+│   └── SignBridge_v2.apk           # Copia de compatibilidad
+│
+├── backend/                        # Módulos del núcleo biomecánico y conversacional
+│   ├── conversation_engine.py      # Motor de traducción conversacional: 18 señas, buffer de tokens, chat y TTS
+│   ├── normalizer.py               # Normalización 3D invariante (1 y 2 manos) y métricas inter-manuales
+│   ├── classifier_local.py         # Clasificador neuronal MLP local (TensorFlow/Keras y aceleración NumPy)
+│   ├── classifier_gemini.py        # Cliente multimodal asíncrono para Google Gemini 3
+│   ├── stabilizer.py               # Buffer circular de estabilidad temporal N=8 y umbrales de rechazo
+│   ├── hardware_controller.py      # Controlador de mouse a 120 Hz con Filtro 1€ y llamadas Win32 SetCursorPos
+│   └── pipeline.py                 # Orquestador del flujo: cámara, detección de 2 manos, HUD y conversación
+│
+├── models/                         # Pesos y modelos preentrenados
+│   ├── hand_landmarker.task        # Modelo MediaPipe Hand Landmarker (21 landmarks 3D por mano)
+│   ├── gesture_mlp.keras           # Red neuronal MLP entrenada en Keras
+│   └── gesture_mlp_weights.npz     # Pesos matriciales NumPy optimizados (< 0.4 ms de inferencia)
+│
+└── static/                         # Frontend Web y móvil empaquetado en el APK
+    ├── index.html                  # HUD de escritorio con constructor de frases, timeline de chat y catálogo
+    ├── mobile.html                 # Interfaz móvil APK: 2 manos GPU, cámara libre de errores y traductor offline
+    ├── mini.html                   # Ventana flotante compacta Picture-in-Picture
+    ├── logo.png                    # Logo oficial Liquid Glassmorphic en alta resolución
+    ├── favicon.ico                 # Favicon multi-resolución
+    ├── mlp_weights.json            # Pesos del MLP exportados en JSON para ejecución offline en JS/WASM
+    └── mediapipe/                  # Binarios WASM locales de MediaPipe Vision para ejecución 100% offline
+```
+
+---
+
+## 4. Arquitectura de Detección Bimanual (2 Manos Simultáneas)
+
+### 4.1. Configuración de MediaPipe Hand Landmarker
+En [`backend/pipeline.py`](backend/pipeline.py) y [`static/mobile.html`](static/mobile.html), el detector opera configurado con:
+- `num_hands = 2`: Permite extraer simultáneamente los 21 puntos clave de la Mano Dominante (Mano 1) y de la Mano No Dominante (Mano 2).
+- `min_hand_detection_confidence = 0.52`: Umbral riguroso que previene falsas detecciones en pliegues de ropa o sombras del cuello.
+- `min_tracking_confidence = 0.48`: Seguimiento continuo temporal de articulaciones.
+
+### 4.2. Normalización y Vector de Relación Inter-Manual ([`backend/normalizer.py`](backend/normalizer.py))
+La función `normalize_multi_hand_landmarks()` procesa la geometría espacial de ambas manos:
+1. **Normalización Unimanual Independiente:** Cada mano se traslada restando su propia muñeca $\mathbf{P}_0$ y se escala por su máxima distancia euclidiana, generando dos vectores de 63 dimensiones $\mathbf{v}_1, \mathbf{v}_2 \in [-1.0, 1.0]^{63}$.
+2. **Métricas de Interacción Espacial Bimanual:**
+   - **Distancia entre Muñecas ($d_{\text{wrists}}$):**
+     $$d_{\text{wrists}} = \|\mathbf{W}_1 - \mathbf{W}_2\|_2$$
+   - **Distancia entre Centros de Palma ($d_{\text{palms}}$):**
+     $$d_{\text{palms}} = \|\mathbf{P}_{9,\text{mano1}} - \mathbf{P}_{9,\text{mano2}}\|_2$$
+   - **Contacto Físico Directo (`hands_touching`):** Verdadero si la distancia euclidiana entre cualquier articulación de la mano 1 y la mano 2 es menor a $0.09$ unidades normalizadas.
+   - **Patrones Canónicos Bimanuales:**
+     - `palms_together`: Ambas palmas enfrentadas en proximidad cercana ($d_{\text{palms}} < 0.12$).
+     - `fist_on_palm_help`: Una mano en puño cerrado descansando sobre la palma plana de la otra mano.
+     - `both_open_forward`: Ambas palmas abiertas mirando hacia el frente empujando el aire.
+     - `both_question`: Ambas palmas abiertas mirando hacia arriba en señal de interrogación.
+
+### 4.3. Renderizado Dual en el HUD
+En [`backend/pipeline.py`](backend/pipeline.py) (`draw_hud_skeleton`) y [`static/mobile.html`](static/mobile.html):
+- **Mano Principal (Dominante):** Conexiones articulares en **Cian Eléctrico (`#06B6D4`)**, yemas en **Verde Esmeralda (`#10B981`)** y perlas articulares blancas.
+- **Mano Secundaria:** Conexiones articulares en **Violeta (`#A855F7`)**, yemas en **Púrpura Neón (`#C084FC`)** y perlas lilas.
+- **Línea de Enlace Inter-Manual:** Si ambas manos están presentes, se traza una línea punteada entre ambas muñecas con una etiqueta indicadora de distancia y la placa `👐 2 MANOS · SEÑAS BIMANUALES`.
+
+---
+
+## 5. Catálogo de 18 Señas Conversacionales Canónicas
+
+El motor conversacional ([`backend/conversation_engine.py`](backend/conversation_engine.py)) implementa un vocabulario estructurado para mantener diálogos funcionales completos:
+
+| Categoría | ID Seña | Nombre / Emoji | Articulación | Descripción Anatómica | Frase Traducida al Español |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **Saludos** | `S_HOLA` | 👋 Hola | 1 Mano | Palma extendida abierta oscilando al lado de la cabeza. | *"Hola, ¿cómo estás?"* |
+| **Saludos** | `S_BUENOS_DIAS` | 🌅 Buenos días | 2 Manos | Mano dominante partiendo del pecho abriéndose hacia adelante. | *"Buenos días."* |
+| **Saludos** | `S_BUENAS_TARDES`| 🌇 Buenas tardes | 2 Manos | Mano dominante descendiendo sobre el antebrazo opuesto. | *"Buenas tardes."* |
+| **Saludos** | `S_ADIOS` | 🙋 Adiós | 1 Mano | Palma abierta oscilando lateralmente en despedida. | *"Hasta luego, adiós."* |
+| **Cortesía** | `S_GRACIAS` | 🙏 Gracias | 1 o 2 Manos | Yemas de los dedos tocando mentón/boca y extendiéndose al frente. | *"Muchas gracias."* |
+| **Cortesía** | `S_POR_FAVOR` | 🤲 Por favor | 2 Manos | Ambas palmas unidas en el centro del pecho (contacto bimanual). | *"Por favor."* |
+| **Cortesía** | `S_DE_NADA` | 🤝 De nada | 1 Mano | Palma abierta extendiéndose con calidez hacia el interlocutor. | *"Con mucho gusto / De nada."* |
+| **Respuestas** | `S_BIEN` | 👍 Bien / OK | 1 Mano | Dedo pulgar extendido hacia arriba firmemente (puño cerrado). | *"Muy bien / De acuerdo."* |
+| **Respuestas** | `S_MAL` | 👎 Mal | 1 Mano | Dedo pulgar apuntando rígidamente hacia abajo. | *"No me siento bien / Está mal."* |
+| **Respuestas** | `S_SI` | ☝️ Sí | 1 Mano | Dedo índice vertical asintiendo (o puño asintiendo). | *"Sí, afirmativo / De acuerdo."* |
+| **Respuestas** | `S_NO` | 👆 No | 1 Mano | Índice y pulgar abiertos en "L" negando lateralmente. | *"No, negativo / Cancelar."* |
+| **Preguntas** | `S_COMO_ESTAS` | 🤷 ¿Cómo estás? | 2 Manos | Ambas palmas abiertas mirando hacia arriba en apertura frontal. | *"¿Cómo estás hoy?"* |
+| **Preguntas** | `S_QUE` | ❓ ¿Qué? | 2 Manos | Ambas palmas abiertas hacia arriba oscilando suavemente. | *"¿Qué sucede? / ¿Qué dijiste?"* |
+| **Preguntas** | `S_DONDE` | 📍 ¿Dónde? | 2 Manos | Índices de ambas manos apuntando hacia los costados en búsqueda. | *"¿Dónde queda?"* |
+| **Preguntas** | `S_REPETIR` | 🔄 Repetir | 1 Mano | Mano abierta descendiendo suavemente en señal de calma y repetición. | *"¿Puedes repetir más despacio por favor?"* |
+| **Emergencia** | `S_AYUDA` | 🆘 Ayuda SOS | 2 Manos | **Canónica Bimanual:** Puño con pulgar arriba descansando sobre la palma plana opuesta. | *"Necesito ayuda urgente, por favor."* |
+| **Emergencia** | `S_MEDICO` | 🏥 Médico / Dolor | 2 Manos | Dedo índice tocando el dorso de la muñeca opuesta (pulso cardíaco). | *"Necesito un médico / Siento dolor."* |
+| **Control** | `S_PAUSA` | ✋ Pausa / Espera | 2 Manos | Ambas palmas abiertas hacia el frente empujando el aire suavemente. | *"Espera un momento, por favor."* |
+
+---
+
+## 6. Motor de Frases, Canal Bidireccional y Accesibilidad
+
+### 6.1. Buffer Acumulador y Sintetizador de Frases
+1. **Detección con Estabilidad Temporal:** Cuando una seña se sostiene durante el tiempo de estabilización ($N=8$ fotogramas en el PC o $0.65\text{ s}$ en el móvil), el token se inserta en el buffer `active_tokens`.
+2. **Construcción Gramatical:** El motor concatena las glosas y construye la oración fluida en español.
+3. **Controles Táctiles y Teclado:**
+   - **`🔊 Pronunciar Frase`:** Envía la oración al sintetizador vocal.
+   - **`💬 Enviar al Chat`:** Publica la frase en el historial conversacional y limpia el buffer.
+   - **`⌫ Borrar Palabra`:** Elimina el último token ingresado.
+   - **`🗑️ Limpiar Frase`:** Vacía la oración en curso.
+
+### 6.2. Canal de Oyente: Reconocimiento de Voz (Speech-to-Text - STT)
+- Implementado con la API estándar **Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`)**.
+- Al presionar **`🎤 Oyente Habla`**, el sistema captura la voz del interlocutor oyente en tiempo real (`interimResults = true`, idioma `es-ES` / `es-CO`).
+- La transcripción final genera una burbuja verde esmeralda etiquetada como *"Oyente (Voz)"*, garantizando accesibilidad total para personas sordas mediante subtítulos grandes de alto contraste.
+
+### 6.3. Canal de Sorda: Síntesis Vocal (Text-to-Speech - TTS)
+- Utiliza la API nativa **`window.speechSynthesis`** con voz en español (`es-ES`).
+- Cada frase completada o confirmada se pronuncia en voz alta a través de los altavoces del computador o del teléfono celular, permitiendo que el oyente escuche sin tener que mirar la pantalla.
+
+---
+
+## 7. Optimizaciones en la Aplicación Móvil Android (`SignBridge_v3.apk`)
+
+Durante esta versión se resolvieron los tres desafíos críticos reportados en el entorno móvil:
+
+### 7.1. Solución Definitiva al Bug de Alternancia de Cámara Frontal / Trasera
+- **Causa Raíz Identificada:** En Android WebView, invocar `getUserMedia` mientras el sensor previo seguía transmitiendo causaba que el hardware HAL de Camera2 se bloqueara arrojando `NotReadableError` o `OverconstrainedError`. Además, el filtrado de dispositivos por cadenas como `'0'` o `'1'` provocaba que cámaras frontales con identificadores secundarios fueran clasificadas incorrectamente como traseras.
+- **Solución Implementada en [`static/mobile.html`](static/mobile.html):**
+  1. **Liberación Limpia de Hardware:** Antes de abrir la nueva lente, se pausa el video (`localVideo.pause()`), se detienen todos los tracks del stream (`track.stop()`), se anula la referencia `srcObject = null` y se introduce una pausa obligatoria de **300 ms** para que Camera2 HAL libere el bus del sensor.
+  2. **Clasificación Estricta por Palabras Clave:** Búsqueda precisa de términos completos (`back`, `rear`, `environment`, `trasera`, `posterior` vs. `front`, `user`, `selfie`, `frontal`) sin usar subcadenas numéricas ambiguas.
+  3. **Jerarquía de Fallback WebRTC:** Intento 1 con `{ facingMode: { ideal: facingMode } }`, Intento 2 con `deviceId` exacto validado, Intento 3 con `facingMode` directo y Fallback 4 genérico.
+  4. **Espejo Automático:** Al seleccionar cámara frontal, se activa automáticamente el espejo horizontal (`mirrorX = true`); al pasar a la trasera, se desactiva (`mirrorX = false`).
+
+### 7.2. Máxima Precisión Articular y Eliminación del Desfase de Esqueleto
+- **Causa Raíz Identificada:** La imagen se escalaba a solo 360 px y se aplicaba un filtro exponencial simple con coeficiente estático $\alpha = 0.68$. A 9 FPS, esto creaba un rezago de 400 ms que hacía que el esqueleto pareciera flotar en el pecho o cuello cuando la mano se movía rápidamente.
+- **Solución Implementada:**
+  1. **Resolución de Detección a 480 px:** Aumenta la definición de los bordes interdigitales un 33%, facilitando que MediaPipe identifique posturas complejas a contraluz.
+  2. **Filtro Adaptativo por Velocidad (Estilo 1-Euro Filter):**
+     - Si la mano se mueve rápido ($\text{desplazamiento} > 0.05$), el factor de mezcla sube dinámicamente a $\alpha = 0.95$ para lograr **cero rezago y seguimiento instantáneo 1:1**.
+     - Si la mano permanece estática ($\text{desplazamiento} \le 0.05$), $\alpha = 0.50$ para estabilizar completamente el temblor (*anti-jitter*).
+  3. **Umbrales Rigurosos Antirruido:** `minHandDetectionConfidence` calibrado en $0.52$ para ignorar pliegues de ropa o sombras del cuello.
+
+### 7.3. Soporte Bimanual y Traductor Offline Autónomo en el Teléfono
+- MediaPipe Vision WASM configurado con `numHands: 2` corriendo acelerado por WebGL GPU dentro del APK.
+- Pestaña dedicada **`💬 Traductor`** en la barra inferior nativa con:
+  - Tokens activos en tiempo real.
+  - Frase traducida en texto grande.
+  - Botón de audio TTS local.
+  - Micrófono para el oyente con Web Speech API.
+  - Historial de chat bidireccional accesible.
+  - Selector táctil de las 18 señas para comunicación rápida sin cámara.
+
+---
+
+## 8. Cumplimiento con la Rúbrica Académica y Diferenciación Lingüística
+
+Para la presentación ante el docente universitario, el sistema documenta rigurosamente el cumplimiento de las directrices académicas:
+
 1. **Reconocer cinco gestos definidos por el equipo y una categoría "desconocido":**
-   - Reconoce `G1` (*Continuar*), `G2` (*Sí*), `G3` (*Detener*), `G4` (*Ayuda*) y `G5` (*No*), más la categoría de rechazo activo `G0` (*Desconocido*).
+   - Gestos HCI discretos: `G1` (*Continuar*), `G2` (*Sí*), `G3` (*Detener*), `G4` (*Ayuda*) y `G5` (*No*), más rechazo activo `G0` (*Desconocido*).
 2. **Mostrar gesto, nivel de confianza y mensaje asociado:**
-   - El banner superior del Modo Señas y el anillo del HUD muestran en tiempo real el código y nombre del gesto, el porcentaje exacto de confianza (`95.0% - 98.5%`) y el mensaje comunicativo asociado, incluyendo **síntesis de voz en español (`Web Speech API TTS`)** para pronunciar el mensaje al completarse el anillo de estabilidad.
+   - Visualización en tiempo real en HUD, porcentaje de certeza fusionada ($95.0\% - 98.5\%$) y síntesis vocal de salida.
 3. **Evitar activaciones accidentales mediante estabilidad temporal y umbral de confianza:**
-   - Implementado en [`backend/stabilizer.py`](backend/stabilizer.py) mediante el **Buffer Circular de $N=8$ fotogramas consecutivos**, **Umbral de Rechazo Activo $\ge 0.85$** y enfriamiento post-disparo (`cooldown = 1.15 s`).
+   - Buffer circular deslizante de $N=8$ fotogramas, umbral de rechazo activo $\ge 0.85$ y tiempo de enfriamiento post-disparo de $1.15\text{ s}$.
 4. **Permitir consultar catálogo visual de gestos y reiniciar la detección:**
-   - Incluye el botón **`📖 Catálogo Visual`** (que despliega las tarjetas visuales de los 6 gestos con su anatomía y mensajes) y el botón **`🔄 Reiniciar`** (`POST /api/reset` y comando WebSocket `RESET_DETECTION`), que limpia instantáneamente el buffer circular y el historial de detección.
-5. **Documentar diferencias entre gestos inventados para interfaz y lenguas de señas naturales:**
-   - Documentado tanto dentro del modal interactivo de la aplicación (`modalSignCatalog`) como en la sección 6.2 de este documento.
-
-### 6.2. Diferencias entre Gestos Inventados para Interfaz (HCI) y Lenguas de Señas Naturales (LSC / ASL / LSE)
-
-Es fundamental distinguir desde el diseño de ingeniería y accesibilidad que un **sistema de comandos gestuales de interfaz (HCI)** no equivale a un traductor de una lengua de señas natural:
-
-| Criterio | Gestos Discretos para Interfaz (HCI - Este Proyecto) | Lenguas de Señas Naturales (LSC, ASL, LSE, etc.) |
-| :--- | :--- | :--- |
-| **Naturaleza Lingüística** | Código cerrado de comandos discretos (`1 postura = 1 acción o mensaje predefinido`). | Idiomas naturales completos con gramática, fonología (querología), morfología y sintaxis espacial propia. |
-| **Articulación Corporal** | **Unimanual y estática** (evalúa las 21 articulaciones de una sola mano en el plano de la cámara). | **Bimanual, dinámica y multimodal**: involucra ambas manos, expresiones faciales (cejas, boca), movimiento del torso, cabeza y mirada (rasgos no manuales esenciales para la gramática). |
-| **Secuencialidad y Espacio** | Cada gesto es independiente e invariante a la posición gracias a la resta de la muñeca $\mathbf{P}_i - \mathbf{P}_0$. | La ubicación exacta en el espacio frente al cuerpo del señante, la dirección del movimiento y la velocidad alteran el significado verbal y pronominal. |
-| **Propósito Funcional** | Emitir instrucciones rápidas y sin ambigüedad a una máquina (*Sí, No, Continuar, Detener, Ayuda* o mover/hacer clic con el mouse). | Comunicación humana abierta, narrativa, abstracta y culturalmente situada dentro de la comunidad sorda. |
-
-### 6.3. Evaluación de Errores entre Gestos Similares (Ruta de Desarrollo)
-Durante el desarrollo y evaluación experimental del clasificador híbrido (`Keras MLP` + verificador biomecánico):
-- **Conflicto analizado y resuelto (`Pellizco` vs. `Puño Cerrado G3`):** Inicialmente, realizar un pellizco uniendo índice y pulgar con los otros tres dedos cerrados producía traslape geométrico con el puño cerrado (`G3`), ya que los 5 dedos aparecían flexionados hacia la palma.
-- **Solución biomecánica adoptada:** Se rediseñó `G5` como la postura ortogonal **"Pistola / L" (`Índice [8] extendido arriba + Pulgar [4] abierto lateralmente`)**. Esto incrementó la distancia inter-clase en el espacio de características de 63 dimensiones, eliminando por completo las falsas activaciones entre `G5` (*No / Clic Izquierdo*), `G3` (*Detener / Scroll Abajo*) y `G2` (*Sí / Scroll Arriba*), alcanzando una precisión de validación $> 97.4\%$ en las 6 clases.
+   - Modal interactivo con 3 pestañas: *18 Señas Conversacionales*, *5 Comandos HCI* y *Fundamentación Lingüística*.
+   - Endpoint `POST /api/reset` y comando WebSocket `RESET_DETECTION` para reinicio instantáneo del estado.
+5. **Diferenciación Lingüística entre Gestos HCI y Lenguas de Señas Naturales:**
+   - **Gramática y Sintaxis Propia:** Las lenguas de señas naturales (como la Lengua de Señas Colombiana - LSC o la ASL) son idiomas con estructura gramatical completa, fonología visual (querología) y sintaxis topográfica espacial, no un código discreto de 1 gesto = 1 palabra.
+   - **Componente No Manual:** Más del 40% del significado en una lengua de señas radica en la expresión facial (cejas, boca), la postura del torso y la dirección de la mirada.
+   - **Bimanualidad y Asimetría:** Las lenguas de señas emplean ambas manos con roles asimétricos (mano dominante activa vs. mano pasiva de apoyo), lo cual SignBridge v3.0 implementa mediante la detección bimanual de 42 landmarks y vector inter-manual.
+   - **Vocabulario Cerrado vs. Lenguaje Abierto:** Un clasificador neuronal opera en un espacio vectorial cerrado con umbral de rechazo, mientras que una lengua natural es infinita, recursiva y culturalmente situada.
 
 ---
 
-## 7. Método de Compilación del APK Android ([`Compilador.py`](Compilador.py))
+## 9. Guía de Ejecución y Compilación
 
-El archivo [`Compilador.py`](Compilador.py) automatiza la construcción completa del paquete nativo Android sin depender de descargas externas de Gradle:
-
-1. **Generación Procedural del Logo y Favicon (`generate_official_logo` y `generate_favicon_ico`):**
-   - Renderiza mediante supersampling `1024x1024 -> 512x512` con `OpenCV` el logo oficial en [`static/logo.png`](static/logo.png), su versión `.ico` en [`static/favicon.ico`](static/favicon.ico) y escala automáticamente los iconos de lanzador Android (`mipmap-mdpi` `48px` hasta `mipmap-xxxhdpi` `192px`).
-2. **Inyección de IP LAN Preconfigurada:**
-   - Detecta la IP Wi-Fi actual del PC (`get_local_ip()`) y la inyecta en el `assets/mobile.html` empaquetado dentro del APK para conexión instantánea al abrir la app.
-3. **Contenedor Nativo `MainActivity.java` con Servidor Virtual HTTPS:**
-   - Intercepta peticiones hacia `https://appassets.androidplatform.net/` sirviendo los recursos empaquetados en el APK (`mobile.html`, `logo.png`, `manifest.json`). Esto garantiza que el motor Chromium de Android `WebView` opere bajo un **Contexto Seguro HTTPS (`window.isSecureContext === true`)** habilitando `navigator.mediaDevices.getUserMedia` para la cámara, mientras `MIXED_CONTENT_ALWAYS_ALLOW` y `android:usesCleartextTraffic="true"` permiten la transmisión WebSocket de baja latencia hacia `ws://<IP_PC>:8000/ws/mobile`.
-4. **Pipeline de Compilación SDK (`Build-Tools 36.0.0` / `Android-35`):**
-   - `aapt2 compile` & `aapt2 link`: Compila recursos XML, iconos y `AndroidManifest.xml`, y genera `R.java`.
-   - `javac --release 11`: Compila `MainActivity.java` y el puente `@JavascriptInterface` (`SignBridgeNative`).
-   - `d8`: Transforma el bytecode Java (`.class`) en Dalvik Executable (`classes.dex`).
-   - `zipalign -p -f 4`: Alinea los límites de memoria de 4 bytes del archivo APK.
-   - `apksigner sign`: Firma criptográficamente el APK con esquemas **v2 y v3** usando el almacén de claves RSA-2048 (`models/signbridge_release.keystore`) y deposita el archivo final en [`apk_estractor/SignBridge_v2.apk`](apk_estractor/SignBridge_v2.apk).
-
----
-
-## 8. Guía Rápida de Ejecución
-
-### Iniciar el Servidor y HUD en el PC
+### Iniciar el Servidor Principal en el PC
 ```powershell
 python main.py
 ```
-- Abre automáticamente el navegador en `http://localhost:8000`.
-- Ventana flotante Mini HUD: `http://localhost:8000/mini`.
-- Interfaz móvil en red local: `http://<IP_DEL_PC>:8000/mobile`.
-- Descarga directa del APK por Wi-Fi: `http://<IP_DEL_PC>:8000/apk`.
+- Servidor web y WebSocket: `http://localhost:8000`
+- Traductor de Señas y Control OS: `http://localhost:8000`
+- Ventana flotante Mini HUD: `http://localhost:8000/mini`
+- Interfaz móvil en red Wi-Fi: `http://<IP_PC>:8000/mobile`
+- Descarga directa del APK: `http://<IP_PC>:8000/apk`
 
-### Recompilar el APK Android tras cualquier cambio
+### Compilar y Firmar el APK Android
 ```powershell
 python Compilador.py
 ```
-- Genera el APK actualizado en [`apk_estractor/SignBridge_v2.apk`](apk_estractor/SignBridge_v2.apk) en ~3 segundos.
+- Compila los recursos nativos Android, empaqueta los assets con MediaPipe Vision WASM y genera:
+  - `apk_estractor/SignBridge_v3.apk` (APK oficial v3.0)
+  - `apk_estractor/SignBridge_v2.apk` (Copia de compatibilidad)
 
-### Ejecutar las Pruebas Automatizadas del Pipeline
+### Ejecutar Pruebas Automatizadas
 ```powershell
 python test_pipeline.py
 ```
-
+Verifica la normalización 3D, el clasificador neuronal MLP, el buffer circular de estabilidad temporal y el pipeline completo.

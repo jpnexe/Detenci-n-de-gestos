@@ -81,6 +81,14 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
     /* Capa 1: Visualizador de Cámara (HUD Principal) */
     .glass-layer-1 {
       background: rgba(10, 14, 23, 0.45);
@@ -329,42 +337,100 @@
     <!-- COLUMNA IZQUIERDA / CENTRAL (7 cols): Capa 1 Visualizador de Cámara + Anillo de Estabilidad Temporal -->
     <section class="lg:col-span-7 flex flex-col gap-4">
 
-      <!-- BANNER MODO LENGUAJE DE SEÑAS / MENSAJES EXPRESIVOS -->
-      <div id="signLanguageBanner" class="hidden glass-layer-2 p-4 border-cyanLiquid/50 bg-cyanLiquid/10 transition-all duration-300">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-2xl bg-cyanLiquid/20 border border-cyanLiquid/50 flex items-center justify-center text-cyanLiquid font-display font-bold text-lg" id="signBannerGid">
-              G0
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40">
-                  MODO COMUNICACIÓN / SEÑAS ACTIVO
-                </span>
-                <span id="signBannerConf" class="text-xs font-mono text-cyanLiquid font-bold">95.0% Confianza</span>
+      <!-- BANNER / CONSTRUCTOR CONVERSACIONAL DE ORACIONES (MODO SEÑAS - ALTURA COMPACTA Y FIJA) -->
+      <div id="signLanguageBanner" class="hidden glass-layer-2 p-3 border-cyanLiquid/50 bg-gradient-to-r from-cyanLiquid/15 via-obsidian to-emeraldLiquid/15 transition-all duration-300 shrink-0">
+        <div class="flex flex-col gap-2">
+          <!-- Fila 1: Telemetría, Seña Activa Reconocida y Controles de Voz -->
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[11px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40 font-bold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emeraldLiquid animate-pulse"></span>
+                <span>TRADUCTOR CONVERSACIONAL</span>
+              </span>
+              <span id="bimanualStatusBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyanLiquid/15 text-cyanLiquid border border-cyanLiquid/30 font-semibold">
+                1 Mano
+              </span>
+              <span id="motionStatusBadge" class="hidden text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-amberLiquid/20 text-amberLiquid border border-amberLiquid/40 font-semibold flex items-center gap-1">
+                <span>⚡</span>
+                <span id="motionStatusText">Dinámico</span>
+              </span>
+              <span id="signBannerConf" class="text-[11px] font-mono text-cyanLiquid font-bold">95.0% Confianza</span>
+
+              <!-- Placa compacta de última seña reconocida -->
+              <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-void/70 border border-white/10 text-xs font-mono">
+                <span id="signBannerGid" class="text-sm">👋</span>
+                <span class="text-[10px] text-textSecondary uppercase">Última:</span>
+                <span id="signBannerTitle" class="font-bold text-textPrimary truncate max-w-[180px] sm:max-w-[280px]">DESCONOCIDO</span>
               </div>
-              <h3 id="signBannerTitle" class="font-display font-bold text-lg text-textPrimary mt-1">
-                DESCONOCIDO — En espera de gesto intencional
-              </h3>
-              <p id="signBannerMessage" class="text-sm text-cyanLiquid font-medium">
-                Realiza uno de los 5 gestos frente a la cámara para transmitir el mensaje asociado.
-              </p>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button
+                id="btnToggleTTS"
+                onclick="toggleSignTTS()"
+                class="min-h-[32px] px-2.5 py-0.5 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid text-[11px] font-mono font-semibold hover:bg-cyanLiquid/25 active:scale-95 transition-all"
+              >
+                🔊 Voz TTS: ON
+              </button>
+              <button
+                onclick="resetDetectionState()"
+                class="min-h-[32px] px-2.5 py-0.5 rounded-full border border-roseLiquid/40 bg-roseLiquid/15 text-roseLiquid text-[11px] font-mono font-semibold hover:bg-roseLiquid/25 active:scale-95 transition-all"
+              >
+                🔄 Reiniciar
+              </button>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <button
-              id="btnToggleTTS"
-              onclick="toggleSignTTS()"
-              class="min-h-[42px] px-3.5 py-1.5 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid text-xs font-mono font-semibold"
-            >
-              🔊 Voz TTS: ON
-            </button>
-            <button
-              onclick="resetDetectionState()"
-              class="min-h-[42px] px-3.5 py-1.5 rounded-full border border-roseLiquid/40 bg-roseLiquid/15 text-roseLiquid text-xs font-mono font-semibold"
-            >
-              🔄 Reiniciar
-            </button>
+
+          <!-- Fila 2: Cinta Horizontal de Glosas / Tokens Acumulados (NUNCA crece verticalmente) -->
+          <div class="flex items-center gap-2 w-full">
+            <div class="text-[11px] font-mono text-textSecondary shrink-0 flex items-center gap-1">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-cyanLiquid"></i>
+              <span class="hidden sm:inline">Glosas:</span>
+              <span id="tokenCounterBadge" class="text-emeraldLiquid font-bold">[0]</span>
+            </div>
+            <div id="sentenceTokensContainer" class="flex-1 flex flex-nowrap items-center gap-1.5 h-[34px] px-2 rounded-xl bg-void/80 border border-white/10 overflow-x-auto scrollbar-none max-w-full">
+              <span class="text-textSecondary text-xs italic">Haz señas frente a la cámara para agregar palabras...</span>
+            </div>
+          </div>
+
+          <!-- Fila 3: Frase Ensamblada en Español + Acciones Rápidas -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/10">
+            <div class="flex-1 min-w-[200px] flex items-center gap-2 truncate">
+              <span class="text-[10px] font-mono text-textSecondary uppercase shrink-0">Oración:</span>
+              <span id="currentSentenceText" class="font-sans font-bold text-xs sm:text-sm text-emeraldLiquid truncate">
+                (Oración vacía)
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button
+                onclick="speakCurrentSentence()"
+                title="Pronunciar oración completa en voz alta por los altavoces"
+                class="min-h-[32px] px-2.5 py-1 rounded-lg border border-emeraldLiquid/50 bg-emeraldLiquid/20 text-emeraldLiquid font-semibold text-xs flex items-center gap-1 hover:bg-emeraldLiquid/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(0,255,157,0.2)]"
+              >
+                <span>🔊 Pronunciar</span>
+              </button>
+              <button
+                onclick="commitSentenceToChat()"
+                title="Enviar oración al historial de chat conversacional"
+                class="min-h-[32px] px-2.5 py-1 rounded-lg border border-cyanLiquid/50 bg-cyanLiquid/20 text-cyanLiquid font-semibold text-xs flex items-center gap-1 hover:bg-cyanLiquid/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+              >
+                <span>💬 Chat</span>
+              </button>
+              <button
+                onclick="backspaceSentenceToken()"
+                title="Borrar última palabra agregada"
+                class="min-h-[32px] px-2 py-1 rounded-lg border border-white/20 bg-white/10 text-textPrimary font-semibold text-xs flex items-center gap-1 hover:bg-white/20 active:scale-95 transition-all"
+              >
+                <span>⌫</span>
+              </button>
+              <button
+                onclick="clearSentenceTokens()"
+                title="Limpiar toda la oración en curso"
+                class="min-h-[32px] px-2 py-1 rounded-lg border border-roseLiquid/40 bg-roseLiquid/15 text-roseLiquid font-semibold text-xs flex items-center gap-1 hover:bg-roseLiquid/25 active:scale-95 transition-all"
+              >
+                <span>🗑️</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -540,125 +606,125 @@
     <!-- COLUMNA DERECHA (5 cols): Capa 2 Paneles de Control, Matriz de Gestos, Buffer N=8 y QR -->
     <aside class="lg:col-span-5 flex flex-col gap-4">
 
-      <!-- Panel 1: Estado de Estabilización Temporal (Buffer Circular N=8) & Dedos Extendidos -->
-      <div class="glass-layer-2 p-4 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i data-lucide="shield-check" class="w-4 h-4 text-emeraldLiquid"></i>
-            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
-              Estabilización Temporal & Vector 63D
-            </h2>
-          </div>
-          <span id="bufferStatusLabel" class="font-mono text-xs text-emeraldLiquid">N = 8 / 8 FRAMES</span>
-        </div>
-
-        <!-- Slots visuales del Buffer Circular N=8 -->
-        <div id="bufferSlotsContainer" class="grid grid-cols-8 gap-1.5">
-          <!-- Renderizado dinámico JS -->
-        </div>
-
-        <!-- Estado biomecánico de los 5 dedos -->
-        <div class="grid grid-cols-5 gap-1.5 pt-1">
-          <div id="fingerPill_thumb" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
-            <div class="text-textSecondary text-[10px]">PULGAR [4]</div>
-            <div class="font-bold mt-0.5">PLEGADO</div>
-          </div>
-          <div id="fingerPill_index" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
-            <div class="text-textSecondary text-[10px]">ÍNDICE [8]</div>
-            <div class="font-bold mt-0.5">ACTIVO</div>
-          </div>
-          <div id="fingerPill_middle" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
-            <div class="text-textSecondary text-[10px]">MEDIO [12]</div>
-            <div class="font-bold mt-0.5">ACTIVO</div>
-          </div>
-          <div id="fingerPill_ring" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
-            <div class="text-textSecondary text-[10px]">ANULAR [16]</div>
-            <div class="font-bold mt-0.5">PLEGADO</div>
-          </div>
-          <div id="fingerPill_pinky" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
-            <div class="text-textSecondary text-[10px]">MEÑIQUE [20]</div>
-            <div class="font-bold mt-0.5">PLEGADO</div>
-          </div>
-        </div>
-
-        <!-- Nota semántica (Gemini / Clasificador Local) -->
-        <div class="px-3 py-2 rounded-xl bg-void/60 border border-white/10 font-mono text-xs text-textSecondary flex items-center justify-between gap-2">
-          <span id="semanticNoteText" class="truncate">Vector 63D normalizado respecto a muñeca [0].</span>
-          <span id="scaleMetricBadge" class="text-cyanLiquid shrink-0">d_max: 0.48</span>
-        </div>
-      </div>
-
-      <!-- Panel 2: Matriz de Gestos y Acciones de Periféricos -->
-      <div class="glass-layer-2 p-4 flex flex-col gap-2.5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i data-lucide="layers" class="w-4 h-4 text-cyanLiquid"></i>
-            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
-              Matriz de Gestos y Periféricos
-            </h2>
-          </div>
-          <span class="font-mono text-[11px] text-textSecondary">Click para disparar</span>
-        </div>
-
-        <div class="space-y-2 text-xs">
-          <!-- G0 -->
-          <div id="matrixRow_G0" onclick="selectSimulatedGesture('G0')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="font-display font-bold px-2 py-1 rounded-lg bg-roseLiquid/20 text-roseLiquid border border-roseLiquid/40">G0</span>
-              <div>
-                <div class="font-semibold text-textPrimary">Mano Abierta / Caótico</div>
-                <div class="text-[11px] text-textSecondary">Rechazo activo • Cero activación accidental</div>
-              </div>
+      <!-- CONTENEDOR MODO CONTROL DE RATÓN / SISTEMA OPERATIVO -->
+      <div id="osControlPanelsContainer" class="flex flex-col gap-4">
+        <!-- Panel 1: Estado de Estabilización Temporal (Buffer Circular N=8) & Dedos Extendidos -->
+        <div class="glass-layer-2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emeraldLiquid"></i>
+              <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+                Estabilización Temporal & Vector 63D
+              </h2>
             </div>
-            <span class="font-mono text-[11px] text-roseLiquid">RECHAZO</span>
+            <span id="bufferStatusLabel" class="font-mono text-xs text-emeraldLiquid">N = 8 / 8 FRAMES</span>
           </div>
 
-          <!-- G1 -->
-          <div id="matrixRow_G1" onclick="selectSimulatedGesture('G1')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G1</span>
-              <div>
-                <div class="font-semibold text-textPrimary">Índice + Medio Juntos (Paz)</div>
-                <div class="text-[11px] text-textSecondary">Puntas 8 y 12 extendidas; 16 y 20 plegados</div>
-              </div>
+          <!-- Slots visuales del Buffer Circular N=8 -->
+          <div id="bufferSlotsContainer" class="grid grid-cols-8 gap-1.5">
+            <!-- Renderizado dinámico JS -->
+          </div>
+
+          <!-- Estado biomecánico de los 5 dedos -->
+          <div class="grid grid-cols-5 gap-1.5 pt-1">
+            <div id="fingerPill_thumb" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+              <div class="text-textSecondary text-[10px]">PULGAR [4]</div>
+              <div class="font-bold mt-0.5">PLEGADO</div>
             </div>
-            <button onclick="event.stopPropagation(); triggerManualAction('G1')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
-              Clic Derecho
-            </button>
-          </div>
-
-          <!-- G2 -->
-          <div id="matrixRow_G2" onclick="selectSimulatedGesture('G2')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G2</span>
-              <div>
-                <div class="font-semibold text-textPrimary">Dedo Índice Extendido Arriba</div>
-                <div class="text-[11px] text-textSecondary">Punta 8 extendida; 12, 16 y 20 plegados</div>
-              </div>
+            <div id="fingerPill_index" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+              <div class="text-textSecondary text-[10px]">ÍNDICE [8]</div>
+              <div class="font-bold mt-0.5">ACTIVO</div>
             </div>
-            <button onclick="event.stopPropagation(); triggerManualAction('G2')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
-              Scroll +350
-            </button>
-          </div>
-
-          <!-- G3 -->
-          <div id="matrixRow_G3" onclick="selectSimulatedGesture('G3')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G3</span>
-              <div>
-                <div class="font-semibold text-textPrimary">Puño Cerrado (Compresión)</div>
-                <div class="text-[11px] text-textSecondary">Dedos 8, 12, 16 y 20 plegados en palma</div>
-              </div>
+            <div id="fingerPill_middle" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+              <div class="text-textSecondary text-[10px]">MEDIO [12]</div>
+              <div class="font-bold mt-0.5">ACTIVO</div>
             </div>
-            <button onclick="event.stopPropagation(); triggerManualAction('G3')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
-              Scroll -350
-            </button>
+            <div id="fingerPill_ring" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+              <div class="text-textSecondary text-[10px]">ANULAR [16]</div>
+              <div class="font-bold mt-0.5">PLEGADO</div>
+            </div>
+            <div id="fingerPill_pinky" class="px-2 py-1.5 rounded-xl border border-white/10 bg-white/5 text-center font-mono text-[11px]">
+              <div class="text-textSecondary text-[10px]">MEÑIQUE [20]</div>
+              <div class="font-bold mt-0.5">PLEGADO</div>
+            </div>
           </div>
 
-          <!-- G4 -->
-          <div id="matrixRow_G4" onclick="selectSimulatedGesture('G4')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5">
-              <span class="font-display font-bold px-2 py-1 rounded-lg bg-amberLiquid/20 text-amberLiquid border border-amberLiquid/40">G4</span>
+          <!-- Nota semántica (Gemini / Clasificador Local) -->
+          <div class="px-3 py-2 rounded-xl bg-void/60 border border-white/10 font-mono text-xs text-textSecondary flex items-center justify-between gap-2">
+            <span id="semanticNoteText" class="truncate">Vector 63D normalizado respecto a muñeca [0].</span>
+            <span id="scaleMetricBadge" class="text-cyanLiquid shrink-0">d_max: 0.48</span>
+          </div>
+        </div>
+
+        <!-- Panel 2: Matriz de Gestos y Acciones de Periféricos -->
+        <div class="glass-layer-2 p-4 flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-cyanLiquid"></i>
+              <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+                Matriz de Gestos y Periféricos
+              </h2>
+            </div>
+            <span class="font-mono text-[11px] text-textSecondary">Click para disparar</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <!-- G0 -->
+            <div id="matrixRow_G0" onclick="selectSimulatedGesture('G0')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="font-display font-bold px-2 py-1 rounded-lg bg-roseLiquid/20 text-roseLiquid border border-roseLiquid/40">G0</span>
+                <div>
+                  <div class="font-semibold text-textPrimary">Mano Abierta / Caótico</div>
+                  <div class="text-[11px] text-textSecondary">Rechazo activo • Cero activación accidental</div>
+                </div>
+              </div>
+              <span class="font-mono text-[11px] text-roseLiquid">RECHAZO</span>
+            </div>
+
+            <!-- G1 -->
+            <div id="matrixRow_G1" onclick="selectSimulatedGesture('G1')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G1</span>
+                <div>
+                  <div class="font-semibold text-textPrimary">Índice + Medio Juntos (Paz)</div>
+                  <div class="text-[11px] text-textSecondary">Puntas 8 y 12 extendidas; 16 y 20 plegados</div>
+                </div>
+              </div>
+              <button onclick="event.stopPropagation(); triggerManualAction('G1')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+                Clic Derecho
+              </button>
+            </div>
+
+            <!-- G2 -->
+            <div id="matrixRow_G2" onclick="selectSimulatedGesture('G2')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G2</span>
+                <div>
+                  <div class="font-semibold text-textPrimary">Dedo Índice Extendido Arriba</div>
+                  <div class="text-[11px] text-textSecondary">Punta 8 extendida; 12, 16 y 20 plegados</div>
+                </div>
+              </div>
+              <button onclick="event.stopPropagation(); triggerManualAction('G2')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+                Scroll +350
+              </button>
+            </div>
+
+            <!-- G3 -->
+            <div id="matrixRow_G3" onclick="selectSimulatedGesture('G3')" class="cursor-pointer p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="font-display font-bold px-2 py-1 rounded-lg bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">G3</span>
+                <div>
+                  <div class="font-semibold text-textPrimary">Puño Cerrado (Compresión)</div>
+                  <div class="text-[11px] text-textSecondary">Dedos 8, 12, 16 y 20 plegados en palma</div>
+                </div>
+              </div>
+              <button onclick="event.stopPropagation(); triggerManualAction('G3')" class="px-2.5 py-1 rounded-lg bg-cyanLiquid/15 border border-cyanLiquid/40 font-mono text-[11px] text-cyanLiquid hover:bg-cyanLiquid/25">
+                Scroll -350
+              </button>
+            </div>
+
+            <!-- G4 -->
+            <div id="matrixRow_G4" onclick="selectSimulatedGesture('G4')" class="cursor-pointer p-2.5 rounded-xl border border-amberLiquid/20 text-amberLiquid border border-amberLiquid/40">G4</span>
               <div>
                 <div class="font-semibold text-textPrimary">Señal de Asistencia (3 Dedos)</div>
                 <div class="text-[11px] text-textSecondary">Puntas 8, 12 y 16 extendidas (o Shaka)</div>
@@ -683,25 +749,110 @@
             </button>
           </div>
         </div>
+
+        <!-- Panel 3: Bitácora de Ejecución de Hardware y Enlace QR Rápido -->
+        <div class="glass-layer-2 p-4 flex-1 flex flex-col justify-between gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="Activity" class="w-4 h-4 text-emeraldLiquid"></i>
+              <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+                Bitácora de Hardware & Telemetría
+              </h2>
+            </div>
+            <span id="mobileLinkBadge" class="font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary">
+              QR: Esperando dispositivo
+            </span>
+          </div>
+
+          <div id="eventLogList" class="space-y-1.5 max-h-[135px] overflow-y-auto font-mono text-xs pr-1">
+            <div class="text-textSecondary text-xs py-2">Esperando confirmación del anillo de estabilidad (100%)...</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Panel 3: Bitácora de Ejecución de Hardware y Enlace QR Rápido -->
-      <div class="glass-layer-2 p-4 flex-1 flex flex-col justify-between gap-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i data-lucide="Activity" class="w-4 h-4 text-emeraldLiquid"></i>
-            <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
-              Bitácora de Hardware & Telemetría
-            </h2>
+      <!-- CONTENEDOR MODO TRADUCTOR CONVERSACIONAL (CHAT BIDIRECCIONAL + MICRÓFONO OYENTE) -->
+      <div id="signTranslatorPanelsContainer" class="hidden flex flex-col gap-4">
+
+        <!-- Panel 1: Chat Conversacional Accesible (Persona Sorda ↔ Oyente) -->
+        <div class="glass-layer-2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="message-square" class="w-4 h-4 text-cyanLiquid"></i>
+              <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+                Conversación en Vivo
+              </h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="clearChatHistory()" class="font-mono text-[11px] text-textSecondary hover:text-roseLiquid transition-colors">
+                Limpiar Chat
+              </button>
+            </div>
           </div>
-          <span id="mobileLinkBadge" class="font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary">
-            QR: Esperando dispositivo
-          </span>
+
+          <!-- Timeline de Mensajes Estilo Chat Accesible -->
+          <div id="chatTimelineList" class="space-y-2.5 max-h-[290px] min-h-[200px] overflow-y-auto pr-1">
+            <!-- Renderizado dinámico de burbujas -->
+          </div>
         </div>
 
-        <div id="eventLogList" class="space-y-1.5 max-h-[135px] overflow-y-auto font-mono text-xs pr-1">
-          <div class="text-textSecondary text-xs py-2">Esperando confirmación del anillo de estabilidad (100%)...</div>
+        <!-- Panel 2: Canal del Oyente (Reconocimiento de Voz / Micrófono STT) -->
+        <div class="glass-layer-2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="mic" class="w-4 h-4 text-emeraldLiquid"></i>
+              <h2 class="font-display font-bold text-sm tracking-tight uppercase text-textPrimary">
+                Respuesta del Oyente (Micrófono)
+              </h2>
+            </div>
+            <span id="hearingMicStatusBadge" class="font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary">
+              Micrófono listo
+            </span>
+          </div>
+
+          <!-- Botón de Micrófono para el Oyente -->
+          <button
+            id="btnHearingMic"
+            onclick="toggleHearingMic()"
+            class="w-full min-h-[50px] p-3 rounded-2xl border-2 border-emeraldLiquid/50 bg-emeraldLiquid/15 hover:bg-emeraldLiquid/25 text-emeraldLiquid font-display font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)] active:scale-98 transition-all"
+          >
+            <i data-lucide="mic" class="w-5 h-5"></i>
+            <span id="btnHearingMicLabel">🎙️ Presionar para Hablar como Oyente</span>
+          </button>
+
+          <!-- Cuadro de Transcripción en Vivo para la Persona Sorda -->
+          <div class="p-3 rounded-xl bg-void/80 border border-white/10 flex flex-col gap-1">
+            <div class="text-[10px] font-mono uppercase text-textSecondary flex items-center justify-between">
+              <span>Transcripción de Voz en Pantalla Grande:</span>
+              <span class="text-emeraldLiquid font-mono text-[10px]">Lectura en tiempo real</span>
+            </div>
+            <div id="hearingLiveTranscript" class="text-sm md:text-base font-semibold text-textPrimary italic min-h-[28px] flex items-center">
+              "Presiona el micrófono y habla naturalmente. Tu voz aparecerá aquí..."
+            </div>
+          </div>
+
+          <!-- Respuestas y Preguntas Rápidas Sugeridas para el Oyente -->
+          <div class="flex flex-col gap-1.5 pt-1 border-t border-white/10">
+            <div class="text-[10px] font-mono text-textSecondary uppercase">Respuestas rápidas para el oyente:</div>
+            <div class="flex flex-wrap gap-1.5 text-xs">
+              <button onclick="sendHearingQuickText('Hola, ¿cómo estás?')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">👋 Hola, ¿cómo estás?</button>
+              <button onclick="sendHearingQuickText('¿Qué necesitas?')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">❓ ¿Qué necesitas?</button>
+              <button onclick="sendHearingQuickText('Sí, de acuerdo.')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-emeraldLiquid">👍 Sí, de acuerdo</button>
+              <button onclick="sendHearingQuickText('No, no es posible.')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-roseLiquid">👎 No, no es posible</button>
+              <button onclick="sendHearingQuickText('Entendido perfectamente.')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">💡 Entendido</button>
+              <button onclick="sendHearingQuickText('Espera un momento por favor.')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-amberLiquid">⏳ Espera un momento</button>
+            </div>
+          </div>
+
+          <!-- Botón para ver el Catálogo Conversacional Completo -->
+          <button
+            onclick="openModal('modalSignCatalog')"
+            class="w-full mt-1 min-h-[42px] px-3.5 py-2 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center justify-center gap-2"
+          >
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+            <span>Consultar Catálogo de 18 Señas Conversacionales</span>
+          </button>
         </div>
+
       </div>
 
     </aside>
@@ -790,139 +941,382 @@
         </div>
         <div>
           <h3 class="font-display font-bold text-lg tracking-tight text-textPrimary">Motor Multimodal Gemini API</h3>
-          <p class="text-xs text-textSecondary">SDK Oficial <code class="font-mono text-cyanLiquid">google-genai</code></p>
+          <p class="text-xs text-textSecondary">SDK Oficial <code class="font-mono text-cyanLiquid">google-genai</code> • Inferencia en la Nube</p>
         </div>
+      </div>
+
+      <!-- Estado de Conexión en Vivo -->
+      <div id="geminiConnectionBanner" class="p-3 mb-3 rounded-xl bg-void/80 border border-white/15 flex items-center justify-between text-xs font-mono">
+        <div class="flex items-center gap-2">
+          <span id="geminiStatusDot" class="w-2.5 h-2.5 rounded-full bg-emeraldLiquid animate-pulse"></span>
+          <span id="geminiStatusText" class="text-textPrimary font-semibold">Verificando estado...</span>
+        </div>
+        <span id="geminiActiveModelBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/40">gemini-3.5-flash-lite</span>
       </div>
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-textSecondary mb-1 font-semibold">GEMINI_API_KEY</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-textSecondary font-semibold">GEMINI_API_KEY</label>
+            <span id="geminiKeyMasked" class="text-[10px] font-mono text-textSecondary"></span>
+          </div>
           <input
             id="inputGeminiKey"
             type="password"
-            placeholder="AIzaSy..."
+            placeholder="Pega tu clave AIzaSy... o déjala en blanco para usar la del .env"
             class="w-full px-3.5 py-2.5 rounded-xl bg-void/90 border border-white/15 text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid"
           />
         </div>
         <div>
-          <label class="block text-textSecondary mb-1 font-semibold">Modelo Multimodal Gemini 3</label>
+          <label class="block text-textSecondary mb-1 font-semibold">Modelo Multimodal Recomendado</label>
           <select id="inputGeminiModel" class="w-full px-3.5 py-2.5 rounded-xl bg-void/90 border border-white/15 text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid">
-            <option value="gemini-3-flash-preview" selected>gemini-3-flash-preview (Gemini 3 Flash — Baja Latencia)</option>
-            <option value="gemini-3-pro-preview">gemini-3-pro-preview (Gemini 3 Pro — Máxima Precisión)</option>
-            <option value="gemini-2.5-flash">gemini-2.5-flash (Fallback Estable)</option>
+            <option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite (Ultra Rápido ~1.0s — Recomendado)</option>
+            <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (Flash Lite Estable)</option>
+            <option value="gemini-3-flash-preview">gemini-3-flash-preview (Gemini 3 Flash Preview)</option>
+            <option value="gemini-3.8-flash">gemini-3.8-flash (Gemini 3.8 Flash)</option>
           </select>
+        </div>
+
+        <div id="geminiTestOutput" class="hidden p-2.5 rounded-xl bg-void/90 border text-xs font-mono">
         </div>
       </div>
 
-      <div class="mt-5 flex justify-end gap-2">
-        <button onclick="closeModal('modalGemini')" class="min-h-[48px] px-4 rounded-full border border-white/15 text-xs font-semibold text-textSecondary hover:text-textPrimary">
-          Cancelar
+      <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <button
+          id="btnTestGemini"
+          onclick="testGeminiConnection()"
+          class="min-h-[44px] px-3.5 py-2 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid text-xs font-semibold flex items-center gap-1.5 hover:bg-cyanLiquid/25 active:scale-95 transition-all"
+        >
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Probar Conexión</span>
         </button>
-        <button onclick="saveGeminiKey()" class="min-h-[48px] px-5 rounded-full bg-cyanLiquid/20 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold active:scale-95 transition-transform duration-150">
-          Guardar y Activar Online
-        </button>
+
+        <div class="flex items-center gap-2">
+          <button onclick="closeModal('modalGemini')" class="min-h-[44px] px-4 rounded-full border border-white/15 text-xs font-semibold text-textSecondary hover:text-textPrimary">
+            Cerrar
+          </button>
+          <button onclick="saveGeminiKey()" class="min-h-[44px] px-5 rounded-full bg-cyanLiquid/25 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold active:scale-95 transition-transform duration-150 shadow-[0_0_15px_rgba(0,240,255,0.25)]">
+            Guardar y Activar
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- MODAL CATÁLOGO VISUAL DE GESTOS Y DIFERENCIAS CON LENGUAS DE SEÑAS NATURALES -->
   <div id="modalSignCatalog" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-void/85 backdrop-blur-xl">
-    <div class="glass-layer-2 w-full max-w-3xl max-h-[88vh] overflow-y-auto p-6 relative border border-white/20">
+    <div class="glass-layer-2 w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 relative border border-white/20">
       <button onclick="closeModal('modalSignCatalog')" class="absolute top-4 right-4 min-w-[48px] min-h-[48px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
 
       <div class="flex items-center gap-3 mb-4">
-        <div class="w-11 h-11 rounded-2xl bg-amberLiquid/15 border border-amberLiquid/40 flex items-center justify-center text-amberLiquid">
+        <div class="w-11 h-11 rounded-2xl bg-cyanLiquid/15 border border-cyanLiquid/40 flex items-center justify-center text-cyanLiquid">
           <i data-lucide="book-open" class="w-6 h-6"></i>
         </div>
         <div>
           <h3 class="font-display font-bold text-lg tracking-tight text-textPrimary">
-            Catálogo Visual de Gestos (5 Comandos + Rechazo G0)
+            Catálogo Lingüístico & Gestual SignBridge v3.0
           </h3>
           <p class="text-xs text-textSecondary">
-            Referencia visual de posturas, mensajes asociados y diferenciación lingüística con lenguas de señas naturales
+            Traductor Conversacional (18 Señas Bimanuales/Unimanuales) · 5 Comandos HCI · Fundamentación Lingüística
           </p>
         </div>
       </div>
 
-      <!-- Catálogo Visual de las 6 Clases -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-5">
-        <div class="p-3 rounded-xl border border-roseLiquid/40 bg-roseLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-roseLiquid">G0 • DESCONOCIDO (Rechazo Activo)</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-roseLiquid">Umbral &lt; 0.85</span>
-          </div>
-          <p class="text-textPrimary font-semibold">🖐️ Mano Abierta (4-5 dedos) o postura fuera de catálogo</p>
-          <p class="text-textSecondary mt-1">Mensaje: "Postura neutra o en transición — Esperando gesto intencional"</p>
+      <!-- Selector de Pestañas del Modal -->
+      <div class="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
+        <button
+          id="btnCatalogTabSigns"
+          onclick="switchCatalogTab('SIGNS')"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/50"
+        >
+          💬 18 Señas Conversacionales (1 & 2 Manos)
+        </button>
+        <button
+          id="btnCatalogTabHci"
+          onclick="switchCatalogTab('HCI')"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-textSecondary hover:text-textPrimary border border-white/10"
+        >
+          🕹️ 5 Comandos de Control OS (G0-G5)
+        </button>
+        <button
+          id="btnCatalogTabTheory"
+          onclick="switchCatalogTab('THEORY')"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-textSecondary hover:text-textPrimary border border-white/10"
+        >
+          🎓 Fundamentación Académica Docente
+        </button>
+      </div>
+
+      <!-- TAB 1: 18 SEÑAS CONVERSACIONALES -->
+      <div id="catalogTabContentSigns" class="space-y-4 text-xs">
+        <div class="p-3 rounded-xl bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid flex items-center justify-between">
+          <span>El traductor detecta <strong>1 o 2 manos</strong> simultáneamente. Sostén la postura ~0.65s para insertar la palabra en la frase.</span>
+          <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">Buffer Activo</span>
         </div>
 
-        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-cyanLiquid">G1 • CONTINUAR / CLIC DERECHO</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Paz / Victoria</span>
+        <!-- Categoría: Saludos -->
+        <div>
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-cyanLiquid mb-2 flex items-center gap-1.5">
+            <span>👋 Saludos y Despedidas</span>
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-cyanLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">👋 HOLA</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Palma extendida abierta al lado de la cabeza u oscilando suavemente.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Hola, ¿cómo estás?"</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-cyanLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🌅 BUENOS DÍAS</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Mano al pecho moviéndose hacia el frente, o manos elevándose juntas.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Buenos días."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-cyanLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🌇 BUENAS TARDES</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Mano dominante bajando suavemente sobre el antebrazo opuesto.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Buenas tardes."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-cyanLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🙋 ADIÓS</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Palma abierta oscilando de lado a lado en despedida.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Hasta luego, adiós."</p>
+            </div>
           </div>
-          <p class="text-textPrimary font-semibold">✌️ Índice (8) y Medio (12) extendidos juntos</p>
-          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Adelante, podemos continuar con la actividad."</p>
         </div>
 
-        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-cyanLiquid">G2 • SÍ / SCROLL ARRIBA</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Índice Vertical</span>
+        <!-- Categoría: Respuestas y Cortesía -->
+        <div>
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-emeraldLiquid mb-2 flex items-center gap-1.5">
+            <span>🤝 Respuestas y Cortesía</span>
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🙏 GRACIAS</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 o 2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Yemas tocando el mentón o boca y extendiéndose hacia el interlocutor.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Muchas gracias."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🤲 POR FAVOR</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos Juntas</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Palmas unidas al centro del pecho o frotando el pecho en círculo.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Por favor."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">👍 BIEN / OK</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Pulgar apuntando hacia arriba firmemente (gesto pulgar arriba).</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Muy bien / De acuerdo."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">👎 MAL</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-roseLiquid/20 text-roseLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Pulgar apuntando hacia abajo firmemente (pulgar abajo).</p>
+              <p class="text-roseLiquid text-[11px] font-mono mt-1">Frase: "No me siento bien / Está mal."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">☝️ SÍ</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Dedo índice vertical asintiendo o puño asintiendo.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Sí, afirmativo."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-emeraldLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">👆 NO</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-roseLiquid/20 text-roseLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Índice y pulgar en forma de "L" o índice negando de lado a lado.</p>
+              <p class="text-roseLiquid text-[11px] font-mono mt-1">Frase: "No, negativo."</p>
+            </div>
           </div>
-          <p class="text-textPrimary font-semibold">☝️ Solo Dedo Índice (8) extendido arriba (pulgar guardado)</p>
-          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Sí, estoy de acuerdo / Confirmado."</p>
         </div>
 
-        <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-cyanLiquid">G3 • DETENER / SCROLL ABAJO</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Puño Cerrado</span>
+        <!-- Categoría: Preguntas Clave -->
+        <div>
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-amberLiquid mb-2 flex items-center gap-1.5">
+            <span>❓ Preguntas de Diálogo</span>
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-amberLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🤷 ¿CÓMO ESTÁS?</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Ambas manos abriéndose hacia el frente con palmas hacia arriba.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "¿Cómo estás hoy?"</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-amberLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">❓ ¿QUÉ?</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Ambas palmas abiertas hacia arriba oscilando suavemente.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "¿Qué sucede? / ¿Qué dijiste?"</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-amberLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">📍 ¿DÓNDE?</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Índices de ambas manos apuntando hacia los lados en búsqueda espacial.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "¿Dónde queda?"</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-amberLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">🔄 ¿PUEDES REPETIR?</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyanLiquid/20 text-cyanLiquid">1 Mano</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Mano abierta bajando con calma o índice girando suavemente.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "¿Puedes repetir más despacio por favor?"</p>
+            </div>
           </div>
-          <p class="text-textPrimary font-semibold">✊ Los 5 dedos plegados en la palma</p>
-          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Por favor detente / Pausa inmediata."</p>
         </div>
 
-        <div class="p-3 rounded-xl border border-amberLiquid/40 bg-amberLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-amberLiquid">G4 • AYUDA / ASISTENCIA SOS</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-amberLiquid">3 Dedos / Shaka</span>
+        <!-- Categoría: Asistencia y Control -->
+        <div>
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-roseLiquid mb-2 flex items-center gap-1.5">
+            <span>🚨 Necesidades, Asistencia y Control</span>
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-void/60 border border-roseLiquid/30 hover:border-roseLiquid/60 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-roseLiquid text-sm">🆘 AYUDA / AUXILIO (Bimanual Canónica)</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-roseLiquid/20 text-roseLiquid">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Palma no dominante como base plana; puño con pulgar arriba descansando sobre ella.</p>
+              <p class="text-roseLiquid text-[11px] font-mono mt-1">Frase: "Necesito ayuda urgente, por favor."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-amberLiquid/30 hover:border-amberLiquid/60 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-amberLiquid text-sm">🏥 MÉDICO / DOLOR</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Índice de una mano tocando la muñeca o dorso de la mano contraria.</p>
+              <p class="text-amberLiquid text-[11px] font-mono mt-1">Frase: "Necesito un médico / Siento dolor."</p>
+            </div>
+            <div class="p-3 rounded-xl bg-void/60 border border-white/10 hover:border-cyanLiquid/40 transition-colors">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-textPrimary text-sm">✋ PAUSA / ESPERA</span>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 Manos</span>
+              </div>
+              <p class="text-textSecondary text-[11px]">Ambas palmas abiertas mirando hacia el frente empujando el aire suavemente.</p>
+              <p class="text-emeraldLiquid text-[11px] font-mono mt-1">Frase: "Espera un momento, por favor."</p>
+            </div>
           </div>
-          <p class="text-textPrimary font-semibold">🤟 Tres dedos centrales (8, 12, 16) o Pulgar + Meñique</p>
-          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "Necesito ayuda o asistencia prioritaria en este momento."</p>
-        </div>
-
-        <div class="p-3 rounded-xl border border-emeraldLiquid/40 bg-emeraldLiquid/10">
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-display font-bold text-sm text-emeraldLiquid">G5 • NO / CLIC IZQUIERDO</span>
-            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">Pistola / L</span>
-          </div>
-          <p class="text-textPrimary font-semibold">👆 Índice (8) arriba + Pulgar (4) abierto en forma de "L"</p>
-          <p class="text-textSecondary mt-1">Mensaje Modo Señas: "No, cancelar o corregir la acción actual."</p>
         </div>
       </div>
 
-      <!-- Diferencias entre Gestos Inventados para Interfaz y Lenguas de Señas Naturales -->
-      <div class="p-4 rounded-2xl bg-void/80 border border-white/15 space-y-2 text-xs">
+      <!-- TAB 2: 5 COMANDOS HCI (G0..G5) -->
+      <div id="catalogTabContentHci" class="hidden space-y-4 text-xs">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl border border-roseLiquid/40 bg-roseLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-roseLiquid">G0 • DESCONOCIDO (Rechazo Activo)</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-roseLiquid">Umbral &lt; 0.85</span>
+            </div>
+            <p class="text-textPrimary font-semibold">🖐️ Mano Abierta (4-5 dedos) o postura fuera de catálogo</p>
+            <p class="text-textSecondary mt-1">Mensaje: "Postura neutra o en transición — Esperando gesto intencional"</p>
+          </div>
+
+          <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-cyanLiquid">G1 • CONTINUAR / CLIC DERECHO</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Paz / Victoria</span>
+            </div>
+            <p class="text-textPrimary font-semibold">✌️ Índice (8) y Medio (12) extendidos juntos</p>
+            <p class="text-textSecondary mt-1">Mensaje: "Adelante, podemos continuar con la actividad."</p>
+          </div>
+
+          <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-cyanLiquid">G2 • SÍ / SCROLL ARRIBA</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Índice Vertical</span>
+            </div>
+            <p class="text-textPrimary font-semibold">☝️ Solo Dedo Índice (8) extendido arriba (pulgar guardado)</p>
+            <p class="text-textSecondary mt-1">Mensaje: "Sí, estoy de acuerdo / Confirmado."</p>
+          </div>
+
+          <div class="p-3 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-cyanLiquid">G3 • DETENER / SCROLL ABAJO</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-cyanLiquid">Puño Cerrado</span>
+            </div>
+            <p class="text-textPrimary font-semibold">✊ Los 5 dedos plegados en la palma</p>
+            <p class="text-textSecondary mt-1">Mensaje: "Por favor detente / Pausa inmediata."</p>
+          </div>
+
+          <div class="p-3 rounded-xl border border-amberLiquid/40 bg-amberLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-amberLiquid">G4 • AYUDA / ASISTENCIA SOS</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-amberLiquid">3 Dedos / Shaka</span>
+            </div>
+            <p class="text-textPrimary font-semibold">🤟 Tres dedos centrales (8, 12, 16) o Pulgar + Meñique</p>
+            <p class="text-textSecondary mt-1">Mensaje: "Necesito ayuda o asistencia prioritaria en este momento."</p>
+          </div>
+
+          <div class="p-3 rounded-xl border border-emeraldLiquid/40 bg-emeraldLiquid/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-bold text-sm text-emeraldLiquid">G5 • NO / CLIC IZQUIERDO</span>
+              <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">Pistola / L</span>
+            </div>
+            <p class="text-textPrimary font-semibold">👆 Índice (8) arriba + Pulgar (4) abierto en forma de "L"</p>
+            <p class="text-textSecondary mt-1">Mensaje: "No, cancelar o corregir la acción actual."</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: FUNDAMENTACIÓN TEÓRICA ACADÉMICA -->
+      <div id="catalogTabContentTheory" class="hidden p-4 rounded-2xl bg-void/80 border border-white/15 space-y-3 text-xs leading-relaxed">
         <h4 class="font-display font-bold text-sm text-amberLiquid flex items-center gap-2">
-          <span>⚠️ Diferencia entre Gestos de Interfaz (HCI) y Lenguas de Señas Naturales (LSC / ASL / LSE)</span>
+          <span>⚠️ Diferenciación entre Gestos de Interfaz (HCI) y Lenguas de Señas Naturales (LSC / ASL)</span>
         </h4>
-        <p class="text-textSecondary leading-relaxed">
-          Los 5 comandos de este sistema (<strong>Continuar, Sí, Detener, Ayuda, No</strong>) son <strong>gestos discretos de control de interfaz (HCI)</strong> diseñados ergonómicamente para no ser ambiguos frente a una cámara monocular, y <strong>no constituyen una traducción de una lengua de señas natural</strong>:
+        <p class="text-textSecondary">
+          En cumplimiento con los requerimientos académicos del proyecto, se establece la distinción epistemológica y técnica entre un <strong>controlador gestual monocular por visión artificial</strong> y una <strong>lengua de señas natural humana</strong>:
         </p>
-        <ul class="list-disc pl-5 space-y-1 text-textSecondary">
-          <li><strong>Gramática y Sintaxis Propia:</strong> Las lenguas de señas naturales (como la Lengua de Señas Colombiana LSC o ASL) son idiomas completos con estructura gramatical, morfología y sintaxis espacial propia, no códigos de 1 gesto = 1 comando.</li>
-          <li><strong>Componente No Manual y Bimanual:</strong> Las lenguas de señas naturales requieren simultáneamente ambas manos, expresiones faciales (cejas, boca), postura del torso, dirección de la mirada y trayectorias dinámicas en el espacio.</li>
-          <li><strong>Vocabulario Cerrado vs. Lenguaje Abierto:</strong> Un controlador gestual de interfaz clasifica un conjunto finito de posturas estáticas unimanuales (21 landmarks) con filtro de retención temporal ($N=8$), mientras que una lengua de señas es productiva, contextual y culturalmente situada.</li>
-        </ul>
+        <div class="space-y-2 text-textSecondary">
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+            <strong class="text-textPrimary">1. Gramática y Sintaxis Propia:</strong> Las lenguas de señas naturales (como la Lengua de Señas Colombiana - LSC o la American Sign Language - ASL) son idiomas completos con fonología visual-espacial, morfología rica y estructuras gramaticales complejas (espacio topográfico de señado), no códigos simplificados de sustitución 1 gesto = 1 palabra.
+          </div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+            <strong class="text-textPrimary">2. Componente No Manual y Espacial:</strong> En las lenguas de señas humanas, más del 40% del significado semántico y sintáctico radica en el <em>componente no manual</em> (elevación o fruncimiento de cejas, movimientos de boca y lengua, inclinación de la cabeza y rotación del torso), el cual no es capturado únicamente por los 21 landmarks de la mano.
+          </div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+            <strong class="text-textPrimary">3. Bimanualidad y Asimetría Manual:</strong> Mientras que un controlador de mouse opera con 1 sola mano dominante, las señas complejas involucran dos manos con roles asimétricos (mano dominante activa vs. mano no dominante pasiva como base de apoyo físico).
+          </div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+            <strong class="text-textPrimary">4. Vocabulario Cerrado vs. Lenguaje Abierto:</strong> Un clasificador neuronal discreto opera sobre un espacio vectorial de clases mutuamente excluyentes con umbral de rechazo, mientras que un lenguaje natural es recursivo, infinito y culturalmente evolutivo.
+          </div>
+        </div>
       </div>
 
-      <div class="mt-4 flex justify-between items-center">
-        <button onclick="resetDetectionState(); closeModal('modalSignCatalog');" class="min-h-[44px] px-4 rounded-full bg-roseLiquid/20 border border-roseLiquid/50 text-roseLiquid text-xs font-semibold">
+      <div class="mt-5 flex justify-between items-center border-t border-white/10 pt-4">
+        <button onclick="resetDetectionState(); closeModal('modalSignCatalog');" class="min-h-[44px] px-4 rounded-full bg-roseLiquid/20 border border-roseLiquid/50 text-roseLiquid text-xs font-semibold hover:bg-roseLiquid/30 transition-colors">
           🔄 Reiniciar Detección Ahora
         </button>
-        <button onclick="closeModal('modalSignCatalog')" class="min-h-[44px] px-5 rounded-full bg-cyanLiquid/20 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold">
+        <button onclick="closeModal('modalSignCatalog')" class="min-h-[44px] px-6 rounded-full bg-cyanLiquid/20 border border-cyanLiquid/60 text-cyanLiquid text-xs font-semibold hover:bg-cyanLiquid/30 transition-colors">
           Entendido
         </button>
       </div>
@@ -934,7 +1328,7 @@
 
     let ws = null;
     let currentMode = 'OFFLINE';
-    let interactionMode = 'OS_CONTROL';
+    let interactionMode = 'SIGN_LANGUAGE';
     let signTtsEnabled = true;
     let lastSpokenTs = '';
     let hardwareEnabled = true;
@@ -946,6 +1340,19 @@
     let pipVideo = null;
     let pipCanvas = null;
     const RING_CIRCUMFERENCE = 175.93;
+
+    // Desbloqueo proactivo de audio Web Speech TTS al primer clic del usuario
+    function ensureDesktopSpeechUnlocked() {
+      if ('speechSynthesis' in window) {
+        try {
+          const dummy = new SpeechSynthesisUtterance('');
+          dummy.volume = 0;
+          window.speechSynthesis.speak(dummy);
+        } catch (e) {}
+      }
+    }
+    document.addEventListener('click', ensureDesktopSpeechUnlocked, { once: true });
+    document.addEventListener('touchstart', ensureDesktopSpeechUnlocked, { once: true });
 
     // Inicializar los 8 slots del buffer circular
     function initBufferSlots() {
@@ -960,6 +1367,8 @@
       }
     }
     initBufferSlots();
+    // Iniciar con Traductor de Señas activo por defecto
+    setTimeout(() => updateSignModeUI('SIGN_LANGUAGE'), 50);
 
     function connectWebSocket() {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1068,13 +1477,56 @@
         document.getElementById('hudGestureName').textContent = stab.name || '';
         document.getElementById('hudActionCommand').innerHTML = `<span>💬 ${stab.sign_message || ''}</span>`;
 
-        document.getElementById('signBannerGid').textContent = gid;
+        document.getElementById('signBannerGid').textContent = stab.sign_emoji || '👋';
         document.getElementById('signBannerConf').textContent = `${(Number(stab.confidence || 0) * 100).toFixed(1)}% Confianza`;
-        document.getElementById('signBannerTitle').textContent = `${stab.sign_label || 'DESCONOCIDO'} (${stab.name || ''})`;
-        document.getElementById('signBannerMessage').textContent = stab.sign_message || 'Esperando gesto intencional...';
+        document.getElementById('signBannerTitle').textContent = stab.sign_label || stab.short_label || 'DESCONOCIDO';
 
-        if (stab.triggered && signTtsEnabled && stab.sign_message && gid !== 'G0') {
-          speakSignMessage(stab.sign_message);
+        // Sincronizar estado bimanual en cabecera
+        const bimanualBadge = document.getElementById('bimanualStatusBadge');
+        if (bimanualBadge) {
+          if (data.bimanual) {
+            const detail = data.inter_hand?.palms_together ? 'Palmas Juntas (Por Favor)' : (data.inter_hand?.fist_on_palm_help ? 'Auxilio / SOS' : (data.inter_hand?.both_open_forward ? 'Espera / Pausa' : '2 Manos'));
+            bimanualBadge.textContent = `Bimanual: ${detail}`;
+            bimanualBadge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emeraldLiquid/25 text-emeraldLiquid border border-emeraldLiquid/50 font-bold';
+          } else if (data.hands_count === 1) {
+            bimanualBadge.textContent = '1 Mano Activa';
+            bimanualBadge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyanLiquid/15 text-cyanLiquid border border-cyanLiquid/30 font-semibold';
+          } else {
+            bimanualBadge.textContent = 'Sin Manos';
+            bimanualBadge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white/10 text-textSecondary border border-white/15';
+          }
+        }
+
+        // Sincronizar badge de cinemática de movimiento
+        const motionBadge = document.getElementById('motionStatusBadge');
+        const motionText = document.getElementById('motionStatusText');
+        if (motionBadge && motionText && data.motion) {
+          const pm = data.motion.primary || {};
+          const bm = data.motion.bimanual || {};
+          if (bm.is_diverging) {
+            motionBadge.classList.remove('hidden');
+            motionText.textContent = 'Apertura (¿Cómo estás?)';
+          } else if (bm.both_moving_down || pm.is_moving_down) {
+            motionBadge.classList.remove('hidden');
+            motionText.textContent = 'Descenso (Despacio / Repetir)';
+          } else if (bm.both_oscillating || pm.is_oscillating_x) {
+            motionBadge.classList.remove('hidden');
+            motionText.textContent = 'Oscilación (Adiós / Negación)';
+          } else if (pm.is_oscillating_y) {
+            motionBadge.classList.remove('hidden');
+            motionText.textContent = 'Asentimiento (Sí)';
+          } else {
+            motionBadge.classList.add('hidden');
+          }
+        }
+
+        // Renderizar tokens del constructor y chat conversacional
+        if (data.conversation) {
+          renderConversationState(data.conversation);
+        }
+
+        if (data.tts_to_speak && signTtsEnabled) {
+          speakSignMessage(data.tts_to_speak);
         }
       } else {
         document.getElementById('hudGestureShortLabel').textContent = stab.short_label || 'DESCONOCIDO';
@@ -1094,7 +1546,16 @@
       document.getElementById('coordMiddle').textContent = fmtPt(tel.middle_tip);
       document.getElementById('hudVectorNorm').textContent = `||V||=${Number(tel.vector_norm || 0).toFixed(2)}`;
       document.getElementById('scaleMetricBadge').textContent = `d_max: ${Number(tel.euclidean_scale || 0).toFixed(3)}`;
-      document.getElementById('semanticNoteText').textContent = data.semantic_note || data.engine_label || 'Vector 63D activo';
+      if (data.mode === 'ONLINE') {
+        const pred = data.prediction || {};
+        if (pred.cloud_verified) {
+          document.getElementById('semanticNoteText').innerHTML = `<span class="text-emeraldLiquid font-bold">☁️ ${pred.engine || 'Gemini Cloud'}:</span> <span class="text-textPrimary">${pred.semantic_note || 'Análisis multimodal verificado'}</span>`;
+        } else {
+          document.getElementById('semanticNoteText').textContent = data.semantic_note || data.engine_label || 'Conectando con Gemini API...';
+        }
+      } else {
+        document.getElementById('semanticNoteText').textContent = data.semantic_note || data.engine_label || 'Vector 63D activo';
+      }
 
       // 6. Buffer Circular N=8 Slots
       const snapshot = stab.buffer_snapshot || [];
@@ -1235,14 +1696,22 @@
       const btn = document.getElementById('btnToggleSignMode');
       const lbl = document.getElementById('labelToggleSignMode');
       const banner = document.getElementById('signLanguageBanner');
+      const osPanels = document.getElementById('osControlPanelsContainer');
+      const signPanels = document.getElementById('signTranslatorPanelsContainer');
+
       if (mode === 'SIGN_LANGUAGE') {
-        lbl.textContent = 'MODO SEÑAS: ON';
+        lbl.textContent = 'TRADUCTOR SEÑAS: ON';
         btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-emeraldLiquid/60 bg-emeraldLiquid/20 text-emeraldLiquid text-xs font-semibold flex items-center gap-2 shadow-[0_0_16px_rgba(0,255,157,0.28)]';
         banner.classList.remove('hidden');
+        if (osPanels) osPanels.classList.add('hidden');
+        if (signPanels) signPanels.classList.remove('hidden');
+        updatePointerUI(false);
       } else {
-        lbl.textContent = 'MODO SEÑAS: OFF';
+        lbl.textContent = 'TRADUCTOR SEÑAS: OFF';
         btn.className = 'min-h-[48px] px-3.5 py-2 rounded-full border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center gap-2';
         banner.classList.add('hidden');
+        if (osPanels) osPanels.classList.remove('hidden');
+        if (signPanels) signPanels.classList.add('hidden');
       }
     }
 
@@ -1267,7 +1736,7 @@
 
     function speakSignMessage(text) {
       try {
-        if ('speechSynthesis' in window) {
+        if ('speechSynthesis' in window && text) {
           window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(text);
           utter.lang = 'es-ES';
@@ -1275,6 +1744,242 @@
           window.speechSynthesis.speak(utter);
         }
       } catch (e) {}
+    }
+
+    // =========================================================================
+    // FUNCIONALIDADES CONVERSACIONALES BIDIRECCIONALES (SEÑAS ↔ VOZ/TEXTO)
+    // =========================================================================
+    let lastRenderedTokensCount = -1;
+    let lastRenderedChatLen = -1;
+    let hearingRecognition = null;
+    let isHearingListening = false;
+
+    function renderConversationState(conv) {
+      if (!conv) return;
+
+      // 1. Renderizar glosas/tokens acumulados
+      const tokensContainer = document.getElementById('sentenceTokensContainer');
+      const tokens = conv.active_tokens || [];
+      const badge = document.getElementById('tokenCounterBadge');
+      if (badge) badge.textContent = `[${tokens.length} token${tokens.length === 1 ? '' : 's'}]`;
+
+      if (tokensContainer) {
+        if (tokens.length === 0) {
+          tokensContainer.innerHTML = '<span class="text-textSecondary text-xs italic">Haz señas frente a la cámara para agregar palabras...</span>';
+        } else if (tokens.length !== lastRenderedTokensCount) {
+          tokensContainer.innerHTML = tokens.map((t) => `
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyanLiquid/20 text-cyanLiquid text-[11px] font-semibold border border-cyanLiquid/40 shrink-0">
+              <span>${t.emoji || '✋'}</span>
+              <span>${t.label}</span>
+            </span>
+          `).join('');
+          tokensContainer.scrollLeft = tokensContainer.scrollWidth;
+        }
+      }
+      lastRenderedTokensCount = tokens.length;
+
+      // 2. Oración ensamblada en español para pronunciar
+      const sentText = document.getElementById('currentSentenceText');
+      if (sentText) {
+        if (conv.current_sentence && conv.current_sentence.trim().length > 0) {
+          sentText.textContent = `"${conv.current_sentence}"`;
+          sentText.className = 'font-sans font-bold text-sm md:text-base text-emeraldLiquid truncate';
+        } else {
+          sentText.textContent = '(Oración vacía — realiza una seña para comenzar)';
+          sentText.className = 'font-sans text-xs text-textSecondary italic truncate';
+        }
+      }
+
+      // 3. Historial de Chat Conversacional Bidireccional
+      const chatList = document.getElementById('chatTimelineList');
+      const history = conv.chat_history || [];
+      if (chatList && history.length !== lastRenderedChatLen) {
+        lastRenderedChatLen = history.length;
+        chatList.innerHTML = history.map((msg) => {
+          if (msg.sender === 'DEAF') {
+            const escaped = (msg.text || '').replace(/'/g, "\\'");
+            return `
+              <div class="flex flex-col items-start gap-1 max-w-[90%]">
+                <div class="flex items-center gap-1.5 text-[10px] font-mono text-cyanLiquid">
+                  <span>🖐️ Persona Sorda</span>
+                  <span class="text-textSecondary">• ${msg.timestamp || ''}</span>
+                </div>
+                <div class="p-3 rounded-2xl rounded-tl-sm bg-cyanLiquid/15 border border-cyanLiquid/40 text-textPrimary text-xs md:text-sm font-medium leading-relaxed">
+                  ${msg.text}
+                </div>
+                <button onclick="speakSignMessage('${escaped}')" class="text-[10px] text-cyanLiquid hover:underline flex items-center gap-1">
+                  <span>🔊 Repetir audio</span>
+                </button>
+              </div>
+            `;
+          } else if (msg.sender === 'HEARING') {
+            return `
+              <div class="flex flex-col items-end gap-1 ml-auto max-w-[90%]">
+                <div class="flex items-center gap-1.5 text-[10px] font-mono text-emeraldLiquid">
+                  <span>🎙️ Oyente (Voz)</span>
+                  <span class="text-textSecondary">• ${msg.timestamp || ''}</span>
+                </div>
+                <div class="p-3 rounded-2xl rounded-tr-sm bg-emeraldLiquid/20 border border-emeraldLiquid/50 text-textPrimary text-xs md:text-sm font-semibold leading-relaxed text-right">
+                  ${msg.text}
+                </div>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="my-1 p-2 rounded-xl bg-void/60 border border-white/10 text-center text-[11px] text-textSecondary font-mono">
+                ${msg.text}
+              </div>
+            `;
+          }
+        }).join('');
+        chatList.scrollTop = chatList.scrollHeight;
+      }
+    }
+
+    function speakCurrentSentence() {
+      const sentEl = document.getElementById('currentSentenceText');
+      const text = sentEl ? sentEl.textContent.replace(/^"|"$/g, '').trim() : '';
+      if (text && !text.includes('vacía')) {
+        speakSignMessage(text);
+      }
+    }
+
+    async function commitSentenceToChat() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_COMMIT' }));
+      } else {
+        await fetch('/api/conversation/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+      }
+    }
+
+    async function backspaceSentenceToken() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_BACKSPACE' }));
+      } else {
+        await fetch('/api/conversation/backspace', { method: 'POST' });
+      }
+    }
+
+    async function clearSentenceTokens() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_CLEAR' }));
+      } else {
+        await fetch('/api/conversation/clear', { method: 'POST' });
+      }
+    }
+
+    async function clearChatHistory() {
+      await fetch('/api/reset', { method: 'POST' });
+      lastRenderedChatLen = -1;
+    }
+
+    // Reconocimiento de Voz del Oyente (Speech-to-Text)
+    function toggleHearingMic() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        alert("Tu navegador no soporta Web Speech API para micrófono. Puedes usar Google Chrome, Microsoft Edge o presionar una de las respuestas rápidas para el oyente.");
+        return;
+      }
+
+      if (isHearingListening && hearingRecognition) {
+        try { hearingRecognition.stop(); } catch (e) {}
+        isHearingListening = false;
+        updateHearingMicUI(false);
+        return;
+      }
+
+      try {
+        hearingRecognition = new SpeechRec();
+        hearingRecognition.lang = 'es-ES';
+        hearingRecognition.continuous = false;
+        hearingRecognition.interimResults = true;
+
+        hearingRecognition.onstart = () => {
+          isHearingListening = true;
+          updateHearingMicUI(true);
+        };
+
+        hearingRecognition.onresult = (event) => {
+          let interim = '';
+          let final = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              final += event.results[i][0].transcript;
+            } else {
+              interim += event.results[i][0].transcript;
+            }
+          }
+          const text = (final || interim).trim();
+          if (text) {
+            document.getElementById('hearingLiveTranscript').textContent = `"${text}"`;
+          }
+          if (final.trim()) {
+            sendHearingSpokenText(final.trim());
+          }
+        };
+
+        hearingRecognition.onerror = (e) => {
+          console.warn("SpeechRec error:", e);
+          isHearingListening = false;
+          updateHearingMicUI(false);
+        };
+
+        hearingRecognition.onend = () => {
+          isHearingListening = false;
+          updateHearingMicUI(false);
+        };
+
+        hearingRecognition.start();
+      } catch (err) {
+        console.error("Error al iniciar micrófono:", err);
+        isHearingListening = false;
+        updateHearingMicUI(false);
+      }
+    }
+
+    function updateHearingMicUI(listening) {
+      const btn = document.getElementById('btnHearingMic');
+      const lbl = document.getElementById('btnHearingMicLabel');
+      const badge = document.getElementById('hearingMicStatusBadge');
+      if (!btn || !lbl || !badge) return;
+
+      if (listening) {
+        btn.className = 'w-full min-h-[50px] p-3 rounded-2xl border-2 border-roseLiquid bg-roseLiquid/25 text-roseLiquid font-display font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(255,51,102,0.45)] animate-pulse';
+        lbl.textContent = '🔴 Grabando voz... Habla ahora';
+        badge.textContent = 'Grabando voz...';
+        badge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-roseLiquid/50 bg-roseLiquid/20 text-roseLiquid font-bold';
+      } else {
+        btn.className = 'w-full min-h-[50px] p-3 rounded-2xl border-2 border-emeraldLiquid/50 bg-emeraldLiquid/15 hover:bg-emeraldLiquid/25 text-emeraldLiquid font-display font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)] active:scale-98 transition-all';
+        lbl.textContent = '🎙️ Presionar para Hablar como Oyente';
+        badge.textContent = 'Micrófono listo';
+        badge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary';
+      }
+    }
+
+    async function sendHearingSpokenText(text) {
+      if (!text || !text.trim()) return;
+      const clean = text.trim();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'HEARING_SPEECH', text: clean }));
+      } else {
+        await fetch('/api/conversation/hearing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: clean })
+        });
+      }
+      setTimeout(() => {
+        const transBox = document.getElementById('hearingLiveTranscript');
+        if (transBox) transBox.textContent = `Última transcripción: "${clean}"`;
+      }, 1200);
+    }
+
+    function sendHearingQuickText(text) {
+      sendHearingSpokenText(text);
     }
 
     async function resetDetectionState() {
@@ -1488,6 +2193,55 @@
       }
     }
 
+    async function testGeminiConnection() {
+      const btn = document.getElementById('btnTestGemini');
+      const out = document.getElementById('geminiTestOutput');
+      const keyInput = document.getElementById('inputGeminiKey').value.trim();
+      const modelVal = document.getElementById('inputGeminiModel').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Probando...</span>';
+      out.classList.remove('hidden');
+      out.className = 'p-2.5 rounded-xl bg-void/90 border border-cyanLiquid/30 text-cyanLiquid text-xs font-mono animate-pulse';
+      out.textContent = 'Enviando petición de prueba a Google Gemini...';
+
+      if (keyInput) {
+        await fetch('/api/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: currentMode, gemini_api_key: keyInput, gemini_model: modelVal })
+        });
+      }
+
+      try {
+        const resp = await fetch('/api/gemini/test', { method: 'POST' });
+        const res = await resp.json();
+        if (res.success) {
+          out.className = 'p-2.5 rounded-xl bg-emeraldLiquid/10 border border-emeraldLiquid/40 text-emeraldLiquid text-xs font-mono';
+          out.innerHTML = `✓ <strong>Conexión Exitosa</strong> (${res.latency_ms} ms)<br>Modelo: ${res.model}<br>Respuesta: "${res.response}"`;
+          const dot = document.getElementById('geminiStatusDot');
+          const txt = document.getElementById('geminiStatusText');
+          const badge = document.getElementById('geminiActiveModelBadge');
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emeraldLiquid';
+          if (txt) {
+            txt.textContent = `Conectado (${res.latency_ms} ms)`;
+            txt.className = 'text-emeraldLiquid font-semibold';
+          }
+          if (badge) badge.textContent = res.model;
+        } else {
+          out.className = 'p-2.5 rounded-xl bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid text-xs font-mono';
+          out.innerHTML = `✕ <strong>Error de Conexión:</strong><br>${res.error}`;
+        }
+      } catch (err) {
+        out.className = 'p-2.5 rounded-xl bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid text-xs font-mono';
+        out.textContent = `Error de red: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="zap" class="w-3.5 h-3.5"></i><span>Probar Conexión</span>';
+        lucide.createIcons();
+      }
+    }
+
     async function saveGeminiKey() {
       const key = document.getElementById('inputGeminiKey').value.trim();
       const model = document.getElementById('inputGeminiModel').value;
@@ -1504,12 +2258,69 @@
       closeModal('modalGemini');
     }
 
-    function openModal(id) {
+    async function openModal(id) {
       document.getElementById(id).classList.remove('hidden');
+      if (id === 'modalGemini') {
+        try {
+          const res = await fetch('/api/status');
+          const data = await res.json();
+          const gem = data.gemini || {};
+          const dot = document.getElementById('geminiStatusDot');
+          const txt = document.getElementById('geminiStatusText');
+          const badge = document.getElementById('geminiActiveModelBadge');
+          const keyMasked = document.getElementById('geminiKeyMasked');
+          const modelSel = document.getElementById('inputGeminiModel');
+
+          if (gem.configured) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-emeraldLiquid animate-pulse';
+            txt.textContent = 'API Key Configurada y Lista';
+            txt.className = 'text-emeraldLiquid font-semibold';
+            if (gem.api_key_masked) keyMasked.textContent = `Clave actual: ${gem.api_key_masked}`;
+          } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-amberLiquid';
+            txt.textContent = 'Sin clave configurada';
+            txt.className = 'text-amberLiquid font-semibold';
+          }
+          if (gem.model) {
+            badge.textContent = gem.model;
+            if (modelSel) modelSel.value = gem.model;
+          }
+        } catch (e) {}
+      }
     }
 
     function closeModal(id) {
       document.getElementById(id).classList.add('hidden');
+    }
+
+    function switchCatalogTab(tab) {
+      const tabs = ['SIGNS', 'HCI', 'THEORY'];
+      const btnMap = {
+        'SIGNS': document.getElementById('btnCatalogTabSigns'),
+        'HCI': document.getElementById('btnCatalogTabHci'),
+        'THEORY': document.getElementById('btnCatalogTabTheory')
+      };
+      const contentMap = {
+        'SIGNS': document.getElementById('catalogTabContentSigns'),
+        'HCI': document.getElementById('catalogTabContentHci'),
+        'THEORY': document.getElementById('catalogTabContentTheory')
+      };
+
+      tabs.forEach(t => {
+        const btn = btnMap[t];
+        const content = contentMap[t];
+        if (t === tab) {
+          if (btn) {
+            btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all bg-cyanLiquid/20 text-cyanLiquid border border-cyanLiquid/50';
+          }
+          if (content) content.classList.remove('hidden');
+        } else {
+          if (btn) {
+            btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-textSecondary hover:text-textPrimary border border-white/10';
+          }
+          if (content) content.classList.add('hidden');
+        }
+      });
     }
 
     connectWebSocket();

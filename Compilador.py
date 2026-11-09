@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 STATIC_DIR = PROJECT_ROOT / "static"
 OUTPUT_DIR = PROJECT_ROOT / "apk_estractor"
 BUILD_DIR = PROJECT_ROOT / ".android_build_cache"
-APK_FILENAME = "SignBridge_v2.apk"
+APK_FILENAME = "SignBridge_v3.apk"
 
 
 def get_local_ip() -> str:
@@ -235,7 +235,7 @@ def write_android_project_files(res_dir: Path, src_dir: Path, manifest_path: Pat
     (val_dir / "strings.xml").write_text(
         """<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SignBridge v2.0</string>
+    <string name="app_name">SignBridge v3.0</string>
 </resources>
 """,
         encoding="utf-8",
@@ -246,8 +246,8 @@ def write_android_project_files(res_dir: Path, src_dir: Path, manifest_path: Pat
         """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.signbridge.extended"
-    android:versionCode="20"
-    android:versionName="2.0.0">
+    android:versionCode="30"
+    android:versionName="3.0.0">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
@@ -680,6 +680,13 @@ def compile_apk():
         desc="apksigner",
     )
 
+    # Mantener copia como SignBridge_v2.apk para compatibilidad con accesos previos
+    v2_copy = OUTPUT_DIR / "SignBridge_v2.apk"
+    try:
+        shutil.copy2(final_apk_path, v2_copy)
+    except Exception:
+        pass
+
     # Limpiar caché temporal de compilación
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
@@ -687,9 +694,10 @@ def compile_apk():
     size_kb = final_apk_path.stat().st_size / 1024.0
     print("=" * 68)
     print(f"  [OK] APK COMPILADO EXITOSAMENTE EN {elapsed:.2f}s")
-    print(f"  [+] Archivo APK:  {final_apk_path}")
-    print(f"  [+] Tamaño:       {size_kb:.1f} KB")
-    print(f"  [+] Host PC LAN:  {default_host} (preconfigurado en el APK)")
+    print(f"  [+] Archivo APK Principal: {final_apk_path}")
+    print(f"  [+] Copia Compatibilidad: {v2_copy}")
+    print(f"  [+] Tamaño:                {size_kb:.1f} KB")
+    print(f"  [+] Host PC LAN:           {default_host} (preconfigurado en el APK)")
     print("=" * 68)
     return final_apk_path
 

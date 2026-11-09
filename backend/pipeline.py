@@ -18,7 +18,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from backend.normalizer import normalize_landmarks
+from backend.normalizer import normalize_landmarks, normalize_multi_hand_landmarks
 from backend.classifier_local import (
     LocalGestureClassifier,
     GESTURE_CATALOG,
@@ -27,6 +27,8 @@ from backend.classifier_local import (
 from backend.classifier_gemini import GeminiGestureClassifier
 from backend.stabilizer import TemporalStabilizer
 from backend.hardware_controller import HardwareController
+from backend.conversation_engine import ConversationEngine, CONVERSATIONAL_SIGNS_CATALOG
+from backend.motion_analyzer import KinematicMotionAnalyzer
 
 
 # Conexiones anatómicas entre los 21 puntos clave de MediaPipe Hands
@@ -44,10 +46,14 @@ class SignBridgePipeline:
         self.model_dir = model_dir
         self.hand_task_path = os.path.join(model_dir, "hand_landmarker.task")
         self.mode: str = "OFFLINE"  # "OFFLINE" | "ONLINE"
-        self.interaction_mode: str = "OS_CONTROL"  # "OS_CONTROL" | "SIGN_LANGUAGE"
+        self.interaction_mode: str = "SIGN_LANGUAGE"  # "SIGN_LANGUAGE" (Traductor Conversacional) | "OS_CONTROL" (Mouse/Click)
         self.video_source: str = "AUTO"  # "LOCAL" | "MOBILE" | "SIMULATOR" | "AUTO"
         self.simulated_gesture: str = "G1"
         self.sign_history: List[Dict[str, Any]] = []
+        self.conversation_engine = ConversationEngine()
+        self.motion_analyzer = KinematicMotionAnalyzer()
+        self.multi_hand_landmarks: List[np.ndarray] = []
+        self.multi_handedness: List[str] = []
 
         self.local_classifier = LocalGestureClassifier(model_dir=model_dir)
         self.gemini_classifier = GeminiGestureClassifier(fallback_classifier=self.local_classifier)
@@ -83,10 +89,10 @@ class SignBridgePipeline:
             options = mp_vision.HandLandmarkerOptions(
                 base_options=base_options,
                 running_mode=mp_vision.RunningMode.IMAGE,
-                num_hands=1,
-                min_hand_detection_confidence=0.55,
-                min_hand_presence_confidence=0.55,
-                min_tracking_confidence=0.55,
+                num_hands=2,
+                min_hand_detection_confidence=0.48,
+                min_hand_presence_confidence=0.48,
+                min_tracking_confidence=0.48,
             )
             self._landmarker = mp_vision.HandLandmarker.create_from_options(options)
         except Exception:
@@ -111,6 +117,7 @@ class SignBridgePipeline:
     def reset_detection(self) -> Dict[str, Any]:
         """Reinicia el buffer de estabilización temporal y el historial de detección de señas."""
         self.stabilizer.reset()
+        self.motion_analyzer.reset()
         self.sign_history.clear()
         return {
             "reset": True,
@@ -225,22 +232,38 @@ class SignBridgePipeline:
 
         return canvas, None
 
-    def detect_landmarks_from_bgr(self, frame_bgr: np.ndarray) -> Optional[np.ndarray]:
-        """Extrae los 21 puntos clave 3D (x, y, z) usando MediaPipe HandLandmarker."""
+    def detect_all_hands_from_bgr(self, frame_bgr: np.ndarray) -> Tuple[List[np.ndarray], List[str]]:
+        """
+        Extrae los 21 puntos clave 3D (x, y, z) de hasta 2 manos simultáneas junto con su lateralidad
+        (Right / Left) para habilitar soporte bimanual en modo traductor.
+        """
         if self._landmarker is None:
-            return None
+            return [], []
         try:
             import mediapipe as mp
             rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             result = self._landmarker.detect(mp_image)
+            hands_list: List[np.ndarray] = []
+            handedness_list: List[str] = []
             if result.hand_landmarks and len(result.hand_landmarks) > 0:
-                hand = result.hand_landmarks[0]
-                pts = np.array([[lm.x, lm.y, lm.z] for lm in hand], dtype=np.float32)
-                return pts
+                for idx, hand in enumerate(result.hand_landmarks):
+                    pts = np.array([[lm.x, lm.y, lm.z] for lm in hand], dtype=np.float32)
+                    hands_list.append(pts)
+                    label = "Right"
+                    if result.handedness and len(result.handedness) > idx and len(result.handedness[idx]) > 0:
+                        label = result.handedness[idx][0].category_name
+                    handedness_list.append(label)
+            return hands_list, handedness_list
         except Exception:
-            pass
-        return None
+            return [], []
+
+    def detect_landmarks_from_bgr(self, frame_bgr: np.ndarray) -> Optional[np.ndarray]:
+        """Extrae los 21 puntos clave 3D de la mano primaria (con preservación de compatibilidad)."""
+        hands, labels = self.detect_all_hands_from_bgr(frame_bgr)
+        self.multi_hand_landmarks = hands
+        self.multi_handedness = labels
+        return hands[0] if hands else None
 
     def generate_simulator_frame_and_pose(self, width: int = 800, height: int = 500) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -291,74 +314,106 @@ class SignBridgePipeline:
         frame_bgr: np.ndarray,
         landmarks: Optional[np.ndarray],
         stabilized: Dict[str, Any],
+        secondary_landmarks: Optional[np.ndarray] = None,
+        inter_hand: Optional[Dict[str, Any]] = None,
     ) -> np.ndarray:
         """
-        Renderiza los 21 puntos clave y conexiones sobre el fotograma siguiendo
-        estrictamente la colorimetría de DESIGN.md:
-        - --liquid-cyan (#00F0FF) para detección activa / Modo Online
-        - --liquid-amber (#FFB800) para Modo Offline
-        - --liquid-emerald (#00FF9D) para pulso de acción confirmada
-        - --liquid-rose (#FF3366) para rechazo activo (G0)
+        Renderiza los esqueletos anatómicos de 1 o 2 manos (bimanual) y sus relaciones
+        espaciales (halo de contacto, conexión inter-manual y lateralidad) siguiendo DESIGN.md.
         """
         out = frame_bgr.copy()
-        if landmarks is None:
+        if landmarks is None and secondary_landmarks is None:
             return out
 
         h, w = out.shape[:2]
 
-        # Selección de color primario según estado semántico (BGR)
-        if stabilized.get("pulse_emerald"):
-            bone_color = (157, 255, 0)    # #00FF9D Liquid Emerald
-            joint_color = (200, 255, 120)
-        elif stabilized.get("rejected"):
-            bone_color = (102, 51, 255)   # #FF3366 Liquid Rose
-            joint_color = (140, 100, 255)
-        elif self.mode == "ONLINE":
-            bone_color = (255, 240, 0)    # #00F0FF Liquid Cyan
-            joint_color = (255, 250, 160)
-        else:
-            bone_color = (0, 184, 255)    # #FFB800 Liquid Amber
-            joint_color = (255, 240, 0)   # #00F0FF Puntas clave
+        def draw_single_skeleton(pts_arr: np.ndarray, b_color: Tuple[int, int, int], j_color: Tuple[int, int, int], is_primary: bool):
+            pts_px = [(int(lm[0] * w), int(lm[1] * h)) for lm in pts_arr]
 
-        pts_px = [(int(lm[0] * w), int(lm[1] * h)) for lm in landmarks]
+            # Halo translúcido
+            overlay = out.copy()
+            for i, j in HAND_CONNECTIONS:
+                cv2.line(overlay, pts_px[i], pts_px[j], b_color, 5, cv2.LINE_AA)
+            cv2.addWeighted(overlay, 0.28, out, 0.72, 0, out)
 
-        # Halo translúcido alrededor de las conexiones
-        overlay = out.copy()
-        for i, j in HAND_CONNECTIONS:
-            cv2.line(overlay, pts_px[i], pts_px[j], bone_color, 5, cv2.LINE_AA)
-        cv2.addWeighted(overlay, 0.28, out, 0.72, 0, out)
+            # Huesos principales
+            for i, j in HAND_CONNECTIONS:
+                cv2.line(out, pts_px[i], pts_px[j], b_color, 2, cv2.LINE_AA)
 
-        # Huesos nítidos principales
-        for i, j in HAND_CONNECTIONS:
-            cv2.line(out, pts_px[i], pts_px[j], bone_color, 2, cv2.LINE_AA)
+            # Puntos y nudillos
+            fingertips = {4, 8, 12, 16, 20}
+            for idx, (px, py) in enumerate(pts_px):
+                if idx == 0:
+                    cv2.circle(out, (px, py), 8, (255, 255, 255), -1, cv2.LINE_AA)
+                    cv2.circle(out, (px, py), 11, b_color, 2, cv2.LINE_AA)
+                elif idx in fingertips:
+                    cv2.circle(out, (px, py), 7, j_color, -1, cv2.LINE_AA)
+                    cv2.circle(out, (px, py), 10, b_color, 1, cv2.LINE_AA)
+                else:
+                    cv2.circle(out, (px, py), 4, (248, 250, 252), -1, cv2.LINE_AA)
 
-        # Articulaciones y puntas (4, 8, 12, 16, 20 destacadas)
-        fingertips = {4, 8, 12, 16, 20}
-        for idx, (px, py) in enumerate(pts_px):
-            if idx == 0:
-                cv2.circle(out, (px, py), 8, (255, 255, 255), -1, cv2.LINE_AA)
-                cv2.circle(out, (px, py), 11, bone_color, 2, cv2.LINE_AA)
-            elif idx in fingertips:
-                cv2.circle(out, (px, py), 7, joint_color, -1, cv2.LINE_AA)
-                cv2.circle(out, (px, py), 10, bone_color, 1, cv2.LINE_AA)
+            # Retícula de puntero si aplica a la mano primaria
+            if is_primary and self.hardware.pointer_enabled and len(pts_px) > 8:
+                ix, iy = pts_px[8]
+                cv2.circle(out, (ix, iy), 18, (0, 240, 255), 2, cv2.LINE_AA)
+                cv2.circle(out, (ix, iy), 4, (0, 255, 157), -1, cv2.LINE_AA)
+                cv2.line(out, (ix - 24, iy), (ix - 10, iy), (0, 240, 255), 2, cv2.LINE_AA)
+                cv2.line(out, (ix + 10, iy), (ix + 24, iy), (0, 240, 255), 2, cv2.LINE_AA)
+                cv2.line(out, (ix, iy - 24), (ix, iy - 10), (0, 240, 255), 2, cv2.LINE_AA)
+                cv2.line(out, (ix, iy + 10), (ix, iy + 24), (0, 240, 255), 2, cv2.LINE_AA)
+
+            return pts_px
+
+        # 1. Mano primaria (Derecha / Dominante)
+        pts_px_0 = None
+        if landmarks is not None:
+            if stabilized.get("pulse_emerald"):
+                bone_color = (157, 255, 0)    # #00FF9D Liquid Emerald
+                joint_color = (200, 255, 120)
+            elif stabilized.get("rejected"):
+                bone_color = (102, 51, 255)   # #FF3366 Liquid Rose
+                joint_color = (140, 100, 255)
+            elif self.mode == "ONLINE":
+                bone_color = (255, 240, 0)    # #00F0FF Liquid Cyan
+                joint_color = (255, 250, 160)
             else:
-                cv2.circle(out, (px, py), 4, (248, 250, 252), -1, cv2.LINE_AA)
+                bone_color = (0, 184, 255)    # #FFB800 Liquid Amber
+                joint_color = (255, 240, 0)   # #00F0FF Puntas
+            pts_px_0 = draw_single_skeleton(landmarks, bone_color, joint_color, is_primary=True)
 
-        # Si el modo Puntero de Mouse está activo, dibujar retícula en el dedo índice (8)
-        if self.hardware.pointer_enabled and len(pts_px) > 8:
-            ix, iy = pts_px[8]
-            cv2.circle(out, (ix, iy), 18, (0, 240, 255), 2, cv2.LINE_AA)
-            cv2.circle(out, (ix, iy), 4, (0, 255, 157), -1, cv2.LINE_AA)
-            cv2.line(out, (ix - 24, iy), (ix - 10, iy), (0, 240, 255), 2, cv2.LINE_AA)
-            cv2.line(out, (ix + 10, iy), (ix + 24, iy), (0, 240, 255), 2, cv2.LINE_AA)
-            cv2.line(out, (ix, iy - 24), (ix, iy - 10), (0, 240, 255), 2, cv2.LINE_AA)
-            cv2.line(out, (ix, iy + 10), (ix, iy + 24), (0, 240, 255), 2, cv2.LINE_AA)
+        # 2. Mano secundaria (Izquierda / No-dominante en gestos bimanuales)
+        pts_px_1 = None
+        if secondary_landmarks is not None:
+            sec_bone_color = (235, 85, 168)   # #A855F7 Liquid Violet
+            sec_joint_color = (255, 175, 225)
+            pts_px_1 = draw_single_skeleton(secondary_landmarks, sec_bone_color, sec_joint_color, is_primary=False)
+
+        # 3. Dibujar interacción inter-manual si hay 2 manos
+        if pts_px_0 is not None and pts_px_1 is not None and inter_hand:
+            p0_wrist = pts_px_0[0]
+            p1_wrist = pts_px_1[0]
+            p0_palm = pts_px_0[9]
+            p1_palm = pts_px_1[9]
+
+            # Línea de enlace inter-manual
+            if inter_hand.get("hands_touching") or inter_hand.get("palms_together") or inter_hand.get("fist_on_palm_help"):
+                cv2.line(out, p0_palm, p1_palm, (157, 255, 0), 2, cv2.LINE_AA)
+                cv2.circle(out, ((p0_palm[0] + p1_palm[0]) // 2, (p0_palm[1] + p1_palm[1]) // 2), 7, (157, 255, 0), -1, cv2.LINE_AA)
+
+            # Cartel visual de reconocimiento bimanual en cabecera
+            if inter_hand.get("fist_on_palm_help"):
+                cv2.putText(out, "BIMANUAL: AUXILIO / ASISTENCIA SOS", (w // 2 - 165, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (0, 60, 255), 2, cv2.LINE_AA)
+            elif inter_hand.get("palms_together"):
+                cv2.putText(out, "BIMANUAL: PALMAS UNIDAS (POR FAVOR)", (w // 2 - 165, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (157, 255, 0), 2, cv2.LINE_AA)
+            elif inter_hand.get("both_open_forward"):
+                cv2.putText(out, "BIMANUAL: ESPERA / PAUSA", (w // 2 - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (0, 220, 255), 2, cv2.LINE_AA)
 
         return out
 
     def process_step(self, local_cam_bgr: Optional[np.ndarray] = None) -> Dict[str, Any]:
         """
-        Ejecuta un ciclo completo del pipeline y retorna el paquete de telemetría + frame Base64.
+        Ejecuta un ciclo completo del pipeline con soporte bimanual, traducción
+        conversacional continua y emulación de periféricos.
         """
         now = time.perf_counter()
         dt = max(1e-4, now - self._last_frame_ts)
@@ -370,41 +425,59 @@ class SignBridgePipeline:
         if self.mobile_connected and (time.time() - self.last_mobile_frame_ts) > 3.5:
             self.mobile_connected = False
 
-        # Selección de fuente de video
+        # Selección de fuente de video y detección de manos
         active_source = "SIMULATOR"
         frame_bgr: Optional[np.ndarray] = None
         landmarks: Optional[np.ndarray] = None
+        multi_hand_data: Dict[str, Any] = normalize_multi_hand_landmarks([])
 
         if self.video_source == "SIMULATOR":
             frame_bgr, landmarks = self.generate_simulator_frame_and_pose()
             active_source = "SIMULATOR_3D"
             self.hardware.pointer_enabled = False
+            multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
         elif self.video_source == "MOBILE":
             if self.mobile_connected and self.mobile_frame_bgr is not None and (time.time() - self.last_mobile_frame_ts) <= 3.5:
                 frame_bgr = self.mobile_frame_bgr.copy()
                 active_source = "MOBILE_CAM"
-                landmarks = self.detect_landmarks_from_bgr(frame_bgr)
+                hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
+                if hands_list:
+                    landmarks = hands_list[0]
+                    multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
             else:
                 frame_bgr, landmarks = self.generate_mobile_standby_frame()
                 active_source = "MOBILE_CTRL"
+                if landmarks is not None:
+                    multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
         elif self.video_source == "AUTO" and self.mobile_connected and self.mobile_frame_bgr is not None:
             frame_bgr = self.mobile_frame_bgr.copy()
             active_source = "MOBILE_CAM"
-            landmarks = self.detect_landmarks_from_bgr(frame_bgr)
+            hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
+            if hands_list:
+                landmarks = hands_list[0]
+                multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
         elif self.video_source in ("LOCAL", "AUTO") and local_cam_bgr is not None:
             frame_bgr = cv2.flip(local_cam_bgr, 1)
             active_source = "LOCAL_CAM"
-            landmarks = self.detect_landmarks_from_bgr(frame_bgr)
+            hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
+            if hands_list:
+                landmarks = hands_list[0]
+                multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
 
         # Fallback al Simulador 3D si no hay cámara disponible
         if frame_bgr is None:
             frame_bgr, landmarks = self.generate_simulator_frame_and_pose()
             active_source = "SIMULATOR_3D"
             self.hardware.pointer_enabled = False
+            multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
 
         # Si hay cámara activa pero no se detecta una mano en escena
         hand_detected = landmarks is not None
         pointer_info = {"active": False, "cursor": [int(self.hardware.curr_x), int(self.hardware.curr_y)], "pinching": False, "clicked": False}
+
+        # Actualizar análisis cinemático de movimiento
+        secondary_pts = multi_hand_data["secondary"]["landmarks"] if multi_hand_data.get("is_bimanual") else None
+        motion_data = self.motion_analyzer.update(landmarks, secondary_pts, timestamp=now)
 
         if not hand_detected:
             raw_pred = {
@@ -426,11 +499,13 @@ class SignBridgePipeline:
                 "vector_norm": 0.0,
                 "vector_sample": [0.0] * 6,
                 "fingers": {"thumb": False, "index": False, "middle": False, "ring": False, "pinky": False},
+                "motion": motion_data,
             }
             stabilized = self.stabilizer.update(raw_pred)
         else:
-            # 1. Normalización de vectores (Resta de muñeca [0] + Escalado euclidiano -> 63 floats)
+            # 1. Normalización de vectores primarios (63 floats)
             vector_63d, telemetry = normalize_landmarks(landmarks)
+            telemetry["motion"] = motion_data
 
             # 2. Dirección del cursor del mouse si el modo puntero está activado y NO es simulador
             if self.hardware.pointer_enabled and active_source != "SIMULATOR_3D" and len(landmarks) > 8:
@@ -446,14 +521,48 @@ class SignBridgePipeline:
             if self.mode == "ONLINE":
                 ok_enc, buf_raw = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
                 jpeg_bytes = buf_raw.tobytes() if ok_enc else None
-                raw_pred = self.gemini_classifier.predict(jpeg_bytes, vector_63d, telemetry)
+                raw_pred = self.gemini_classifier.predict(
+                    jpeg_bytes, vector_63d, telemetry, interaction_mode=self.interaction_mode
+                )
             else:
                 raw_pred = self.local_classifier.predict(vector_63d, telemetry)
 
-            # 4. Estabilización Temporal (Buffer N=8, Umbral >= 0.85)
+            # En MODO TRADUCTOR DE SEÑAS: priorizar señas bimanuales y señas unimanuales (Hola, Adiós, Sí, No, Bien, Mal, etc.)
+            if self.interaction_mode == "SIGN_LANGUAGE":
+                bimanual_match = self.conversation_engine.classify_bimanual_gesture(multi_hand_data, motion=motion_data)
+                if bimanual_match:
+                    meta = self.conversation_engine.get_sign_meta(bimanual_match["sign_id"])
+                    raw_pred = {
+                        "gesture_id": bimanual_match["sign_id"],
+                        "name": meta["label"],
+                        "short_label": meta["label"],
+                        "sign_label": meta["label"],
+                        "sign_message": meta["default_phrase"],
+                        "action": "NONE",
+                        "action_label": "Traducción Bimanual",
+                        "confidence": bimanual_match["confidence"],
+                        "is_dynamic": bimanual_match.get("is_dynamic", False),
+                    }
+                else:
+                    unimanual_match = self.conversation_engine.classify_unimanual_gesture(multi_hand_data, motion=motion_data)
+                    if unimanual_match:
+                        meta = self.conversation_engine.get_sign_meta(unimanual_match["sign_id"])
+                        raw_pred = {
+                            "gesture_id": unimanual_match["sign_id"],
+                            "name": meta["label"],
+                            "short_label": meta["label"],
+                            "sign_label": meta["label"],
+                            "sign_message": meta["default_phrase"],
+                            "action": "NONE",
+                            "action_label": "Traducción Unimanual",
+                            "confidence": unimanual_match["confidence"],
+                            "is_dynamic": unimanual_match.get("is_dynamic", False),
+                        }
+
+            # 4. Estabilización Temporal (Buffer N=8, Umbral >= 0.85 con soporte dinámico)
             stabilized = self.stabilizer.update(raw_pred)
 
-            # 5. Ejecución según Modo de Interacción (Control OS vs Lenguaje de Señas / Mensajes)
+            # 5. Ejecución según Modo de Interacción (Control OS vs Lenguaje de Señas Conversacional)
             if stabilized["triggered"]:
                 if self.interaction_mode == "SIGN_LANGUAGE":
                     from datetime import datetime
@@ -482,8 +591,29 @@ class SignBridgePipeline:
                         gesture_name=stabilized["name"],
                     )
 
-        # 5. Renderizado de esqueleto sobre el frame y codificación JPEG para el HUD
-        rendered_bgr = self.draw_hud_skeleton(frame_bgr, landmarks, stabilized)
+        # 6. Mapeo y procesamiento en el Motor Conversacional (tokens continuos y TTS)
+        tts_to_speak = None
+        conv_sign = None
+        if self.interaction_mode == "SIGN_LANGUAGE":
+            conv_sign = self.conversation_engine.process_frame_sign(
+                raw_gesture_id=stabilized.get("stabilized_id", "G0"),
+                confidence=float(stabilized.get("confidence", 0.0)),
+                multi_hand=multi_hand_data,
+                is_triggered=bool(stabilized.get("triggered", False)),
+                motion=motion_data,
+            )
+            if conv_sign:
+                stabilized["sign_label"] = conv_sign["label"]
+                stabilized["sign_message"] = conv_sign["default_phrase"]
+                stabilized["sign_emoji"] = conv_sign["emoji"]
+                stabilized["sign_category"] = conv_sign["category"]
+            tts_to_speak = self.conversation_engine.pop_tts_queue()
+
+        # 7. Renderizado HUD bimanual sobre el frame y codificación JPEG
+        secondary_landmarks = multi_hand_data["secondary"]["landmarks"] if multi_hand_data.get("is_bimanual") else None
+        inter_hand = multi_hand_data.get("inter_hand")
+        rendered_bgr = self.draw_hud_skeleton(frame_bgr, landmarks, stabilized, secondary_landmarks, inter_hand)
+
         ok, jpeg_buf = cv2.imencode(".jpg", rendered_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         frame_b64 = base64.b64encode(jpeg_buf.tobytes()).decode("ascii") if ok else ""
         self.latest_rendered_b64 = frame_b64
@@ -493,12 +623,19 @@ class SignBridgePipeline:
             if landmarks is not None
             else []
         )
+        secondary_landmarks_list = (
+            [[round(float(p[0]), 4), round(float(p[1]), 4), round(float(p[2]), 4)] for p in secondary_landmarks]
+            if secondary_landmarks is not None
+            else []
+        )
 
         return {
             "mode": self.mode,
             "interaction_mode": self.interaction_mode,
             "source": active_source,
             "hand_detected": hand_detected,
+            "hands_count": multi_hand_data.get("hands_count", 0),
+            "bimanual": multi_hand_data.get("is_bimanual", False),
             "fps": round(self._fps_ema, 1),
             "latency_ms": raw_pred.get("latency_ms", 12.5),
             "engine_label": raw_pred.get("engine", ""),
@@ -506,14 +643,33 @@ class SignBridgePipeline:
             "prediction": raw_pred,
             "stabilizer": stabilized,
             "telemetry": telemetry,
+            "motion": motion_data,
             "landmarks": landmarks_list,
+            "secondary_landmarks": secondary_landmarks_list,
+            "inter_hand": inter_hand,
             "hardware_enabled": self.hardware.enabled,
             "pointer_enabled": self.hardware.pointer_enabled,
             "pointer": pointer_info,
             "events": self.hardware.get_recent_events()[:8],
             "sign_history": self.sign_history[:8],
+            "conversation": self.conversation_engine.get_state(),
+            "tts_to_speak": tts_to_speak,
             "mobile_connected": self.mobile_connected,
             "simulated_gesture": self.simulated_gesture,
             "frame_b64": frame_b64,
         }
+
+    # Métodos de control conversacional
+    def commit_conversation_sentence(self, custom_phrase: Optional[str] = None) -> Dict[str, Any]:
+        return self.conversation_engine.commit_sentence(custom_phrase)
+
+    def add_hearing_spoken_text(self, text: str) -> Dict[str, Any]:
+        return self.conversation_engine.add_hearing_message(text)
+
+    def backspace_conversation_token(self) -> Dict[str, Any]:
+        return self.conversation_engine.backspace()
+
+    def clear_conversation_tokens(self) -> Dict[str, Any]:
+        self.conversation_engine.clear_tokens()
+        return {"cleared": True}
 

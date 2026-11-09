@@ -31,6 +31,7 @@ import qrcode
 
 from backend.pipeline import SignBridgePipeline
 from backend.classifier_local import GESTURE_CATALOG
+from backend.conversation_engine import CONVERSATIONAL_SIGNS_CATALOG
 
 
 app = FastAPI(
@@ -166,6 +167,14 @@ class ManualTriggerRequest(BaseModel):
     gesture_id: str
 
 
+class HearingMessageRequest(BaseModel):
+    text: str
+
+
+class CommitSentenceRequest(BaseModel):
+    phrase: Optional[str] = None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -239,6 +248,44 @@ async def api_catalog():
     return {"catalog": GESTURE_CATALOG}
 
 
+@app.get("/api/conversation/catalog")
+async def api_conversation_catalog():
+    return {"catalog": CONVERSATIONAL_SIGNS_CATALOG}
+
+
+@app.get("/api/conversation/state")
+async def api_conversation_state():
+    return pipeline.conversation_engine.get_state()
+
+
+@app.post("/api/gemini/test")
+async def api_test_gemini():
+    """Prueba en tiempo real la conectividad con Gemini API y reporta latencia y respuesta."""
+    return pipeline.gemini_classifier.test_connection()
+
+
+@app.post("/api/conversation/hearing")
+async def api_conversation_hearing(payload: HearingMessageRequest):
+    res = pipeline.add_hearing_spoken_text(payload.text)
+    return res
+
+
+@app.post("/api/conversation/commit")
+async def api_conversation_commit(payload: CommitSentenceRequest):
+    res = pipeline.commit_conversation_sentence(payload.phrase)
+    return res
+
+
+@app.post("/api/conversation/backspace")
+async def api_conversation_backspace():
+    return pipeline.backspace_conversation_token()
+
+
+@app.post("/api/conversation/clear")
+async def api_conversation_clear():
+    return pipeline.clear_conversation_tokens()
+
+
 @app.get("/api/qr")
 async def api_qr(request: Request):
     """Genera el código QR en Base64 para emparejar el teléfono móvil como cámara inalámbrica."""
@@ -277,6 +324,8 @@ async def api_set_mode(payload: ModeSwitchRequest):
             payload.gemini_api_key.strip(),
             payload.gemini_model,
         )
+    elif payload.gemini_model is not None and payload.gemini_model.strip():
+        pipeline.gemini_classifier.model_name = payload.gemini_model.strip()
     new_mode = pipeline.set_mode(payload.mode)
     return {
         "mode": new_mode,
@@ -369,6 +418,14 @@ async def ws_hud_endpoint(websocket: WebSocket):
                     elif cmd == "SET_SOURCE":
                         src = data.get("source", "AUTO")
                         pipeline.set_video_source(src)
+                    elif cmd == "CONVERSATION_COMMIT":
+                        pipeline.commit_conversation_sentence(data.get("phrase"))
+                    elif cmd == "CONVERSATION_BACKSPACE":
+                        pipeline.backspace_conversation_token()
+                    elif cmd == "CONVERSATION_CLEAR":
+                        pipeline.clear_conversation_tokens()
+                    elif cmd == "HEARING_SPEECH":
+                        pipeline.add_hearing_spoken_text(data.get("text", ""))
                     elif cmd == "CLIENT_FRAME":
                         b64_str = data.get("frame", "")
                         if "," in b64_str:
@@ -470,6 +527,14 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                         meta = GESTURE_CATALOG[gid]
                         pipeline.hardware.execute_action(gid, meta["action"], meta["name"])
                         pipeline.stabilizer.pulse_until = time.time() + 0.7
+                elif msg_type == "CONVERSATION_COMMIT":
+                    pipeline.commit_conversation_sentence(payload.get("phrase"))
+                elif msg_type == "CONVERSATION_BACKSPACE":
+                    pipeline.backspace_conversation_token()
+                elif msg_type == "CONVERSATION_CLEAR":
+                    pipeline.clear_conversation_tokens()
+                elif msg_type == "HEARING_SPEECH":
+                    pipeline.add_hearing_spoken_text(payload.get("text", ""))
 
             # Si el navegador del PC está cerrado o en segundo plano, el APK impulsa el pipeline
             if (time.perf_counter() - pipeline._last_frame_ts) > 0.032:
@@ -512,6 +577,10 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 ),
                 "events": pipeline.hardware.get_recent_events()[:6],
                 "sign_history": pipeline.sign_history[:6],
+                "conversation": pipeline.conversation_engine.get_state(),
+                "tts_to_speak": pipeline.conversation_engine.pop_tts_queue(),
+                "bimanual": len(pipeline.multi_hand_landmarks) >= 2,
+                "hands_count": len(pipeline.multi_hand_landmarks),
                 "hud_frame_b64": pipeline.latest_rendered_b64,
             })
     except WebSocketDisconnect:

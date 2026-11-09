@@ -53,19 +53,25 @@ class TemporalStabilizer:
         self.buffer.append(gid)
         self.conf_buffer.append(conf)
 
-        # Conteo de consistencia en la ventana circular N=8
+        # Gestos dinámicos basados en movimiento (oscilación, deslizamiento, saludo, negación)
+        is_dynamic = bool(raw_prediction.get("is_dynamic", False)) or gid in (
+            "S_ADIOS", "S_NO", "S_SI", "S_MAL", "S_REPETIR", "S_DESPACIO", "S_QUE", "S_COMO_ESTAS"
+        )
+        required_frames = max(4, self.buffer_size // 2) if is_dynamic else self.buffer_size
+
+        # Conteo de consistencia en la ventana circular
         if gid == "G0":
             matching_frames = 0
             ring_progress = 0.0
         else:
             matching_frames = sum(1 for item in self.buffer if item == gid)
-            ring_progress = round(min(1.0, matching_frames / float(self.buffer_size)), 3)
+            ring_progress = round(min(1.0, matching_frames / float(required_frames)), 3)
 
         in_cooldown = (now - self.last_trigger_time) < self.cooldown_sec
         triggered = False
 
-        # Si el buffer circular completo (N=8) confirma el mismo comando y no estamos en cooldown
-        if gid != "G0" and matching_frames >= self.buffer_size and not in_cooldown:
+        # Si el buffer circular confirma el comando según su tipo (dinámico o estático) y no estamos en cooldown
+        if gid != "G0" and matching_frames >= required_frames and not in_cooldown:
             triggered = True
             self.last_trigger_time = now
             self.last_triggered_gesture = gid
@@ -74,7 +80,17 @@ class TemporalStabilizer:
             self.buffer.clear()
 
         pulse_active = now < self.pulse_until
-        meta = GESTURE_CATALOG.get(gid, GESTURE_CATALOG["G0"])
+        meta = GESTURE_CATALOG.get(gid, None)
+        if meta is None:
+            meta = {
+                "id": gid,
+                "name": raw_prediction.get("name", gid),
+                "short_label": raw_prediction.get("short_label", gid),
+                "sign_label": raw_prediction.get("sign_label", raw_prediction.get("name", gid)),
+                "sign_message": raw_prediction.get("sign_message", ""),
+                "action": raw_prediction.get("action", "NONE"),
+                "action_label": raw_prediction.get("action_label", "Traducción de Señas"),
+            }
 
         return {
             "stabilized_id": gid,

@@ -687,37 +687,231 @@
 
     /* BOTTOM TAB BAR (APK NATIVE STYLE >= 48x48px) */
     .bottom-nav {
-      padding: 8px 12px calc(var(--safe-bottom) + 6px);
+      padding: 8px 8px calc(var(--safe-bottom) + 6px);
       background: rgba(8, 9, 13, 0.94);
       backdrop-filter: blur(20px);
       border-top: 1px solid var(--glass-border);
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
       z-index: 30;
       flex-shrink: 0;
     }
 
     .tab-btn {
       min-height: 48px;
-      border-radius: 14px;
+      border-radius: 12px;
       border: 1px solid transparent;
       background: transparent;
       color: var(--text-secondary);
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.76rem;
+      font-size: 0.70rem;
       font-weight: 700;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 2px;
       cursor: pointer;
+      padding: 4px 2px;
+      transition: all 0.18s ease;
     }
 
     .tab-btn.active {
       background: rgba(6, 182, 212, 0.16);
       border-color: rgba(6, 182, 212, 0.4);
       color: var(--text-primary);
+    }
+
+    /* ESTILOS DEL TRADUCTOR CONVERSACIONAL MÓVIL */
+    .sign-builder-card {
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tokens-flow-container {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 6px;
+      min-height: 28px;
+      max-height: 38px;
+      align-items: center;
+      scrollbar-width: none;
+    }
+    .tokens-flow-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .sign-token-chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: rgba(6, 182, 212, 0.22);
+      border: 1px solid rgba(6, 182, 212, 0.5);
+      color: #67E8F9;
+      animation: popIn 0.15s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .sentence-display-box {
+      background: rgba(8, 9, 13, 0.85);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+
+    .sign-action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .sign-sub-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .hearing-mic-card {
+      border-radius: 16px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-hearing-mic {
+      min-height: 48px;
+      border-radius: 14px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.6);
+      color: #A7F3D0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-hearing-mic.listening {
+      background: #10B981;
+      color: #042F2E;
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.55);
+      animation: micPulse 1.2s infinite;
+    }
+
+    @keyframes micPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(0.98); }
+    }
+
+    .chat-timeline-card {
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--glass-border);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .chat-bubble {
+      padding: 8px 12px;
+      border-radius: 14px;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-width: 90%;
+    }
+
+    .chat-bubble.signs {
+      align-self: flex-start;
+      background: rgba(6, 182, 212, 0.16);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #E0F2FE;
+    }
+
+    .chat-bubble.hearing {
+      align-self: flex-end;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #DCFCE7;
+    }
+
+    .chat-bubble-author {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chat-bubble.signs .chat-bubble-author { color: var(--cyan); }
+    .chat-bubble.hearing .chat-bubble-author { color: var(--emerald); }
+
+    .quick-signs-palette {
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--glass-border);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .quick-signs-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .sign-quick-chip {
+      padding: 5px 9px;
+      border-radius: 9px;
+      background: rgba(8, 9, 13, 0.7);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .sign-quick-chip:active {
+      transform: scale(0.95);
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--cyan);
     }
 
     /* MODAL FOR SERVER IP CONFIG (APK) */
@@ -842,6 +1036,7 @@
       <!-- Barra de prueba rápida en Modo Independiente (Cámara IA o Poses G0..G5 sin PC) -->
       <div class="standalone-sim-bar" id="standaloneSimBar">
         <button class="sim-pill-btn active" id="stSrcCAM" onclick="setStandaloneSubSource('CAM')">📷 CAM</button>
+        <button class="sim-pill-btn" id="stSrcHOLA" onclick="setStandaloneSubSource('HOLA')">👋 Hola</button>
         <button class="sim-pill-btn" id="stSrcG1" onclick="setStandaloneSubSource('G1')">G1 Cont</button>
         <button class="sim-pill-btn" id="stSrcG2" onclick="setStandaloneSubSource('G2')">G2 Sí</button>
         <button class="sim-pill-btn" id="stSrcG3" onclick="setStandaloneSubSource('G3')">G3 Alto</button>
@@ -892,7 +1087,100 @@
       </div>
     </section>
 
-    <!-- TAB 2: MANDO DE GESTOS & TOUCHPAD HÁPTICO -->
+    <!-- TAB 2: TRADUCTOR CONVERSACIONAL DE SEÑAS (1 Y 2 MANOS + CANAL OYENTE) -->
+    <section class="view-section" id="viewSigns">
+      <!-- 1. Constructor de Frases en Curso -->
+      <div class="sign-builder-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; font-weight:700; color:var(--cyan); display:flex; align-items:center; gap:6px;">
+            <span>💬 Frase en Construcción (Señas)</span>
+          </span>
+          <span id="mobileSignModeBadge" style="font-family:'JetBrains Mono',monospace; font-size:0.64rem; padding:2px 6px; border-radius:6px; background:rgba(6,182,212,0.2); color:#67E8F9;">
+            18 SEÑAS CANÓNICAS
+          </span>
+        </div>
+
+        <div class="tokens-flow-container" id="mobileActiveTokens">
+          <span style="color:var(--text-secondary); font-size:0.72rem; font-style:italic;">Realiza señas frente a la cámara o toca las palabras abajo...</span>
+        </div>
+
+        <div class="sentence-display-box" id="mobileSentenceText">
+          Tu frase aparecerá traducida aquí...
+        </div>
+
+        <div class="sign-action-row">
+          <button class="ctrl-btn active" id="btnMobileSpeak" onclick="mobileSpeakSentence()" style="min-height:44px; font-size:0.76rem;">
+            🔊 Pronunciar (Voz)
+          </button>
+          <button class="ctrl-btn" id="btnMobileCommit" onclick="mobileCommitSentence()" style="min-height:44px; font-size:0.76rem; background:rgba(6,182,212,0.25); border-color:var(--cyan); color:#67E8F9;">
+            💬 Enviar al Chat
+          </button>
+        </div>
+
+        <div class="sign-sub-actions">
+          <button class="ctrl-btn" onclick="mobileBackspaceSentence()" style="min-height:36px; font-size:0.70rem;">
+            ⌫ Borrar Palabra
+          </button>
+          <button class="ctrl-btn" onclick="mobileClearSentence()" style="min-height:36px; font-size:0.70rem; color:#FB7185;">
+            🗑️ Limpiar Frase
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Canal de Voz para el Oyente (Speech-to-Text en Vivo) -->
+      <div class="hearing-mic-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; font-weight:700; color:#A7F3D0; display:flex; align-items:center; gap:6px;">
+            <span>🎙️ Canal del Oyente (Voz a Texto)</span>
+          </span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-secondary);">Accesibilidad</span>
+        </div>
+
+        <button class="btn-hearing-mic" id="btnMobileHearingMic" onclick="toggleMobileHearingMic()">
+          <span>🎤 Presionar para Hablar como Oyente</span>
+        </button>
+
+        <div id="mobileHearingLiveBox" style="font-size:0.72rem; color:#A7F3D0; font-style:italic; min-height:16px;">
+          Presiona el micrófono y habla claro hacia el teléfono para que la persona sorda pueda leerte...
+        </div>
+      </div>
+
+      <!-- 3. Historial de Diálogo Bidireccional (Chat Timeline) -->
+      <div class="chat-timeline-card" id="mobileChatTimeline">
+        <div class="chat-bubble signs">
+          <span class="chat-bubble-author">Traductor de Señas</span>
+          <span>¡Bienvenido al Traductor Conversacional SignBridge! Puedes conversar en tiempo real con 1 o 2 manos.</span>
+        </div>
+      </div>
+
+      <!-- 4. Selector Táctil Rápido de 18 Señas Canónicas -->
+      <div class="quick-signs-palette">
+        <span style="font-size:0.68rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em;">
+          Vocabulario Rápido (Toca para insertar):
+        </span>
+        <div class="quick-signs-chips-row">
+          <button class="sign-quick-chip" onclick="insertQuickToken('HOLA')">👋 Hola</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BUENOS_DIAS')">🌅 Buenos días</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BUENAS_TARDES')">🌇 Buenas tardes</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('ADIOS')">🙋 Adiós</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('GRACIAS')">🙏 Gracias</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('POR_FAVOR')">🤲 Por favor</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BIEN')">👍 Bien</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MAL')">👎 Mal</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('SI')">☝️ Sí</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('NO')">👆 No</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('COMO_ESTAS')">🤷 ¿Cómo estás?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('QUE')">❓ ¿Qué?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('DONDE')">📍 ¿Dónde?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('REPETIR')">🔄 Repetir</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('AYUDA')" style="border-color:rgba(244,63,94,0.4); color:#FB7185;">🆘 Ayuda</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MEDICO')">🏥 Médico</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('PAUSA')">✋ Pausa</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: MANDO DE GESTOS & TOUCHPAD HÁPTICO -->
     <section class="view-section" id="viewControl">
       <div class="touchpad-box" id="touchpadArea">
         <div class="touchpad-grid"></div>
@@ -1025,16 +1313,23 @@
 
   </main>
 
-  <!-- BOTTOM NAVIGATION (3 TABS FOR COMPLETE APK FUNCTIONALITY) -->
+  <!-- BOTTOM NAVIGATION (4 TABS PARA EXPERIENCIA COMPLETA APK) -->
   <nav class="bottom-nav">
     <button class="tab-btn active" id="tabBtnCam" onclick="switchTab('CAM')">
-      📷 Cámara PC
+      <span>📷</span>
+      <span>Cámara</span>
+    </button>
+    <button class="tab-btn" id="tabBtnSigns" onclick="switchTab('SIGNS')">
+      <span>💬</span>
+      <span>Traductor</span>
     </button>
     <button class="tab-btn" id="tabBtnControl" onclick="switchTab('CONTROL')">
-      🕹️ Mando & Mouse
+      <span>🕹️</span>
+      <span>Mouse</span>
     </button>
     <button class="tab-btn" id="tabBtnSystem" onclick="switchTab('SYSTEM')">
-      ⚙️ Motor & IA
+      <span>⚙️</span>
+      <span>Motor IA</span>
     </button>
   </nav>
 
@@ -1134,13 +1429,22 @@
 
     function switchTab(tab) {
       vibrateHaptic(12);
-      document.getElementById('viewCam').classList.toggle('active', tab === 'CAM');
-      document.getElementById('viewControl').classList.toggle('active', tab === 'CONTROL');
-      document.getElementById('viewSystem').classList.toggle('active', tab === 'SYSTEM');
+      const tabCam = (tab === 'CAM');
+      const tabSigns = (tab === 'SIGNS');
+      const tabCtrl = (tab === 'CONTROL');
+      const tabSys = (tab === 'SYSTEM');
 
-      document.getElementById('tabBtnCam').classList.toggle('active', tab === 'CAM');
-      document.getElementById('tabBtnControl').classList.toggle('active', tab === 'CONTROL');
-      document.getElementById('tabBtnSystem').classList.toggle('active', tab === 'SYSTEM');
+      document.getElementById('viewCam').classList.toggle('active', tabCam);
+      const viewSigns = document.getElementById('viewSigns');
+      if (viewSigns) viewSigns.classList.toggle('active', tabSigns);
+      document.getElementById('viewControl').classList.toggle('active', tabCtrl);
+      document.getElementById('viewSystem').classList.toggle('active', tabSys);
+
+      document.getElementById('tabBtnCam').classList.toggle('active', tabCam);
+      const btnSigns = document.getElementById('tabBtnSigns');
+      if (btnSigns) btnSigns.classList.toggle('active', tabSigns);
+      document.getElementById('tabBtnControl').classList.toggle('active', tabCtrl);
+      document.getElementById('tabBtnSystem').classList.toggle('active', tabSys);
     }
 
     function connectMobileWS() {
@@ -1278,21 +1582,18 @@
         if (videoInputs.length < 2) return null;
 
         const isBack = (targetFacing === 'environment');
-        const backKeywords = ['back', 'rear', 'environment', 'trasera', 'trás', '0'];
-        const frontKeywords = ['front', 'user', 'selfie', 'frontal', '1'];
+        const backKeywords = ['back', 'rear', 'environment', 'trasera', 'posterior', 'dorsal'];
+        const frontKeywords = ['front', 'user', 'selfie', 'frontal', 'anterior'];
 
         for (const d of videoInputs) {
           const lbl = (d.label || '').toLowerCase();
-          if (isBack && backKeywords.some(k => lbl.includes(k))) return d.deviceId;
-          if (!isBack && frontKeywords.some(k => lbl.includes(k))) return d.deviceId;
+          if (!lbl) continue;
+          const isRearMatch = backKeywords.some(k => lbl.includes(k));
+          const isFrontMatch = frontKeywords.some(k => lbl.includes(k));
+          if (isBack && isRearMatch && !isFrontMatch) return d.deviceId;
+          if (!isBack && isFrontMatch && !isRearMatch) return d.deviceId;
         }
-
-        // Si el WebView no expone nombres en enumerateDevices, alternar al otro deviceId distinto al actual
-        if (currentDeviceId) {
-          const other = videoInputs.find(d => d.deviceId && d.deviceId !== currentDeviceId);
-          if (other) return other.deviceId;
-        }
-        return isBack ? videoInputs[videoInputs.length - 1].deviceId : videoInputs[0].deviceId;
+        return null;
       } catch (e) {
         return null;
       }
@@ -1305,16 +1606,21 @@
         }
         const hadStream = Boolean(stream);
         if (stream) {
-          stream.getTracks().forEach(t => {
-            try { t.stop(); } catch (e) {}
-          });
+          try {
+            stream.getTracks().forEach(t => {
+              try { t.stop(); } catch (e) {}
+            });
+          } catch (e) {}
           stream = null;
         }
-        localVideo.srcObject = null;
+        if (localVideo) {
+          try { localVideo.pause(); } catch (e) {}
+          localVideo.srcObject = null;
+        }
 
-        // Pausa necesaria en Android Camera2 HAL para liberar el sensor antes de abrir la otra lente
+        // Pausa obligatoria en Android Camera2 HAL (300ms) para liberar completamente el hardware del sensor antes de abrir la otra lente
         if (hadStream) {
-          await new Promise(r => setTimeout(r, 180));
+          await new Promise(r => setTimeout(r, 300));
         }
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -1323,34 +1629,37 @@
 
         const preferredId = await getPreferredDeviceId(facingMode);
         const attempts = [];
-        if (preferredId) {
-          attempts.push({
-            video: {
-              deviceId: { exact: preferredId },
-              width: { ideal: 480 },
-              height: { ideal: 360 },
-              frameRate: { ideal: 30 }
-            },
-            audio: false
-          });
-        }
+
+        // Intento 1: facingMode ideal estándar WebRTC (máxima compatibilidad en Android WebView sin OverconstrainedError)
         attempts.push({
           video: {
-            facingMode: { exact: facingMode },
-            width: { ideal: 480 },
-            height: { ideal: 360 },
+            facingMode: { ideal: facingMode },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
             frameRate: { ideal: 30 }
           },
           audio: false
         });
+
+        // Intento 2: deviceId exacto si se identificó inequívocamente por etiqueta
+        if (preferredId) {
+          attempts.push({
+            video: {
+              deviceId: { exact: preferredId },
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            },
+            audio: false
+          });
+        }
+
+        // Intento 3: facingMode directo sin restricciones de resolución
         attempts.push({
-          video: {
-            facingMode: facingMode,
-            width: { ideal: 480 },
-            height: { ideal: 360 }
-          },
+          video: { facingMode: facingMode },
           audio: false
         });
+
+        // Intento 4: captura de video genérica
         attempts.push({ video: true, audio: false });
 
         let acquired = null;
@@ -1374,6 +1683,9 @@
         await localVideo.play();
         stLastVideoTime = -1;
         stSmoothedPts = null;
+        stCachedRawPts = null;
+        stSmoothedPtsSec = null;
+        stCachedRawPtsSec = null;
         applyVideoTransform();
 
         if (standaloneMode) {
@@ -1468,23 +1780,28 @@
     async function switchCameraLens() {
       if (isSwitchingCamera) return;
       isSwitchingCamera = true;
-      vibrateHaptic(22);
+      vibrateHaptic(25);
       const btnLens = document.getElementById('btnFlipLens');
+      if (btnLens) btnLens.textContent = '⏳ Cambiando...';
       try {
+        currentDeviceId = null;
         facingMode = (facingMode === 'environment') ? 'user' : 'environment';
-        // En lente frontal activar espejo horizontal automáticamente; en trasera desactivarlo
         mirrorX = (facingMode === 'user');
         applyVideoTransform();
-        if (btnLens) {
-          btnLens.textContent = '⏳ Cambiando...';
-        }
+        stCachedRawPts = null;
+        stSmoothedPts = null;
+        stCachedRawPtsSec = null;
+        stSmoothedPtsSec = null;
+        stLastVideoTime = -1;
         // Reiniciar la cámara tanto en Modo Independiente como en Modo Cámara PC o si el stream ya está abierto
         if (standaloneMode || mobileCamActiveOnPc || stream !== null) {
           await startWebRTCCamera();
         }
+      } catch (err) {
+        console.error('Error al alternar lente:', err);
       } finally {
         if (btnLens) {
-          btnLens.textContent = facingMode === 'environment' ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
+          btnLens.textContent = (facingMode === 'environment') ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
         }
         isSwitchingCamera = false;
       }
@@ -1661,13 +1978,90 @@
     let standaloneRafId = null;
     let stBuffer = [];
     let stLastTriggerTs = 0;
+    let stLastTriggerSign = null;
+    let stSignReleased = true;
     let stPulseUntil = 0;
     let stLastFrameTs = performance.now();
     let stFpsEma = 28.0;
     let stLastVideoTime = -1;
     let stCachedRawPts = null;
     let stSmoothedPts = null;
+    let stCachedRawPtsSec = null;
+    let stSmoothedPtsSec = null;
     let stLastDetectMs = 0;
+    let stMotionHistory = [];
+
+    function analyzeMobileMotion(pts21, nowMs) {
+      if (!pts21 || pts21.length < 21) {
+        stMotionHistory = [];
+        return { isOscillatingX: false, isOscillatingY: false, isMovingDown: false };
+      }
+      const wx = pts21[0][0], wy = pts21[0][1];
+      const ix = pts21[8][0], iy = pts21[8][1];
+      stMotionHistory.push({ t: nowMs, x: wx, y: wy, ix, iy });
+      if (stMotionHistory.length > 20) stMotionHistory.shift();
+
+      if (stMotionHistory.length < 5) {
+        return { isOscillatingX: false, isOscillatingY: false, isMovingDown: false };
+      }
+
+      let revsX = 0, lastDirX = 0;
+      for (let i = 1; i < stMotionHistory.length; i++) {
+        const dx = stMotionHistory[i].x - stMotionHistory[i-1].x;
+        if (Math.abs(dx) > 0.005) {
+          const dir = dx > 0 ? 1 : -1;
+          if (lastDirX !== 0 && dir !== lastDirX) revsX++;
+          lastDirX = dir;
+        }
+      }
+
+      let revsY = 0, lastDirY = 0;
+      for (let i = 1; i < stMotionHistory.length; i++) {
+        const dy = stMotionHistory[i].iy - stMotionHistory[i-1].iy;
+        if (Math.abs(dy) > 0.005) {
+          const dir = dy > 0 ? 1 : -1;
+          if (lastDirY !== 0 && dir !== lastDirY) revsY++;
+          lastDirY = dir;
+        }
+      }
+
+      const totalDy = stMotionHistory[stMotionHistory.length - 1].y - stMotionHistory[0].y;
+      const isMovingDown = (totalDy > 0.065);
+
+      return {
+        isOscillatingX: revsX >= 2,
+        isOscillatingY: revsY >= 2,
+        isMovingDown
+      };
+    }
+
+    // Estado conversacional local de SignBridge Mobile
+    let mobileActiveTokens = [];
+    let mobileCurrentSentence = "";
+    let mobileChatHistory = [];
+    let isHearingListening = false;
+    let hearingRecognition = null;
+
+    const CONVERSATIONAL_MAP = {
+      'HOLA': { title: 'Hola', phrase: 'Hola, ¿cómo estás?' },
+      'BUENOS_DIAS': { title: 'Buenos días', phrase: 'Buenos días.' },
+      'BUENAS_TARDES': { title: 'Buenas tardes', phrase: 'Buenas tardes.' },
+      'ADIOS': { title: 'Adiós', phrase: 'Hasta luego, adiós.' },
+      'GRACIAS': { title: 'Gracias', phrase: 'Muchas gracias.' },
+      'POR_FAVOR': { title: 'Por favor', phrase: 'Por favor.' },
+      'DE_NADA': { title: 'De nada', phrase: 'Con mucho gusto / De nada.' },
+      'BIEN': { title: 'Bien', phrase: 'Muy bien / De acuerdo.' },
+      'MAL': { title: 'Mal', phrase: 'No me siento bien / Está mal.' },
+      'SI': { title: 'Sí', phrase: 'Sí, confirmado.' },
+      'NO': { title: 'No', phrase: 'No, cancelar o negativo.' },
+      'COMO_ESTAS': { title: '¿Cómo estás?', phrase: '¿Cómo estás hoy?' },
+      'QUE': { title: '¿Qué?', phrase: '¿Qué sucede? / ¿Qué dijiste?' },
+      'DONDE': { title: '¿Dónde?', phrase: '¿Dónde queda?' },
+      'REPETIR': { title: 'Repetir', phrase: '¿Puedes repetir más despacio por favor?' },
+      'AYUDA': { title: 'Ayuda SOS', phrase: 'Necesito ayuda urgente, por favor.' },
+      'MEDICO': { title: 'Médico', phrase: 'Necesito un médico / Siento dolor.' },
+      'PAUSA': { title: 'Pausa', phrase: 'Espera un momento, por favor.' }
+    };
 
     const standaloneCanvas = document.getElementById('standaloneCanvas');
     const standaloneCtx = standaloneCanvas.getContext('2d', { alpha: false });
@@ -1692,17 +2086,17 @@
         try {
           const vision = await window.Vision.FilesetResolver.forVisionTasks('mediapipe/wasm');
           try {
-            // Intentar primero aceleración GPU WebGL para alcanzar 25-30 FPS en el celular
+            // Intentar primero aceleración GPU WebGL con soporte de 2 manos bimanual y confianza calibrada
             mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
               baseOptions: {
                 modelAssetPath: 'mediapipe/hand_landmarker.task',
                 delegate: 'GPU'
               },
               runningMode: 'VIDEO',
-              numHands: 1,
-              minHandDetectionConfidence: 0.42,
-              minHandPresenceConfidence: 0.42,
-              minTrackingConfidence: 0.40
+              numHands: 2,
+              minHandDetectionConfidence: 0.52,
+              minHandPresenceConfidence: 0.50,
+              minTrackingConfidence: 0.48
             });
           } catch (gpuErr) {
             mpHandLandmarker = await window.Vision.HandLandmarker.createFromOptions(vision, {
@@ -1711,10 +2105,10 @@
                 delegate: 'CPU'
               },
               runningMode: 'VIDEO',
-              numHands: 1,
-              minHandDetectionConfidence: 0.42,
-              minHandPresenceConfidence: 0.42,
-              minTrackingConfidence: 0.40
+              numHands: 2,
+              minHandDetectionConfidence: 0.52,
+              minHandPresenceConfidence: 0.50,
+              minTrackingConfidence: 0.48
             });
           }
         } catch (err) {
@@ -1725,22 +2119,30 @@
       }
     }
 
-    function smoothLandmarks21(rawPts) {
-      if (!rawPts || rawPts.length < 21) {
-        stSmoothedPts = null;
-        return null;
+    // Filtro adaptable de velocidad (estilo 1-Euro) que elimina el rezago/desfase al mover la mano
+    function smoothLandmarks21(rawPts, existingSmoothed) {
+      if (!rawPts || rawPts.length < 21) return null;
+      if (!existingSmoothed || existingSmoothed.length < 21) {
+        return rawPts.map(p => [p[0], p[1], p[2] || 0]);
       }
-      if (!stSmoothedPts || stSmoothedPts.length < 21) {
-        stSmoothedPts = rawPts.map(p => [p[0], p[1], p[2] || 0]);
-        return stSmoothedPts;
-      }
-      const alpha = 0.68; // Suavizado reactivo sin rezago
+      const dWrist = Math.hypot(rawPts[0][0] - existingSmoothed[0][0], rawPts[0][1] - existingSmoothed[0][1]);
+      const dIndex = Math.hypot(rawPts[8][0] - existingSmoothed[8][0], rawPts[8][1] - existingSmoothed[8][1]);
+      const disp = (dWrist + dIndex) * 0.5;
+
+      let alpha = 0.50;
+      if (disp > 0.08) alpha = 0.95;       // Movimiento rápido: seguimiento instantáneo 1:1 sin rezago
+      else if (disp > 0.035) alpha = 0.85; // Velocidad media
+      else if (disp > 0.015) alpha = 0.65; // Transición
+
+      const result = [];
       for (let i = 0; i < 21; i++) {
-        stSmoothedPts[i][0] = alpha * rawPts[i][0] + (1 - alpha) * stSmoothedPts[i][0];
-        stSmoothedPts[i][1] = alpha * rawPts[i][1] + (1 - alpha) * stSmoothedPts[i][1];
-        stSmoothedPts[i][2] = alpha * (rawPts[i][2] || 0) + (1 - alpha) * stSmoothedPts[i][2];
+        result.push([
+          alpha * rawPts[i][0] + (1 - alpha) * existingSmoothed[i][0],
+          alpha * rawPts[i][1] + (1 - alpha) * existingSmoothed[i][1],
+          alpha * (rawPts[i][2] || 0) + (1 - alpha) * (existingSmoothed[i][2] || 0)
+        ]);
       }
-      return stSmoothedPts;
+      return result;
     }
 
     function normalizeLandmarksJS(pts21) {
@@ -1757,7 +2159,6 @@
         vec63.push(norm[i][0], norm[i][1], norm[i][2]);
       }
 
-      // Referencia anatómica rígida de la palma (muñeca 0 -> nudillo medio 9)
       const palmLen = Math.max(0.18, Math.hypot(norm[9][0], norm[9][1], norm[9][2]));
 
       const cosAngle = (a, b, c) => {
@@ -1779,7 +2180,6 @@
         return distOk && angleOk;
       };
 
-      // Biomecánica del pulgar invariante a compresión de puño y rotación
       const dThumbPinky = Math.hypot(norm[4][0] - norm[17][0], norm[4][1] - norm[17][1]);
       const dIpPinky = Math.hypot(norm[3][0] - norm[17][0], norm[3][1] - norm[17][1]);
       const dThumbIdxMcp = Math.hypot(norm[4][0] - norm[5][0], norm[4][1] - norm[5][1]);
@@ -1832,8 +2232,8 @@
       return exps.map(e => e / sumExp);
     }
 
-    function classifyStandalonePose(pts21) {
-      const { vec63, fingers } = normalizeLandmarksJS(pts21);
+    function classifyStandalonePose(pts21, motion = null) {
+      const { vec63, fingers, norm } = normalizeLandmarksJS(pts21);
       const probs = forwardMlpJS(vec63);
       const classIds = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'];
 
@@ -1841,28 +2241,63 @@
       let geomConf = 0.92;
       const { thumb, index, middle, ring, pinky } = fingers;
 
-      if (
+      // 1. MANO ABIERTA: 4 o 5 dedos extendidos mirando a cámara
+      if (index && middle && ring && pinky) {
+        if (motion && motion.isOscillatingX) {
+          geomId = 'ADIOS';
+          geomConf = 0.98;
+        } else if (motion && motion.isMovingDown) {
+          geomId = 'REPETIR';
+          geomConf = 0.97;
+        } else {
+          geomId = 'HOLA';
+          geomConf = 0.98;
+        }
+      }
+      // 2. DEDO ÍNDICE O PISTOLA EN L
+      else if (index && !middle && !ring && !pinky) {
+        if (motion && motion.isOscillatingX) {
+          geomId = 'NO';
+          geomConf = 0.98;
+        } else if (motion && motion.isOscillatingY) {
+          geomId = 'SI';
+          geomConf = 0.98;
+        } else if (thumb) {
+          geomId = 'G5';
+          geomConf = 0.97;
+        } else {
+          geomId = 'G2';
+          geomConf = 0.96;
+        }
+      }
+      // 3. PULGAR ARRIBA (BIEN 👍) / PULGAR ABAJO (MAL 👎)
+      else if (thumb && !index && !middle && !ring && !pinky && norm) {
+        if (norm[4][1] < -0.10) {
+          geomId = 'BIEN';
+          geomConf = 0.97;
+        } else if (norm[4][1] > 0.08) {
+          geomId = 'MAL';
+          geomConf = 0.97;
+        } else {
+          geomId = 'BIEN';
+          geomConf = 0.92;
+        }
+      }
+      // 4. SEÑAL DE ASISTENCIA / SOS (3 dedos o Shaka) -> AYUDA (G4)
+      else if (
         (index && middle && ring && !pinky) ||
         (thumb && pinky && !index && !middle && !ring) ||
         (index && pinky && !middle && !ring)
       ) {
-        // G4: 3 Dedos, Shaka (🤙) o ILY/Rock (🤟/🤘 Índice + Meñique ± Pulgar) -> AYUDA / ASISTENCIA
         geomId = 'G4'; geomConf = 0.96;
-      } else if (index && thumb && !middle && !ring && !pinky) {
-        // G5: Pistola / L (Índice + Pulgar, con meñique plegado) -> NO / CANCELAR (Clic Izquierdo)
-        geomId = 'G5'; geomConf = 0.97;
-      } else if (!index && !middle && !ring && !pinky && !thumb) {
-        // G3: Puño cerrado -> DETENER / ALTO (Scroll Abajo)
+      }
+      // 5. PUÑO CERRADO -> DETENER / ENTENDIDO (G3)
+      else if (!index && !middle && !ring && !pinky && !thumb) {
         geomId = 'G3'; geomConf = 0.97;
-      } else if (index && middle && !ring && !pinky) {
-        // G1: Paz / Victoria (Índice + Medio) -> CONTINUAR (Clic Derecho)
+      }
+      // 6. PAZ / VICTORIA (Índice y medio extendidos) -> CONTINUAR (G1)
+      else if (index && middle && !ring && !pinky) {
         geomId = 'G1'; geomConf = 0.96;
-      } else if (index && !thumb && !middle && !ring && !pinky) {
-        // G2: Solo Índice extendido -> SÍ / AFIRMATIVO (Scroll Arriba)
-        geomId = 'G2'; geomConf = 0.96;
-      } else if (index && middle && ring && pinky) {
-        // G0: Mano abierta -> Rechazo Activo
-        geomId = 'G0'; geomConf = 0.97;
       } else {
         let bestIdx = 0;
         for (let i = 1; i < probs.length; i++) {
@@ -1875,10 +2310,23 @@
       }
 
       const cIdx = classIds.indexOf(geomId);
-      const mlpProb = probs[cIdx] || 0.85;
+      const mlpProb = cIdx >= 0 ? probs[cIdx] : 0.85;
       const confidence = 0.68 * geomConf + 0.32 * Math.max(0.85, mlpProb);
-      return { gid: geomId, confidence };
+      return { gid: geomId, confidence, fingers };
     }
+
+    // Desbloqueo proactivo de audio Web Speech TTS en Android WebView al primer toque
+    function ensureMobileSpeechUnlocked() {
+      if ('speechSynthesis' in window) {
+        try {
+          const dummy = new SpeechSynthesisUtterance('');
+          dummy.volume = 0;
+          window.speechSynthesis.speak(dummy);
+        } catch (e) {}
+      }
+    }
+    document.addEventListener('touchstart', ensureMobileSpeechUnlocked, { once: true });
+    document.addEventListener('click', ensureMobileSpeechUnlocked, { once: true });
 
     function speakOfflineMessage(text) {
       try {
@@ -1892,7 +2340,8 @@
       } catch (e) {}
     }
 
-    function drawStandaloneSkeletonOnCanvas(pts21, gid, pulseActive, clearBg = false) {
+    // Dibuja el esqueleto con soporte de 2 manos (Mano 1 cian/esmeralda, Mano 2 violeta/púrpura)
+    function drawStandaloneSkeletonOnCanvas(ptsPrimary, ptsSecondary, gid, pulseActive, clearBg = false) {
       const cw = standaloneCanvas.width;
       const ch = standaloneCanvas.height;
 
@@ -1909,39 +2358,74 @@
         }
       }
 
-      if (!pts21 || pts21.length < 21) return;
+      const drawHand = (pts, isPrimary) => {
+        if (!pts || pts.length < 21) return;
+        const boneColor = isPrimary
+          ? (pulseActive ? '#10B981' : (gid === 'G0' ? '#F43F5E' : '#06B6D4'))
+          : '#A855F7';
+        standaloneCtx.strokeStyle = boneColor;
+        standaloneCtx.lineWidth = Math.max(2.5, Math.min(cw, ch) * 0.011);
+        standaloneCtx.lineCap = 'round';
+        standaloneCtx.lineJoin = 'round';
 
-      const boneColor = pulseActive ? '#10B981' : (gid === 'G0' ? '#F43F5E' : '#06B6D4');
-      standaloneCtx.strokeStyle = boneColor;
-      standaloneCtx.lineWidth = Math.max(2.5, Math.min(cw, ch) * 0.011);
-      standaloneCtx.lineCap = 'round';
-      standaloneCtx.lineJoin = 'round';
+        for (const [i, j] of HAND_BONES) {
+          const x1 = pts[i][0] * cw;
+          const y1 = pts[i][1] * ch;
+          const x2 = pts[j][0] * cw;
+          const y2 = pts[j][1] * ch;
+          standaloneCtx.beginPath();
+          standaloneCtx.moveTo(x1, y1);
+          standaloneCtx.lineTo(x2, y2);
+          standaloneCtx.stroke();
+        }
 
-      // Como standaloneCanvas ya contiene el fotograma espejado (cuando mirrorX=true),
-      // las coordenadas [0..1] de MediaPipe corresponden 1:1 al píxel exacto del canvas.
-      for (const [i, j] of HAND_BONES) {
-        const x1 = pts21[i][0] * cw;
-        const y1 = pts21[i][1] * ch;
-        const x2 = pts21[j][0] * cw;
-        const y2 = pts21[j][1] * ch;
+        const tips = new Set([4, 8, 12, 16, 20]);
+        const baseR = Math.max(3.2, Math.min(cw, ch) * 0.014);
+        for (let i = 0; i < 21; i++) {
+          const px = pts[i][0] * cw;
+          const py = pts[i][1] * ch;
+          standaloneCtx.beginPath();
+          standaloneCtx.arc(px, py, i === 0 ? baseR * 1.45 : (tips.has(i) ? baseR * 1.25 : baseR * 0.9), 0, Math.PI * 2);
+          standaloneCtx.fillStyle = isPrimary
+            ? (tips.has(i) ? '#10B981' : '#F8FAFC')
+            : (tips.has(i) ? '#C084FC' : '#E9D5FF');
+          standaloneCtx.fill();
+          standaloneCtx.lineWidth = 1.2;
+          standaloneCtx.strokeStyle = '#08090D';
+          standaloneCtx.stroke();
+        }
+      };
+
+      if (ptsPrimary) drawHand(ptsPrimary, true);
+      if (ptsSecondary) drawHand(ptsSecondary, false);
+
+      // Si ambas manos están en vista, dibujar conector inter-manual y placa de estado
+      if (ptsPrimary && ptsSecondary) {
+        const x1 = ptsPrimary[0][0] * cw, y1 = ptsPrimary[0][1] * ch;
+        const x2 = ptsSecondary[0][0] * cw, y2 = ptsSecondary[0][1] * ch;
+        standaloneCtx.save();
+        standaloneCtx.strokeStyle = 'rgba(168, 85, 247, 0.65)';
+        standaloneCtx.setLineDash([4, 4]);
+        standaloneCtx.lineWidth = 2;
         standaloneCtx.beginPath();
         standaloneCtx.moveTo(x1, y1);
         standaloneCtx.lineTo(x2, y2);
         standaloneCtx.stroke();
-      }
 
-      const tips = new Set([4, 8, 12, 16, 20]);
-      const baseR = Math.max(3.2, Math.min(cw, ch) * 0.014);
-      for (let i = 0; i < 21; i++) {
-        const px = pts21[i][0] * cw;
-        const py = pts21[i][1] * ch;
+        // Badge en la parte superior del canvas
+        standaloneCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        standaloneCtx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+        standaloneCtx.lineWidth = 1;
+        const bw = 175, bh = 22, bx = (cw - bw) / 2, by = 10;
         standaloneCtx.beginPath();
-        standaloneCtx.arc(px, py, i === 0 ? baseR * 1.45 : (tips.has(i) ? baseR * 1.25 : baseR * 0.9), 0, Math.PI * 2);
-        standaloneCtx.fillStyle = tips.has(i) ? '#10B981' : '#F8FAFC';
+        standaloneCtx.roundRect(bx, by, bw, bh, 8);
         standaloneCtx.fill();
-        standaloneCtx.lineWidth = 1.2;
-        standaloneCtx.strokeStyle = '#08090D';
         standaloneCtx.stroke();
+        standaloneCtx.fillStyle = '#E9D5FF';
+        standaloneCtx.font = 'bold 10px JetBrains Mono, monospace';
+        standaloneCtx.textAlign = 'center';
+        standaloneCtx.fillText('👐 2 MANOS · BIMANUAL', cw / 2, by + 15);
+        standaloneCtx.restore();
       }
     }
 
@@ -1953,7 +2437,8 @@
       stLastFrameTs = now;
       stFpsEma = 0.88 * stFpsEma + 0.12 * Math.min(60, 1000 / dt);
 
-      let pts21 = null;
+      let ptsPrimary = null;
+      let ptsSecondary = null;
       let isSimPose = (standaloneSubSource !== 'CAM');
 
       if (isSimPose && mlpData && mlpData.poses && mlpData.poses[standaloneSubSource]) {
@@ -1963,26 +2448,26 @@
         }
         const base = mlpData.poses[standaloneSubSource];
         const t = now * 0.003;
-        pts21 = base.map((p, idx) => [
+        ptsPrimary = base.map((p, idx) => [
           p[0] + Math.sin(t + idx * 0.3) * 0.003,
           p[1] + Math.cos(t + idx * 0.3) * 0.003,
           p[2]
         ]);
       } else if (localVideo.readyState >= 2) {
-        const vw = localVideo.videoWidth || 360;
-        const vh = localVideo.videoHeight || 480;
-        // Escalar manteniendo exactamente la relación de aspecto nativa (portrait o landscape)
-        const maxSide = 360;
+        const vw = localVideo.videoWidth || 480;
+        const vh = localVideo.videoHeight || 640;
+        // Escalar a 480px máximo para obtener alta nitidez en contornos articulares sin ralentizar GPU
+        const maxSide = 480;
         const scale = maxSide / Math.max(vw, vh);
-        const cw = Math.max(180, Math.round(vw * scale));
-        const ch = Math.max(180, Math.round(vh * scale));
+        const cw = Math.max(200, Math.round(vw * scale));
+        const ch = Math.max(200, Math.round(vh * scale));
 
         if (standaloneCanvas.width !== cw || standaloneCanvas.height !== ch) {
           standaloneCanvas.width = cw;
           standaloneCanvas.height = ch;
         }
 
-        // 1. Dibujar el video (aplicando Espejo X si está activo) directamente sobre standaloneCanvas
+        // 1. Dibujar el fotograma de la cámara (con espejo si mirrorX está activo)
         standaloneCtx.save();
         if (mirrorX) {
           standaloneCtx.translate(cw, 0);
@@ -1991,69 +2476,132 @@
         standaloneCtx.drawImage(localVideo, 0, 0, cw, ch);
         standaloneCtx.restore();
 
-        // 2. Ejecutar MediaPipe sobre ese mismo canvas solo cuando hay un nuevo frame de cámara
+        // 2. Detección con MediaPipe para 1 o 2 manos
         if (mpHandLandmarker) {
           const curVideoTime = localVideo.currentTime;
-          if (curVideoTime !== stLastVideoTime && (now - stLastDetectMs) >= 24) {
+          if (curVideoTime !== stLastVideoTime && (now - stLastDetectMs) >= 22) {
             stLastVideoTime = curVideoTime;
             stLastDetectMs = now;
             try {
               const res = mpHandLandmarker.detectForVideo(standaloneCanvas, Math.floor(now));
               if (res && res.landmarks && res.landmarks.length > 0) {
-                const raw = res.landmarks[0].map(lm => [lm.x, lm.y, lm.z || 0]);
-                stCachedRawPts = smoothLandmarks21(raw);
+                const raw1 = res.landmarks[0].map(lm => [lm.x, lm.y, lm.z || 0]);
+                stSmoothedPts = smoothLandmarks21(raw1, stSmoothedPts);
+                stCachedRawPts = stSmoothedPts;
+
+                if (res.landmarks.length > 1) {
+                  const raw2 = res.landmarks[1].map(lm => [lm.x, lm.y, lm.z || 0]);
+                  stSmoothedPtsSec = smoothLandmarks21(raw2, stSmoothedPtsSec);
+                  stCachedRawPtsSec = stSmoothedPtsSec;
+                } else {
+                  stSmoothedPtsSec = null;
+                  stCachedRawPtsSec = null;
+                }
               } else {
                 stCachedRawPts = null;
                 stSmoothedPts = null;
+                stCachedRawPtsSec = null;
+                stSmoothedPtsSec = null;
               }
             } catch (e) {}
           }
-          pts21 = stCachedRawPts;
+          ptsPrimary = stCachedRawPts;
+          ptsSecondary = stCachedRawPtsSec;
         }
       }
 
       let gid = 'G0';
       let conf = 0.0;
-      if (pts21) {
-        const pred = classifyStandalonePose(pts21);
+      let detectedSignToken = null;
+      const primaryMotion = analyzeMobileMotion(ptsPrimary, now);
+
+      if (ptsPrimary && ptsSecondary) {
+        // Reglas Bimanuales Canónicas (2 Manos)
+        const dWrists = Math.hypot(ptsPrimary[0][0] - ptsSecondary[0][0], ptsPrimary[0][1] - ptsSecondary[0][1]);
+        const dPalms = Math.hypot(ptsPrimary[9][0] - ptsSecondary[9][0], ptsPrimary[9][1] - ptsSecondary[9][1]);
+
+        if (primaryMotion && primaryMotion.isMovingDown) {
+          gid = 'DESPACIO'; conf = 0.98; detectedSignToken = 'DESPACIO';
+        } else if (primaryMotion && primaryMotion.isOscillatingX) {
+          gid = 'QUE'; conf = 0.96; detectedSignToken = 'QUE';
+        } else if (dPalms < 0.14) {
+          gid = 'POR_FAVOR'; conf = 0.98; detectedSignToken = 'POR_FAVOR';
+        } else if (dWrists < 0.22) {
+          gid = 'AYUDA'; conf = 0.98; detectedSignToken = 'AYUDA';
+        } else {
+          gid = 'COMO_ESTAS'; conf = 0.92; detectedSignToken = 'COMO_ESTAS';
+        }
+      } else if (ptsPrimary) {
+        const pred = classifyStandalonePose(ptsPrimary, primaryMotion);
         gid = pred.confidence >= 0.85 ? pred.gid : 'G0';
         conf = pred.confidence;
+        const gidToToken = {
+          'HOLA': 'HOLA',
+          'BIEN': 'BIEN',
+          'MAL': 'MAL',
+          'G1': 'CONTINUAR',
+          'G2': 'SI',
+          'G3': 'DETENER',
+          'G4': 'AYUDA',
+          'G5': 'NO'
+        };
+        detectedSignToken = gidToToken[gid] || (CONVERSATIONAL_MAP[gid] ? gid : null);
       }
 
       const requiredFrames = 6;
       stBuffer.push(gid);
       if (stBuffer.length > requiredFrames) stBuffer.shift();
 
-      const matching = gid === 'G0' ? 0 : stBuffer.filter(x => x === gid).length;
+      const isNeutral = (gid === 'G0' || gid === 'DESCONOCIDO');
+      if (isNeutral) {
+        stSignReleased = true;
+      }
+      const matching = isNeutral ? 0 : stBuffer.filter(x => x === gid).length;
       let progress = Math.min(1, matching / requiredFrames);
       const nowSec = now / 1000.0;
 
-      if (gid !== 'G0' && matching >= requiredFrames && (nowSec - stLastTriggerTs) > 1.2) {
-        stLastTriggerTs = nowSec;
-        stPulseUntil = nowSec + 0.65;
-        stBuffer = [];
-        vibrateHaptic(45);
-        const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : null;
-        if (cat && cat.sign_message) {
-          speakOfflineMessage(cat.sign_message);
+      if (!isNeutral && matching >= requiredFrames && (nowSec - stLastTriggerTs) > 1.2) {
+        const isSameSign = (detectedSignToken === stLastTriggerSign);
+        const canTriggerSign = !isSameSign || stSignReleased || (nowSec - stLastTriggerTs) > 3.2;
+
+        if (canTriggerSign) {
+          stLastTriggerTs = nowSec;
+          stLastTriggerSign = detectedSignToken;
+          stSignReleased = false;
+          stPulseUntil = nowSec + 0.65;
+          stBuffer = [];
+          vibrateHaptic(45);
+
+          if (detectedSignToken) {
+            insertQuickToken(detectedSignToken);
+          }
+
+          // Pronunciar la seña detectada en voz alta (TTS) inmediatamente
+          const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : null;
+          const signWord = (CONVERSATIONAL_MAP[detectedSignToken] ? CONVERSATIONAL_MAP[detectedSignToken].title : null) || (cat && cat.sign_label) || detectedSignToken;
+          if (signWord) {
+            speakOfflineMessage(signWord);
+          }
         }
       }
 
       const pulseActive = nowSec < stPulseUntil;
       if (pulseActive) progress = 1.0;
 
-      // 3. Dibujar el esqueleto de 21 puntos sobre el mismo standaloneCanvas (precisión 1:1 sin desfase)
-      drawStandaloneSkeletonOnCanvas(pts21, gid, pulseActive, isSimPose);
+      // 3. Dibujar esqueleto bimanual preciso 1:1 sobre el canvas
+      drawStandaloneSkeletonOnCanvas(ptsPrimary, ptsSecondary, gid, pulseActive, isSimPose);
 
       const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : {
-        sign_label: gid === 'G0' ? 'SIN MANO / NEUTRAL' : gid,
-        sign_message: 'Apunta tu mano a la cámara o elige una pose G1..G5 arriba'
+        sign_label: isNeutral ? 'SIN MANO / NEUTRAL' : (CONVERSATIONAL_MAP[gid] ? CONVERSATIONAL_MAP[gid].title : gid),
+        sign_message: CONVERSATIONAL_MAP[gid] ? CONVERSATIONAL_MAP[gid].phrase : (isNeutral ? 'Apunta 1 o 2 manos a la cámara para conversar' : gid)
       };
 
-      document.getElementById('camSourceChip').textContent = `MODO INDEPENDIENTE (${standaloneSubSource})`;
+      const handsCount = (ptsPrimary ? 1 : 0) + (ptsSecondary ? 1 : 0);
+      document.getElementById('camSourceChip').textContent = `INDEPENDIENTE (${handsCount} MANO${handsCount === 2 ? 'S' : ''})`;
       document.getElementById('fpsChip').textContent = `${stFpsEma.toFixed(0)} FPS · ${Math.round(conf * 100)}%`;
-      document.getElementById('hudGid').textContent = gid;
-      document.getElementById('hudGName').textContent = `${cat.sign_label || cat.short_label} (${Math.round(conf * 100)}%)`;
+      const displayGid = gid === 'HOLA' ? '👋' : (gid === 'BIEN' ? '👍' : (gid === 'MAL' ? '👎' : (gid === 'POR_FAVOR' ? '🙏' : (gid === 'COMO_ESTAS' ? '💬' : (gid === 'AYUDA' ? '🆘' : gid)))));
+      document.getElementById('hudGid').textContent = displayGid;
+      document.getElementById('hudGName').textContent = `${cat.sign_label || cat.short_label || gid} (${Math.round(conf * 100)}%)`;
       document.getElementById('hudGAction').textContent = cat.sign_message || cat.action_label || '';
 
       const arc = document.getElementById('ringArc');
@@ -2081,8 +2629,8 @@
         document.getElementById('wsDot').classList.add('online');
         document.getElementById('wsText').textContent = 'IA MÓVIL';
         document.getElementById('serverHostLabel').textContent = 'Modo Autónomo Offline (Sin PC)';
-        document.getElementById('camHeroTitle').textContent = 'IA Ejecutándose en el Celular';
-        document.getElementById('camHeroDesc').textContent = 'MediaPipe GPU + MLP 100% en tu móvil';
+        document.getElementById('camHeroTitle').textContent = 'IA Bimanual en el Celular';
+        document.getElementById('camHeroDesc').textContent = 'MediaPipe GPU (2 manos) + MLP 100% en tu móvil';
 
         await loadOfflineMlpAndMediaPipe();
         if (!stream) {
@@ -2099,6 +2647,7 @@
 
         stBuffer = [];
         stSmoothedPts = null;
+        stSmoothedPtsSec = null;
         stLastVideoTime = -1;
         runStandaloneLoop();
       } else {
@@ -2123,10 +2672,248 @@
       standaloneSubSource = src;
       stBuffer = [];
       stSmoothedPts = null;
-      ['CAM', 'G1', 'G2', 'G3', 'G4', 'G5'].forEach(k => {
+      stSmoothedPtsSec = null;
+      ['CAM', 'HOLA', 'G1', 'G2', 'G3', 'G4', 'G5'].forEach(k => {
         const el = document.getElementById('stSrc' + k);
         if (el) el.classList.toggle('active', k === src);
       });
+    }
+
+    // =========================================================================
+    // FUNCIONALIDADES DEL TRADUCTOR CONVERSACIONAL EN EL MÓVIL (STT, TTS, CHAT)
+    // =========================================================================
+
+    function renderMobileConversationState(conv) {
+      if (!conv) return;
+      const tokens = conv.active_tokens || [];
+      const sentence = conv.current_sentence || "";
+      const chat = conv.chat_history || [];
+
+      mobileActiveTokens = tokens;
+      mobileCurrentSentence = sentence;
+
+      // 1. Renderizar tokens activos
+      const tokCont = document.getElementById('mobileActiveTokens');
+      if (tokCont) {
+        if (tokens.length === 0) {
+          tokCont.innerHTML = '<span style="color:var(--text-secondary); font-size:0.72rem; font-style:italic;">Realiza señas frente a la cámara o toca las palabras abajo...</span>';
+        } else {
+          tokCont.innerHTML = tokens.map(t => {
+            const label = (CONVERSATIONAL_MAP[t] ? CONVERSATIONAL_MAP[t].title : t);
+            return `<span class="sign-token-chip" style="flex-shrink:0;">${label}</span>`;
+          }).join('');
+          tokCont.scrollLeft = tokCont.scrollWidth;
+        }
+      }
+
+      // 2. Renderizar frase en texto grande
+      const stEl = document.getElementById('mobileSentenceText');
+      if (stEl) {
+        stEl.textContent = sentence || 'Tu frase aparecerá traducida aquí...';
+        stEl.style.color = sentence ? '#F8FAFC' : 'var(--text-secondary)';
+      }
+
+      // 3. Renderizar historial del chat
+      const chatCont = document.getElementById('mobileChatTimeline');
+      if (chatCont && chat.length > 0) {
+        chatCont.innerHTML = chat.map(m => {
+          const isSigns = (m.role === 'SIGN_USER' || m.role === 'SIGN_LANGUAGE');
+          const author = isSigns ? 'Traductor de Señas' : 'Oyente (Voz)';
+          const bubbleClass = isSigns ? 'signs' : 'hearing';
+          return `
+            <div class="chat-bubble ${bubbleClass}">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="chat-bubble-author">${author}</span>
+                <span style="font-size:0.58rem; color:var(--text-secondary); font-family:monospace;">${m.timestamp || ''}</span>
+              </div>
+              <div>${m.text}</div>
+            </div>
+          `;
+        }).join('');
+        chatCont.scrollTop = chatCont.scrollHeight;
+      }
+    }
+
+    function insertQuickToken(tok) {
+      vibrateHaptic(20);
+      mobileActiveTokens.push(tok);
+      if (mobileActiveTokens.length > 12) {
+        mobileActiveTokens = mobileActiveTokens.slice(-12);
+      }
+      const phrases = mobileActiveTokens.map(t => CONVERSATIONAL_MAP[t] ? CONVERSATIONAL_MAP[t].title : t);
+      mobileCurrentSentence = phrases.join(' ');
+      renderMobileConversationState({
+        active_tokens: mobileActiveTokens,
+        current_sentence: mobileCurrentSentence,
+        chat_history: mobileChatHistory
+      });
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'CONVERSATION_TOKEN',
+          token: tok
+        }));
+      }
+    }
+
+    function mobileSpeakSentence() {
+      vibrateHaptic(25);
+      const text = mobileCurrentSentence;
+      if (!text || text.includes('Tu frase aparecerá')) {
+        speakOfflineMessage('No hay palabras acumuladas en la frase.');
+        return;
+      }
+      speakOfflineMessage(text);
+    }
+
+    function mobileCommitSentence() {
+      vibrateHaptic(30);
+      if (!mobileCurrentSentence || mobileCurrentSentence.includes('Tu frase aparecerá')) return;
+      const text = mobileCurrentSentence;
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      mobileChatHistory.push({
+        role: 'SIGN_USER',
+        text: text,
+        timestamp: timeStr
+      });
+
+      mobileSpeakSentence();
+      mobileActiveTokens = [];
+      mobileCurrentSentence = "";
+
+      renderMobileConversationState({
+        active_tokens: [],
+        current_sentence: "",
+        chat_history: mobileChatHistory
+      });
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_COMMIT' }));
+      }
+    }
+
+    function mobileBackspaceSentence() {
+      vibrateHaptic(18);
+      if (mobileActiveTokens.length > 0) {
+        mobileActiveTokens.pop();
+        const phrases = mobileActiveTokens.map(t => CONVERSATIONAL_MAP[t] ? CONVERSATIONAL_MAP[t].phrase : t);
+        mobileCurrentSentence = phrases.join(' ');
+        renderMobileConversationState({
+          active_tokens: mobileActiveTokens,
+          current_sentence: mobileCurrentSentence,
+          chat_history: mobileChatHistory
+        });
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_BACKSPACE' }));
+      }
+    }
+
+    function mobileClearSentence() {
+      vibrateHaptic(25);
+      mobileActiveTokens = [];
+      mobileCurrentSentence = "";
+      renderMobileConversationState({
+        active_tokens: [],
+        current_sentence: "",
+        chat_history: mobileChatHistory
+      });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'CONVERSATION_CLEAR' }));
+      }
+    }
+
+    function toggleMobileHearingMic() {
+      vibrateHaptic(35);
+      const btn = document.getElementById('btnMobileHearingMic');
+      const liveBox = document.getElementById('mobileHearingLiveBox');
+
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        alert('El reconocimiento de voz Web Speech API no está soportado en este navegador móvil.');
+        return;
+      }
+
+      if (isHearingListening && hearingRecognition) {
+        try { hearingRecognition.stop(); } catch (e) {}
+        isHearingListening = false;
+        if (btn) {
+          btn.classList.remove('listening');
+          btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
+        }
+        return;
+      }
+
+      try {
+        hearingRecognition = new SpeechRec();
+        hearingRecognition.lang = 'es-CO';
+        hearingRecognition.continuous = false;
+        hearingRecognition.interimResults = true;
+
+        hearingRecognition.onstart = () => {
+          isHearingListening = true;
+          if (btn) {
+            btn.classList.add('listening');
+            btn.innerHTML = '<span>🔴 Escuchando voz del oyente...</span>';
+          }
+          if (liveBox) liveBox.textContent = 'Habla ahora... Escuchando voz...';
+        };
+
+        hearingRecognition.onresult = (evt) => {
+          let interim = '';
+          let final = '';
+          for (let i = evt.resultIndex; i < evt.results.length; ++i) {
+            if (evt.results[i].isFinal) final += evt.results[i][0].transcript;
+            else interim += evt.results[i][0].transcript;
+          }
+          const spoken = final || interim;
+          if (liveBox) liveBox.textContent = `"${spoken}"`;
+
+          if (final) {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            mobileChatHistory.push({
+              role: 'HEARING_PERSON',
+              text: final,
+              timestamp: timeStr
+            });
+            renderMobileConversationState({
+              active_tokens: mobileActiveTokens,
+              current_sentence: mobileCurrentSentence,
+              chat_history: mobileChatHistory
+            });
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'HEARING_SPEECH',
+                text: final
+              }));
+            }
+          }
+        };
+
+        hearingRecognition.onend = () => {
+          isHearingListening = false;
+          if (btn) {
+            btn.classList.remove('listening');
+            btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
+          }
+        };
+
+        hearingRecognition.onerror = (err) => {
+          console.warn('SpeechRecognition error:', err);
+          isHearingListening = false;
+          if (btn) {
+            btn.classList.remove('listening');
+            btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
+          }
+        };
+
+        hearingRecognition.start();
+      } catch (err) {
+        console.error('Error starting SpeechRec:', err);
+      }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
