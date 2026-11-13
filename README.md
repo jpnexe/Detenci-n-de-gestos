@@ -52,8 +52,8 @@ El sistema mantiene dos modos de interacción totalmente desacoplados:
 | :--- | :--- | :--- | :--- |
 | **Backend & Motor IA** | **Python 3.11+** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe (Hand Landmarker)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai` | Servidor ASGI asíncrono, captura de video, detección de 1 o 2 manos (42 puntos 3D), motor conversacional, API REST y WebSocket. |
 | **Control de Periféricos OS** | **Python + C ABI (Win32)** | `ctypes.windll.user32`, `PyAutoGUI`, `winsound` | Movimiento de mouse a 120 Hz, anclaje de puntería ortogonal y ejecución de clics/scrolls en hilos daemon. |
-| **Frontend Desktop & HUD** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API` | Interfaz vidriada Liquid Glassmorphic, HUD bimanual con código de color dual, timeline de chat y modal con catálogo de 18 señas. |
-| **Aplicación Móvil APK** | **Java (Android SDK API 35), JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `MediaPipe Vision WASM`, `aapt2`, `d8`, `apksigner` | Contenedor nativo Android (`SignBridge_v3.apk`) con modo independiente offline, cámara WebRTC con selector frontal/trasera libre de errores, touchpad háptico y STT/TTS local. |
+| **Frontend Desktop & HUD** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API` | Interfaz vidriada Liquid Glassmorphic, HUD bimanual con código de color dual, timeline de chat, diccionario 3D y catálogo exhaustivo de 50 señas y 27 letras del alfabeto LSC. |
+| **Aplicación Móvil APK** | **Java (Android SDK API 35), JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `MediaPipe Vision WASM`, `aapt2`, `d8`, `apksigner` | Contenedor nativo Android (`SignBridge_v3.apk`) con streaming binario `toBlob`, audio TTS en tiempo real para señas/letras identificadas, selector frontal/trasera libre de errores, touchpad háptico y STT/TTS local. |
 
 ---
 
@@ -75,13 +75,14 @@ Detencion de movimiento/
 │   └── SignBridge_v2.apk           # Copia de compatibilidad
 │
 ├── backend/                        # Módulos del núcleo biomecánico y conversacional
-│   ├── conversation_engine.py      # Motor de traducción conversacional: 18 señas, buffer de tokens, chat y TTS
+│   ├── conversation_engine.py      # Motor de traducción conversacional: 50 señas en 8 categorías, buffer de tokens, chat y TTS
+│   ├── lsc_alphabet.py             # Ensamble de dactilología LSC: 27/27 letras canónicas (A-Z, Ñ) con similitud coseno y discriminación fina
 │   ├── normalizer.py               # Normalización 3D invariante (1 y 2 manos) y métricas inter-manuales
 │   ├── classifier_local.py         # Clasificador neuronal MLP local (TensorFlow/Keras y aceleración NumPy)
-│   ├── classifier_gemini.py        # Cliente multimodal asíncrono para Google Gemini 3
+│   ├── classifier_gemini.py        # Cliente multimodal asíncrono para Google Gemini 3.5 Flash Lite soberano (2-frame cloud stabilization)
 │   ├── stabilizer.py               # Buffer circular de estabilidad temporal N=8 y umbrales de rechazo
 │   ├── hardware_controller.py      # Controlador de mouse a 120 Hz con Filtro 1€ y llamadas Win32 SetCursorPos
-│   └── pipeline.py                 # Orquestador del flujo: cámara, detección de 2 manos, HUD y conversación
+│   └── pipeline.py                 # Orquestador del flujo: cámara, detección de 2 manos, HUD, audio TTS móvil y conversación
 │
 ├── models/                         # Pesos y modelos preentrenados
 │   ├── hand_landmarker.task        # Modelo MediaPipe Hand Landmarker (21 landmarks 3D por mano)
@@ -131,30 +132,21 @@ En [`backend/pipeline.py`](backend/pipeline.py) (`draw_hud_skeleton`) y [`static
 
 ---
 
-## 5. Catálogo de 18 Señas Conversacionales Canónicas
+## 5. Catálogo Conversacional y Dactilológico LSC (50 Señas + 27 Letras)
 
-El motor conversacional ([`backend/conversation_engine.py`](backend/conversation_engine.py)) implementa un vocabulario estructurado para mantener diálogos funcionales completos:
+El motor conversacional ([`backend/conversation_engine.py`](backend/conversation_engine.py)) y el motor dactilológico ([`backend/lsc_alphabet.py`](backend/lsc_alphabet.py)) integran un vocabulario estructurado para mantener diálogos funcionales completos:
 
-| Categoría | ID Seña | Nombre / Emoji | Articulación | Descripción Anatómica | Frase Traducida al Español |
-| :--- | :--- | :--- | :---: | :--- | :--- |
-| **Saludos** | `S_HOLA` | 👋 Hola | 1 Mano | Palma extendida abierta oscilando al lado de la cabeza. | *"Hola, ¿cómo estás?"* |
-| **Saludos** | `S_BUENOS_DIAS` | 🌅 Buenos días | 2 Manos | Mano dominante partiendo del pecho abriéndose hacia adelante. | *"Buenos días."* |
-| **Saludos** | `S_BUENAS_TARDES`| 🌇 Buenas tardes | 2 Manos | Mano dominante descendiendo sobre el antebrazo opuesto. | *"Buenas tardes."* |
-| **Saludos** | `S_ADIOS` | 🙋 Adiós | 1 Mano | Palma abierta oscilando lateralmente en despedida. | *"Hasta luego, adiós."* |
-| **Cortesía** | `S_GRACIAS` | 🙏 Gracias | 1 o 2 Manos | Yemas de los dedos tocando mentón/boca y extendiéndose al frente. | *"Muchas gracias."* |
-| **Cortesía** | `S_POR_FAVOR` | 🤲 Por favor | 2 Manos | Ambas palmas unidas en el centro del pecho (contacto bimanual). | *"Por favor."* |
-| **Cortesía** | `S_DE_NADA` | 🤝 De nada | 1 Mano | Palma abierta extendiéndose con calidez hacia el interlocutor. | *"Con mucho gusto / De nada."* |
-| **Respuestas** | `S_BIEN` | 👍 Bien / OK | 1 Mano | Dedo pulgar extendido hacia arriba firmemente (puño cerrado). | *"Muy bien / De acuerdo."* |
-| **Respuestas** | `S_MAL` | 👎 Mal | 1 Mano | Dedo pulgar apuntando rígidamente hacia abajo. | *"No me siento bien / Está mal."* |
-| **Respuestas** | `S_SI` | ☝️ Sí | 1 Mano | Dedo índice vertical asintiendo (o puño asintiendo). | *"Sí, afirmativo / De acuerdo."* |
-| **Respuestas** | `S_NO` | 👆 No | 1 Mano | Índice y pulgar abiertos en "L" negando lateralmente. | *"No, negativo / Cancelar."* |
-| **Preguntas** | `S_COMO_ESTAS` | 🤷 ¿Cómo estás? | 2 Manos | Ambas palmas abiertas mirando hacia arriba en apertura frontal. | *"¿Cómo estás hoy?"* |
-| **Preguntas** | `S_QUE` | ❓ ¿Qué? | 2 Manos | Ambas palmas abiertas hacia arriba oscilando suavemente. | *"¿Qué sucede? / ¿Qué dijiste?"* |
-| **Preguntas** | `S_DONDE` | 📍 ¿Dónde? | 2 Manos | Índices de ambas manos apuntando hacia los costados en búsqueda. | *"¿Dónde queda?"* |
-| **Preguntas** | `S_REPETIR` | 🔄 Repetir | 1 Mano | Mano abierta descendiendo suavemente en señal de calma y repetición. | *"¿Puedes repetir más despacio por favor?"* |
-| **Emergencia** | `S_AYUDA` | 🆘 Ayuda SOS | 2 Manos | **Canónica Bimanual:** Puño con pulgar arriba descansando sobre la palma plana opuesta. | *"Necesito ayuda urgente, por favor."* |
-| **Emergencia** | `S_MEDICO` | 🏥 Médico / Dolor | 2 Manos | Dedo índice tocando el dorso de la muñeca opuesta (pulso cardíaco). | *"Necesito un médico / Siento dolor."* |
-| **Control** | `S_PAUSA` | ✋ Pausa / Espera | 2 Manos | Ambas palmas abiertas hacia el frente empujando el aire suavemente. | *"Espera un momento, por favor."* |
+### 5.1. Resumen de las 8 Categorías Conversacionales (50 Señas)
+- **Pronombres (6):** `YO`, `TU`, `EL_ELLA`, `NOSOTROS`, `USTEDES`, `ELLOS`.
+- **Cortesía y Saludos (9):** `S_HOLA`, `S_BUENOS_DIAS`, `S_BUENAS_TARDES`, `S_ADIOS`, `S_GRACIAS`, `S_POR_FAVOR`, `S_DE_NADA`, `MUCHO_GUSTO`, `DISCULPA`.
+- **Verbos Clave (10):** `QUERER`, `PODER`, `SABER`, `NECESITAR`, `IR`, `VENIR`, `COMER`, `TOMAR`, `TRABAJAR`, `ESTUDIAR`.
+- **Preguntas (7):** `S_COMO_ESTAS`, `S_QUE`, `S_DONDE`, `S_REPETIR`, `QUIEN`, `CUANDO`, `POR_QUE`.
+- **Respuestas y Estados (8):** `S_BIEN`, `S_MAL`, `S_SI`, `S_NO`, `MAS_O_MENOS`, `ENTIENDO`, `NO_ENTIENDO`, `TAL_VEZ`.
+- **Tiempo y Lugar (4):** `HOY`, `MANANA`, `AQUI`, `ALLI`.
+- **Emergencia (2):** `S_AYUDA`, `S_MEDICO`.
+- **Control (4):** `S_PAUSA`, `ESPACIO`, `BORRAR`, `LIMPIAR`.
+
+*(Para la tabla anatómica exhaustiva con descripciones y frases traducidas de cada una de las 50 señas y las 27 letras del alfabeto LSC A-Z y Ñ, consultar [DOCUMENTACION_PROYECTO.md](DOCUMENTACION_PROYECTO.md)).*
 
 ---
 
@@ -206,10 +198,11 @@ Durante esta versión se resolvieron los tres desafíos críticos reportados en 
 - Pestaña dedicada **`💬 Traductor`** en la barra inferior nativa con:
   - Tokens activos en tiempo real.
   - Frase traducida en texto grande.
-  - Botón de audio TTS local.
+  - Botón de audio TTS local y sincronización por WebSocket (`[🔊 Voz: ON / OFF]`).
+  - Emisión de voz inmediata cuando se detecta una seña o letra estabilizada (`latest_tts_seq`).
   - Micrófono para el oyente con Web Speech API.
   - Historial de chat bidireccional accesible.
-  - Selector táctil de las 18 señas para comunicación rápida sin cámara.
+  - Selector táctil de señas y letras para comunicación rápida sin cámara.
 
 ---
 
@@ -224,7 +217,7 @@ Para la presentación ante el docente universitario, el sistema documenta riguro
 3. **Evitar activaciones accidentales mediante estabilidad temporal y umbral de confianza:**
    - Buffer circular deslizante de $N=8$ fotogramas, umbral de rechazo activo $\ge 0.85$ y tiempo de enfriamiento post-disparo de $1.15\text{ s}$.
 4. **Permitir consultar catálogo visual de gestos y reiniciar la detección:**
-   - Modal interactivo con 3 pestañas: *18 Señas Conversacionales*, *5 Comandos HCI* y *Fundamentación Lingüística*.
+   - Modal interactivo con pestañas: *50 Señas Conversacionales*, *27 Letras LSC*, *5 Comandos HCI* y *Fundamentación Lingüística*, más visualizador 3D interactivo.
    - Endpoint `POST /api/reset` y comando WebSocket `RESET_DETECTION` para reinicio instantáneo del estado.
 5. **Diferenciación Lingüística entre Gestos HCI y Lenguas de Señas Naturales:**
    - **Gramática y Sintaxis Propia:** Las lenguas de señas naturales (como la Lengua de Señas Colombiana - LSC o la ASL) son idiomas con estructura gramatical completa, fonología visual (querología) y sintaxis topográfica espacial, no un código discreto de 1 gesto = 1 palabra.

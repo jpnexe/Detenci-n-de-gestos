@@ -526,4 +526,29 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
 * [`static/mobile.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/mobile.html): Botón `🔊 Voz: ON/OFF` y reproducción automática por voz al confirmar señas/palabras enlazadas al PC o en modo independiente.
 * [`memori.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/memori.md): Registro acumulativo actualizado.
 
+---
+
+### [2026-11-13] — Sincronización y Actualización Exhaustiva de la Documentación del Proyecto
+
+#### 1. Diagnóstico y Alcance
+* **Solicitud:** Actualizar toda la documentación técnica y general del proyecto para sincronizarla con el estado real y las capacidades actuales de SignBridge Extended v3.0.
+* **Inconsistencias detectadas previamente:**
+  - [`DOCUMENTACION_PROYECTO.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/DOCUMENTACION_PROYECTO.md) y [`README.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/README.md) conservaban referencias del prototipo temprano que describían únicamente 18 señas conversacionales y omitían el abecedario dactilológico LSC (27 letras: A-Z y Ñ), el modo soberano de Google Gemini 3.5 Flash Lite y la pronunciación por voz en tiempo real en la aplicación móvil.
+
+#### 2. Modificaciones Documentales Implementadas
+1. **Actualización de [`DOCUMENTACION_PROYECTO.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/DOCUMENTACION_PROYECTO.md):**
+   - Incorporación de las tablas exhaustivas del **catálogo conversacional completo (50 señas)** estructuradas en 8 categorías funcionales: *Pronombres (6)*, *Cortesía y Saludos (9)*, *Verbos Clave (10)*, *Preguntas (7)*, *Respuestas y Estados (8)*, *Tiempo y Lugar (4)*, *Emergencia (2)* y *Control (4)*.
+   - Detalle del **ensamble dactilológico LSC (27/27 letras canónicas)** con similitud de coseno, discriminación anatómica fina (pares críticos como U/V, R/U, M/N/E/A, G/L, D/F) y análisis cinemático de trazo para letras dinámicas (J, Z, Ñ).
+   - Documentación del **Modo Soberano Online con Gemini 3.5 Flash Lite** (sampling desacoplado a 400 ms, prompt despolarizado de 77 tokens canónicos, estabilización de nube ágil a 2 fotogramas e inmunidad frente a secuestro por clasificadores locales).
+   - Documentación del **Sistema de Audio Móvil y TTS en Tiempo Real** (secuencia compartida `latest_tts_seq` para difusión sin pérdida en WebSockets, botón `[🔊 Voz: ON/OFF]` y pronunciación en el teléfono tanto enlazado como independiente).
+   - Documentación de las mejoras visuales del HUD (despeje de video del 90%, atajos `H`, `T`, `O`, `F`, `D` y diccionario 3D).
+2. **Actualización de [`README.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/README.md):**
+   - Actualización del desglose del stack tecnológico, estructura de carpetas y catálogo de 50 señas conversacionales y 27 letras LSC.
+   - Actualización de las capacidades de la app móvil APK con audio en tiempo real y diccionario 3D.
+3. **Registro en [`memori.md`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/memori.md):**
+   - Registro de la sincronización de documentación para trazabilidad del proyecto.
+
+#### 3. Verificación
+* Ejecución de `test_pipeline.py`: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
+
 
