@@ -551,4 +551,29 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
 #### 3. Verificación
 * Ejecución de `test_pipeline.py`: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
 
+---
+
+### [2026-11-13] — Soporte de Cámara del Celular por Cable USB (ADB) y Optimización para DroidCam
+
+#### 1. Diagnóstico del Problema con DroidCam y USB
+* **Causa raíz:** `LocalCameraWorker` en [`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py) solo intentaba abrir el índice fijo `0` con `cv2.CAP_DSHOW`, por lo que ignoraba cámaras virtuales de DroidCam en índices `1..3`, fallaba cuando el driver virtual requería `CAP_MSMF` o `CAP_ANY`, y no admitía streams HTTP MJPEG (`http://<IP>:4747/video`) ni túneles USB por ADB.
+
+#### 2. Modificaciones Implementadas
+1. **Puente USB ADB ([`backend/usb_bridge.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/usb_bridge.py)):**
+   - Detección automática de `adb.exe` en PATH y Android SDK (`platform-tools`).
+   - **Modo SignBridge USB (`SIGNBRIDGE_USB`):** Ejecuta `adb reverse tcp:8000 tcp:8000` y abre `http://127.0.0.1:8000/mobile` en el celular por cable USB sin necesidad de Wi-Fi.
+   - **Modo DroidCam USB (`DROIDCAM_USB`):** Ejecuta `adb forward tcp:4747 tcp:4747` y conecta la captura a `http://127.0.0.1:4747/video`.
+2. **Motor `LocalCameraWorker` Multi-Fuente y Optimizado ([`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py)):**
+   - Soporte dinámico de índices (`0..4`), cámaras virtuales y URLs HTTP/RTSP en caliente (`switch_target`).
+   - Fallback inteligente de backends en Windows (`CAP_DSHOW` → `CAP_MSMF` → `CAP_ANY`, y `CAP_FFMPEG` para URLs) con verificación real de frame válido, `CAP_PROP_BUFFERSIZE = 1` para cero latencia acumulada y reconexión automática.
+   - Auto-sondeo en índices `1..3` si el índice `0` no está disponible al arrancar.
+   - Nuevos endpoints: `GET /api/cameras`, `POST /api/camera/select` y `POST /api/usb/connect`.
+3. **Interfaz de Conexión USB / DroidCam ([`static/index.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/index.html) y [`static/mobile.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/mobile.html)):**
+   - Botón `USB / DroidCam` en la barra de fuentes del HUD y panel completo dentro de `#modalQR` para conectar por USB (SignBridge o DroidCam), escanear cámaras virtuales `0..3` o ingresar URL de DroidCam Wi-Fi.
+   - Botón rápido `🔌 Modo USB (127.0.0.1)` en el modal de conexión de la APK móvil.
+
+#### 3. Verificación
+* Detección de ADB verificada (`C:\Users\NOSE - PC\AppData\Local\Android\Sdk\platform-tools\adb.exe`).
+* `python test_pipeline.py` ejecutado: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
+
 

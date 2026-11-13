@@ -1377,8 +1377,9 @@
     <div class="modal-card">
       <h3>Conexión APK ↔ Servidor PC</h3>
       <p>Ingresa la dirección IP local y puerto que muestra la consola de tu PC al ejecutar <code>python main.py</code> (ambos en la misma red Wi-Fi):</p>
-      <input type="text" class="input-field" id="ipInput" placeholder="Ej: 192.168.1.50:8000" />
-      <div class="modal-actions">
+      <input type="text" class="input-field" id="ipInput" placeholder="Ej: 192.168.1.50:8000 o 127.0.0.1:8000 (USB)" />
+      <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn-secondary" style="border-color:rgba(0,255,157,0.45);color:#00FF9D;" onclick="document.getElementById('ipInput').value='127.0.0.1:8000';saveServerIp();">🔌 Modo USB (127.0.0.1)</button>
         <button class="btn-secondary" onclick="closeIpModal()">Cerrar</button>
         <button class="btn-primary" onclick="saveServerIp()">Guardar y Conectar</button>
       </div>

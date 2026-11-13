@@ -574,6 +574,10 @@
               <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
               <span>Cámara Móvil</span>
             </button>
+            <button onclick="openQRModal()" title="Conectar celular por cable USB (ADB), DroidCam o QR Wi-Fi" class="px-2.5 py-1 rounded-full font-semibold border border-emeraldLiquid/35 bg-emeraldLiquid/10 text-emeraldLiquid hover:bg-emeraldLiquid/20 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+              <i data-lucide="usb" class="w-3.5 h-3.5"></i>
+              <span>USB / DroidCam</span>
+            </button>
             <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Cam Web</button>
             <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Simulador 3D</button>
             <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
@@ -1118,52 +1122,124 @@
     </button>
   </nav>
 
-  <!-- CAPA 3 / COMPONENTE CLAVE 3: Modal de Escaneo QR (Modo Cámara Remota Inalámbrica) -->
-  <div id="modalQR" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="glass-layer-3 max-w-md w-full p-6 flex flex-col items-center text-center relative">
-      <button onclick="closeModal('modalQR')" class="absolute top-4 right-4 min-w-[48px] min-h-[48px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">
+  <!-- CAPA 3 / COMPONENTE CLAVE 3: Modal de Conexión Móvil (USB, DroidCam y QR Wi-Fi) -->
+  <div id="modalQR" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-layer-3 max-w-2xl w-full p-6 flex flex-col relative my-auto">
+      <button onclick="closeModal('modalQR')" class="absolute top-4 right-4 min-w-[44px] min-h-[44px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
 
-      <div class="w-12 h-12 rounded-2xl bg-cyanLiquid/15 border border-cyanLiquid/40 flex items-center justify-center text-cyanLiquid mb-3">
-        <i data-lucide="smartphone" class="w-6 h-6"></i>
-      </div>
-
-      <h3 class="font-display font-bold text-xl tracking-tight text-textPrimary">
-        Cámara Remota Inalámbrica (QR)
-      </h3>
-      <p class="text-xs text-textSecondary mt-1 max-w-xs">
-        Escanea con tu teléfono Android o iOS en la misma red Wi-Fi para transmitir video en vivo por WebSockets.
-      </p>
-
-      <!-- Tarjeta interior clara de alto contraste para lectura del sensor móvil -->
-      <div class="mt-5 p-4 bg-[#F8FAFC] rounded-2xl shadow-[0_0_35px_rgba(0,240,255,0.25)] border-2 border-cyanLiquid">
-        <img id="qrCodeImage" src="" alt="Código QR Cámara Móvil" class="w-52 h-52 object-contain mx-auto" />
-      </div>
-
-      <!-- Telemetría de Red Local -->
-      <div class="w-full mt-5 glass-layer-2 p-3.5 text-left font-mono text-xs space-y-1.5">
-        <div class="flex justify-between">
-          <span class="text-textSecondary">IP LOCAL LAN:</span>
-          <span id="qrLocalIp" class="text-cyanLiquid font-semibold">Cargando...</span>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 rounded-2xl bg-cyanLiquid/15 border border-cyanLiquid/40 flex items-center justify-center text-cyanLiquid shrink-0">
+          <i data-lucide="smartphone" class="w-6 h-6"></i>
         </div>
-        <div class="flex justify-between">
-          <span class="text-textSecondary">PUERTO WEBSOCKET:</span>
-          <span id="qrWsPort" class="text-textPrimary font-semibold">8000 (/ws/mobile)</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-textSecondary">ESTADO DEL ENLACE:</span>
-          <span id="qrLinkState" class="px-2 py-0.5 rounded-full bg-amberLiquid/20 text-amberLiquid text-[11px]">
-            Esperando dispositivo
-          </span>
+        <div>
+          <h3 class="font-display font-bold text-lg tracking-tight text-textPrimary">
+            Cámara del Celular: Cable USB, DroidCam y Wi-Fi
+          </h3>
+          <p class="text-xs text-textSecondary">
+            Conecta tu Android por cable USB (sin Wi-Fi), usa DroidCam optimizado o escanea el QR inalámbrico.
+          </p>
         </div>
       </div>
 
-      <div class="w-full mt-4 flex gap-2">
-        <a id="qrDirectLink" href="/mobile" target="_blank" class="flex-1 min-h-[48px] rounded-full bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/50 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform duration-150">
-          <i data-lucide="external-link" class="w-4 h-4"></i>
-          <span>Abrir Vista Móvil (/mobile)</span>
-        </a>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Columna Izquierda: Cable USB (ADB) y DroidCam -->
+        <div class="space-y-3">
+          <!-- Bloque USB Directo -->
+          <div class="glass-layer-2 p-3.5 space-y-2.5 border border-emeraldLiquid/30">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emeraldLiquid uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="usb" class="w-4 h-4"></i>
+                1. Conexión por Cable USB (ADB)
+              </span>
+              <span id="usbDeviceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-textSecondary">
+                Verificando...
+              </span>
+            </div>
+            <p class="text-[11px] text-textSecondary leading-relaxed">
+              Activa <b>Depuración USB</b> en tu Android, conecta el cable y elige el método:
+            </p>
+            <div class="flex flex-col gap-2">
+              <button onclick="connectUsbBridge('SIGNBRIDGE_USB')" class="w-full py-2 px-3 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/50 text-emeraldLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                <i data-lucide="cable" class="w-4 h-4"></i>
+                <span>Usar Cámara SignBridge por USB</span>
+              </button>
+              <button onclick="connectUsbBridge('DROIDCAM_USB')" class="w-full py-2 px-3 rounded-xl bg-cyanLiquid/15 hover:bg-cyanLiquid/25 border border-cyanLiquid/40 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                <span>Conectar DroidCam por USB (Puerto 4747)</span>
+              </button>
+            </div>
+            <div id="usbBridgeFeedback" class="hidden text-[11px] font-mono p-2 rounded-lg bg-void/80 border border-white/10 text-textPrimary"></div>
+          </div>
+
+          <!-- Bloque Selector de Cámara / DroidCam Virtual & Wi-Fi -->
+          <div class="glass-layer-2 p-3.5 space-y-2.5 border border-white/10">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyanLiquid uppercase tracking-wider">
+                2. Cámara PC / DroidCam Virtual o IP
+              </span>
+              <button onclick="refreshCameraList()" class="text-[11px] font-mono text-cyanLiquid hover:underline">
+                ↻ Escanear
+              </button>
+            </div>
+            <div class="flex gap-2">
+              <select id="localCameraSelect" class="flex-1 bg-void/80 border border-white/15 rounded-xl px-2.5 py-2 text-xs text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid">
+                <option value="0">Cámara 0 (Por defecto)</option>
+                <option value="1">Cámara 1 (DroidCam / Secundaria)</option>
+                <option value="2">Cámara 2</option>
+                <option value="3">Cámara 3</option>
+              </select>
+              <button onclick="selectCameraTarget(document.getElementById('localCameraSelect').value)" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-textPrimary active:scale-95 transition-transform">
+                Usar
+              </button>
+            </div>
+            <div class="flex gap-2">
+              <input id="droidcamUrlInput" type="text" placeholder="http://192.168.1.X:4747/video" class="flex-1 bg-void/80 border border-white/15 rounded-xl px-2.5 py-2 text-xs text-textPrimary font-mono focus:outline-none focus:border-cyanLiquid" />
+              <button onclick="selectCameraTarget(document.getElementById('droidcamUrlInput').value)" class="px-3 py-2 rounded-xl bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/40 text-xs font-semibold text-cyanLiquid active:scale-95 transition-transform">
+                URL
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Código QR Wi-Fi -->
+        <div class="glass-layer-2 p-3.5 flex flex-col items-center text-center justify-between">
+          <div class="w-full">
+            <span class="text-xs font-bold text-textPrimary uppercase tracking-wider block mb-1">
+              3. Cámara Wi-Fi (Código QR)
+            </span>
+            <p class="text-[11px] text-textSecondary">
+              Escanea en la misma red Wi-Fi para abrir la cámara web móvil.
+            </p>
+          </div>
+
+          <div class="my-3 p-3 bg-[#F8FAFC] rounded-2xl shadow-[0_0_25px_rgba(0,240,255,0.2)] border-2 border-cyanLiquid">
+            <img id="qrCodeImage" src="" alt="Código QR Cámara Móvil" class="w-40 h-40 object-contain mx-auto" />
+          </div>
+
+          <div class="w-full text-left font-mono text-[11px] space-y-1 bg-void/60 p-2.5 rounded-xl border border-white/10">
+            <div class="flex justify-between">
+              <span class="text-textSecondary">IP LOCAL LAN:</span>
+              <span id="qrLocalIp" class="text-cyanLiquid font-semibold">Cargando...</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-textSecondary">PUERTO WS:</span>
+              <span id="qrWsPort" class="text-textPrimary font-semibold">8000 (/ws/mobile)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-textSecondary">ESTADO:</span>
+              <span id="qrLinkState" class="px-2 py-0.5 rounded-full bg-amberLiquid/20 text-amberLiquid text-[10px]">
+                Esperando dispositivo
+              </span>
+            </div>
+          </div>
+
+          <a id="qrDirectLink" href="/mobile" target="_blank" class="w-full mt-3 min-h-[40px] rounded-full bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/50 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform duration-150">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>Abrir Vista Móvil (/mobile)</span>
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -2514,6 +2590,7 @@
 
     async function openQRModal() {
       openModal('modalQR');
+      if (window.lucide) lucide.createIcons();
       try {
         const res = await fetch('/api/qr');
         const data = await res.json();
@@ -2523,6 +2600,126 @@
         document.getElementById('qrDirectLink').href = data.mobile_url;
       } catch (e) {
         console.error(e);
+      }
+      refreshCameraList();
+    }
+
+    async function refreshCameraList() {
+      const usbBadge = document.getElementById('usbDeviceBadge');
+      const selectEl = document.getElementById('localCameraSelect');
+      if (usbBadge) {
+        usbBadge.textContent = 'Buscando...';
+        usbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-textSecondary';
+      }
+      try {
+        const res = await fetch('/api/cameras');
+        const data = await res.json();
+
+        if (selectEl && Array.isArray(data.cameras)) {
+          const prevVal = String(data.active_target ?? '0');
+          const options = [];
+          const seen = new Set();
+          data.cameras.forEach((cam) => {
+            seen.add(String(cam.index));
+            options.push(`<option value="${cam.index}">${cam.label}</option>`);
+          });
+          [0, 1, 2, 3].forEach((idx) => {
+            if (!seen.has(String(idx))) {
+              options.push(`<option value="${idx}">Cámara ${idx}</option>`);
+            }
+          });
+          selectEl.innerHTML = options.join('');
+          if ([...selectEl.options].some((o) => o.value === prevVal)) {
+            selectEl.value = prevVal;
+          }
+        }
+
+        if (usbBadge && data.usb) {
+          if (!data.usb.adb_available) {
+            usbBadge.textContent = 'Sin ADB';
+            usbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-roseLiquid/20 text-roseLiquid';
+          } else if (data.usb.authorized_count > 0) {
+            const dev = data.usb.devices.find((d) => d.state === 'device');
+            usbBadge.textContent = `✓ ${dev ? dev.model : 'USB Listo'}`;
+            usbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-emeraldLiquid/20 text-emeraldLiquid';
+          } else if ((data.usb.devices || []).some((d) => d.state === 'unauthorized')) {
+            usbBadge.textContent = 'Aceptar en celular';
+            usbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-amberLiquid/20 text-amberLiquid';
+          } else {
+            usbBadge.textContent = 'Sin celular USB';
+            usbBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-textSecondary';
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function selectCameraTarget(target) {
+      const clean = String(target || '').trim();
+      const fb = document.getElementById('usbBridgeFeedback');
+      if (!clean) return;
+      try {
+        const res = await fetch('/api/camera/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: clean, activate_local: true }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          currentSource = 'LOCAL';
+          highlightSourceButton('LOCAL');
+          if (fb) {
+            fb.classList.remove('hidden');
+            fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-emeraldLiquid/10 border border-emeraldLiquid/40 text-emeraldLiquid';
+            fb.textContent = `✓ Cámara cambiada a: ${data.target}`;
+          }
+        } else if (fb) {
+          fb.classList.remove('hidden');
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+          fb.textContent = `⚠ ${data.error || 'Error al cambiar cámara'}`;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function connectUsbBridge(mode) {
+      const fb = document.getElementById('usbBridgeFeedback');
+      if (fb) {
+        fb.classList.remove('hidden');
+        fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid animate-pulse';
+        fb.textContent = 'Configurando túnel USB ADB...';
+      }
+      try {
+        const res = await fetch('/api/usb/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode, open_on_phone: true }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (mode === 'DROIDCAM_USB') {
+            currentSource = 'LOCAL';
+            highlightSourceButton('LOCAL');
+          } else {
+            currentSource = 'MOBILE';
+            highlightSourceButton('MOBILE');
+          }
+          if (fb) {
+            fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-emeraldLiquid/10 border border-emeraldLiquid/40 text-emeraldLiquid';
+            fb.textContent = `✓ ${data.message}`;
+          }
+        } else if (fb) {
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+          fb.textContent = `⚠ ${data.error || 'No se pudo configurar el puente USB.'}`;
+        }
+        refreshCameraList();
+      } catch (e) {
+        if (fb) {
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+          fb.textContent = `⚠ Error de red: ${e.message}`;
+        }
       }
     }
 

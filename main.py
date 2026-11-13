@@ -33,6 +33,11 @@ from backend.pipeline import SignBridgePipeline
 from backend.classifier_local import GESTURE_CATALOG
 from backend.conversation_engine import CONVERSATIONAL_SIGNS_CATALOG
 from backend.lsc_alphabet import LSC_ALPHABET_CATALOG
+from backend.usb_bridge import (
+    get_adb_devices,
+    setup_droidcam_usb_bridge,
+    setup_signbridge_usb_bridge,
+)
 
 
 app = FastAPI(
@@ -71,13 +76,20 @@ def get_local_ip() -> str:
 
 
 class LocalCameraWorker:
-    """Hilo lector no-bloqueante para cv2.VideoCapture(0)."""
+    """
+    Hilo lector no-bloqueante multi-fuente para cámaras locales, cámaras virtuales
+    (DroidCam Virtual Cam, OBS, Iriun) y streams HTTP/MJPEG (DroidCam USB/Wi-Fi).
+    """
 
     def __init__(self):
         self.cap: Optional[cv2.VideoCapture] = None
         self.latest_frame = None
         self.available = False
         self.running = False
+        self.target: object = 0  # int (0, 1, 2...) o str URL ("http://127.0.0.1:4747/video")
+        self.backend_label: str = "NONE"
+        self.last_error: Optional[str] = None
+        self._reconnect_event = threading.Event()
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
 
@@ -88,28 +100,163 @@ class LocalCameraWorker:
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
-    def _loop(self) -> None:
-        try:
-            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            if not cap.isOpened():
-                cap = cv2.VideoCapture(0)
-            if cap.isOpened():
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                cap.set(cv2.CAP_PROP_FPS, 30)
-                self.cap = cap
-                while self.running:
+    @staticmethod
+    def _normalize_target(target: object) -> object:
+        if isinstance(target, int):
+            return target
+        text = str(target).strip()
+        if text.isdigit():
+            return int(text)
+        return text
+
+    def _open_capture(self, target: object) -> tuple[Optional[cv2.VideoCapture], str]:
+        """Intenta abrir un índice o URL probando los backends más compatibles en Windows."""
+        target = self._normalize_target(target)
+        is_url = isinstance(target, str)
+
+        if is_url:
+            backends = [("FFMPEG", cv2.CAP_FFMPEG), ("ANY", cv2.CAP_ANY)]
+        else:
+            backends = [
+                ("DSHOW", cv2.CAP_DSHOW),
+                ("MSMF", cv2.CAP_MSMF),
+                ("ANY", cv2.CAP_ANY),
+            ]
+
+        for label, backend in backends:
+            cap = None
+            try:
+                cap = cv2.VideoCapture(target, backend)
+                if not cap.isOpened():
+                    cap.release()
+                    continue
+
+                # Reducir buffer al mínimo para evitar latencia acumulada (clave en DroidCam)
+                try:
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+
+                if not is_url:
+                    try:
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        cap.set(cv2.CAP_PROP_FPS, 30)
+                    except Exception:
+                        pass
+
+                # Validar que realmente entregue un frame válido (algunos drivers virtuales abren en negro/error)
+                for _ in range(4):
                     ok, frame = cap.read()
                     if ok and frame is not None and frame.size > 0:
+                        return cap, label
+                    time.sleep(0.05)
+
+                cap.release()
+            except Exception:
+                if cap is not None:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+
+        return None, "NONE"
+
+    def _loop(self) -> None:
+        initial_auto_probed = False
+        while self.running:
+            self._reconnect_event.clear()
+            current_target = self.target
+            cap, backend_label = self._open_capture(current_target)
+
+            # Si el índice 0 por defecto no existe al arrancar, buscar en índices 1..3 (p.ej. DroidCam)
+            if cap is None and not initial_auto_probed and current_target == 0:
+                initial_auto_probed = True
+                for probe_idx in (1, 2, 3):
+                    if not self.running or self._reconnect_event.is_set():
+                        break
+                    probe_cap, probe_label = self._open_capture(probe_idx)
+                    if probe_cap is not None:
+                        cap, backend_label = probe_cap, probe_label
+                        self.target = probe_idx
+                        current_target = probe_idx
+                        break
+            initial_auto_probed = True
+
+            if cap is None:
+                self.available = False
+                self.backend_label = "NONE"
+                self.last_error = f"No se pudo abrir la fuente de cámara: {current_target}"
+                self._reconnect_event.wait(timeout=1.5)
+                continue
+
+            self.cap = cap
+            self.backend_label = backend_label
+            self.last_error = None
+            fail_streak = 0
+
+            try:
+                while self.running and not self._reconnect_event.is_set():
+                    ok, frame = cap.read()
+                    if ok and frame is not None and frame.size > 0:
+                        fail_streak = 0
                         with self._lock:
                             self.latest_frame = frame
                             self.available = True
                     else:
-                        time.sleep(0.05)
-            else:
+                        fail_streak += 1
+                        if fail_streak >= 25:
+                            self.available = False
+                            self.last_error = "Stream interrumpido, reconectando..."
+                            break
+                        time.sleep(0.03)
+            except Exception as exc:
                 self.available = False
-        except Exception:
+                self.last_error = str(exc)
+            finally:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
+                self.cap = None
+
+            if self.running and not self._reconnect_event.is_set():
+                self._reconnect_event.wait(timeout=1.0)
+
+    def switch_target(self, target: object) -> dict:
+        """Cambia dinámicamente el índice o URL de la cámara sin reiniciar el servidor."""
+        normalized = self._normalize_target(target)
+        with self._lock:
+            self.target = normalized
+            self.latest_frame = None
             self.available = False
+        self._reconnect_event.set()
+        return {"target": normalized}
+
+    def scan_cameras(self, max_index: int = 4) -> list[dict]:
+        """Escanea los índices 0..max_index para listar cámaras físicas y virtuales disponibles."""
+        found = []
+        active_idx = self.target if isinstance(self.target, int) else None
+        for idx in range(max_index + 1):
+            if active_idx == idx and self.available:
+                found.append({
+                    "index": idx,
+                    "label": f"Cámara {idx} (Activa · {self.backend_label})",
+                    "active": True,
+                })
+                continue
+            cap, label = self._open_capture(idx)
+            if cap is not None:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
+                found.append({
+                    "index": idx,
+                    "label": f"Cámara {idx} ({label})",
+                    "active": False,
+                })
+        return found
 
     def read(self):
         with self._lock:
@@ -117,6 +264,7 @@ class LocalCameraWorker:
 
     def stop(self) -> None:
         self.running = False
+        self._reconnect_event.set()
         if self.cap is not None:
             try:
                 self.cap.release()
@@ -188,6 +336,17 @@ class AddTokenRequest(BaseModel):
     sign_id: str
 
 
+class CameraSelectRequest(BaseModel):
+    target: str  # "0", "1", "2" o URL como "http://127.0.0.1:4747/video"
+    activate_local: bool = True
+
+
+class UsbConnectRequest(BaseModel):
+    mode: str = "SIGNBRIDGE_USB"  # "SIGNBRIDGE_USB" | "DROIDCAM_USB"
+    port: Optional[int] = None
+    open_on_phone: bool = True
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -244,6 +403,9 @@ async def api_status(request: Request):
         "video_source": pipeline.video_source,
         "simulated_gesture": pipeline.simulated_gesture,
         "local_camera_available": camera_worker.available,
+        "camera_target": camera_worker.target,
+        "camera_backend": camera_worker.backend_label,
+        "camera_error": camera_worker.last_error,
         "mobile_connected": pipeline.mobile_connected,
         "mobile_clients": pipeline.mobile_client_count,
         "hardware_enabled": pipeline.hardware.enabled,
@@ -254,6 +416,64 @@ async def api_status(request: Request):
             "min_confidence": pipeline.stabilizer.min_confidence,
         },
     }
+
+
+@app.get("/api/cameras")
+async def api_list_cameras():
+    """Lista las cámaras físicas/virtuales detectadas (incluyendo DroidCam) y el estado USB ADB."""
+    loop = asyncio.get_running_loop()
+    cameras = await loop.run_in_executor(None, camera_worker.scan_cameras, 4)
+    usb_status = await loop.run_in_executor(None, get_adb_devices)
+    return {
+        "active_target": camera_worker.target,
+        "available": camera_worker.available,
+        "backend": camera_worker.backend_label,
+        "error": camera_worker.last_error,
+        "cameras": cameras,
+        "usb": usb_status,
+    }
+
+
+@app.post("/api/camera/select")
+async def api_select_camera(payload: CameraSelectRequest):
+    """Cambia en caliente la cámara local o la URL de DroidCam (ej. 0, 1, 2 o http://IP:4747/video)."""
+    target = payload.target.strip()
+    if not target:
+        return JSONResponse({"ok": False, "error": "Destino de cámara vacío."}, status_code=400)
+    res = camera_worker.switch_target(target)
+    if payload.activate_local:
+        pipeline.set_video_source("LOCAL")
+    return {
+        "ok": True,
+        "target": res["target"],
+        "video_source": pipeline.video_source,
+    }
+
+
+@app.post("/api/usb/connect")
+async def api_usb_connect(payload: UsbConnectRequest, request: Request):
+    """
+    Configura conexión por cable USB mediante ADB:
+    - SIGNBRIDGE_USB: `adb reverse tcp:8000 tcp:8000` (cámara y audio por cable USB)
+    - DROIDCAM_USB: `adb forward tcp:4747 tcp:4747` + conecta OpenCV a http://127.0.0.1:4747/video
+    """
+    mode = payload.mode.upper().strip()
+    loop = asyncio.get_running_loop()
+    if mode == "DROIDCAM_USB":
+        port = payload.port or 4747
+        res = await loop.run_in_executor(None, setup_droidcam_usb_bridge, port)
+        if res.get("ok"):
+            camera_worker.switch_target(res["stream_url"])
+            pipeline.set_video_source("LOCAL")
+        return res
+
+    port = payload.port or (request.url.port or 8000)
+    res = await loop.run_in_executor(
+        None, setup_signbridge_usb_bridge, port, payload.open_on_phone
+    )
+    if res.get("ok"):
+        pipeline.set_video_source("MOBILE")
+    return res
 
 
 @app.get("/api/catalog")
