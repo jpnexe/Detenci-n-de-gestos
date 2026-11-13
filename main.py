@@ -38,6 +38,7 @@ from backend.usb_bridge import (
     setup_droidcam_usb_bridge,
     setup_signbridge_usb_bridge,
 )
+from backend.speech_transcriber import pc_mic_recorder, transcribe_audio_bytes
 
 
 app = FastAPI(
@@ -347,6 +348,12 @@ class UsbConnectRequest(BaseModel):
     open_on_phone: bool = True
 
 
+class SpeechTranscribeRequest(BaseModel):
+    audio_base64: str
+    mime_type: str = "audio/webm"
+    translate_to_hands: bool = True
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -497,6 +504,64 @@ async def api_conversation_submode(payload: SubmodeRequest):
 @app.post("/api/conversation/translate_to_hands")
 async def api_conversation_translate_to_hands(payload: TranslateToHandsRequest):
     return pipeline.translate_phrase_to_hands(payload.text)
+
+
+@app.post("/api/speech/transcribe")
+async def api_speech_transcribe(payload: SpeechTranscribeRequest):
+    """Transcribe audio grabado desde el navegador/móvil y lo traduce a texto + señas 3D."""
+    b64 = payload.audio_base64 or ""
+    if "," in b64:
+        b64 = b64.split(",", 1)[1]
+    try:
+        audio_bytes = base64.b64decode(b64)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Audio Base64 inválido."}, status_code=400)
+
+    loop = asyncio.get_running_loop()
+    res = await loop.run_in_executor(
+        None,
+        transcribe_audio_bytes,
+        audio_bytes,
+        payload.mime_type,
+        pipeline.gemini_classifier,
+    )
+    if res.get("ok") and res.get("text"):
+        if payload.translate_to_hands:
+            pipeline.set_video_source("SIMULATOR")
+            anim = pipeline.translate_phrase_to_hands(res["text"])
+            res["animation"] = anim
+        else:
+            pipeline.add_hearing_spoken_text(res["text"])
+    return res
+
+
+@app.post("/api/speech/pc/start")
+async def api_speech_pc_start():
+    """Inicia la captura de voz directa desde el micrófono del PC (respaldo infalible)."""
+    return pc_mic_recorder.start(pipeline.gemini_classifier, max_seconds=10.0)
+
+
+@app.post("/api/speech/pc/stop")
+async def api_speech_pc_stop():
+    """Detiene la captura del micrófono del PC, transcribe y anima en Manos 3D."""
+    loop = asyncio.get_running_loop()
+    res = await loop.run_in_executor(None, pc_mic_recorder.stop_and_get_result, 12.0)
+    if res.get("ok") and res.get("text"):
+        pipeline.set_video_source("SIMULATOR")
+        res["animation"] = pipeline.translate_phrase_to_hands(res["text"])
+    return res
+
+
+@app.get("/api/speech/pc/status")
+async def api_speech_pc_status():
+    """Consulta el estado del grabador de micrófono del PC (detecta auto-corte por silencio)."""
+    status = pc_mic_recorder.get_status()
+    res = status.get("result")
+    if not status["recording"] and res and res.get("ok") and res.get("text") and not res.get("_dispatched"):
+        res["_dispatched"] = True
+        pipeline.set_video_source("SIMULATOR")
+        res["animation"] = pipeline.translate_phrase_to_hands(res["text"])
+    return status
 
 
 @app.post("/api/conversation/add_token")

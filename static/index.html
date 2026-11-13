@@ -2270,11 +2270,15 @@
       lastRenderedChatLen = -1;
     }
 
-    // Reconocimiento de Voz del Oyente (Speech-to-Text)
-    function toggleHearingMic() {
-      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRec) {
-        alert("Tu navegador no soporta Web Speech API para micrófono. Puedes usar Google Chrome, Microsoft Edge o presionar una de las respuestas rápidas para el oyente.");
+    // Reconocimiento de Voz del Oyente Híbrido (Micrófono PC Backend + Respaldo Web Speech API)
+    let pcMicPollingTimer = null;
+    let isPcMicRecording = false;
+    let hearingLastFinalText = '';
+
+    async function toggleHearingMic() {
+      // Si ya estamos grabando desde el micrófono del PC, detener y transcribir ahora
+      if (isPcMicRecording) {
+        stopBackendPcMicRecording();
         return;
       }
 
@@ -2285,15 +2289,37 @@
         return;
       }
 
+      // Priorizar el micrófono directo del PC en el backend (evita bloqueos/timeouts de Web Speech API en navegadores)
+      const pcStarted = await startBackendPcMicRecording();
+      if (pcStarted) {
+        return;
+      }
+
+      // Respaldo: Web Speech API del navegador si no hay sounddevice en el backend
+      startBrowserWebSpeechFallback();
+    }
+
+    function startBrowserWebSpeechFallback() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const transBox = document.getElementById('hearingLiveTranscript');
+      if (!SpeechRec) {
+        if (transBox) transBox.textContent = '⚠️ No se pudo acceder al micrófono del PC ni a Web Speech API.';
+        return;
+      }
+
+      hearingLastFinalText = '';
+      let latestInterimText = '';
+
       try {
         hearingRecognition = new SpeechRec();
-        hearingRecognition.lang = 'es-ES';
-        hearingRecognition.continuous = false;
+        hearingRecognition.lang = 'es-CO';
+        hearingRecognition.continuous = true;
         hearingRecognition.interimResults = true;
 
         hearingRecognition.onstart = () => {
           isHearingListening = true;
-          updateHearingMicUI(true);
+          updateHearingMicUI(true, 'web');
+          if (transBox) transBox.textContent = '🎙️ Escuchando... habla claramente ahora';
         };
 
         hearingRecognition.onresult = (event) => {
@@ -2306,35 +2332,117 @@
               interim += event.results[i][0].transcript;
             }
           }
+          if (interim.trim()) latestInterimText = interim.trim();
           const text = (final || interim).trim();
-          if (text) {
-            document.getElementById('hearingLiveTranscript').textContent = `"${text}"`;
+          if (text && transBox) {
+            transBox.textContent = `"${text}"`;
           }
           if (final.trim()) {
-            sendHearingSpokenText(final.trim());
+            hearingLastFinalText = final.trim();
+            sendHearingSpokenText(hearingLastFinalText);
+            try { hearingRecognition.stop(); } catch (e) {}
           }
         };
 
         hearingRecognition.onerror = (e) => {
-          console.warn("SpeechRec error:", e);
+          const errCode = e && e.error ? e.error : 'unknown';
           isHearingListening = false;
           updateHearingMicUI(false);
+          if (transBox && errCode !== 'aborted') {
+            transBox.textContent = `⚠️ Error de micrófono navegador (${errCode}).`;
+          }
         };
 
         hearingRecognition.onend = () => {
           isHearingListening = false;
           updateHearingMicUI(false);
+          if (!hearingLastFinalText && latestInterimText) {
+            sendHearingSpokenText(latestInterimText);
+          }
         };
 
         hearingRecognition.start();
       } catch (err) {
-        console.error("Error al iniciar micrófono:", err);
         isHearingListening = false;
         updateHearingMicUI(false);
       }
     }
 
-    function updateHearingMicUI(listening) {
+    async function startBackendPcMicRecording() {
+      const transBox = document.getElementById('hearingLiveTranscript');
+      if (pcMicPollingTimer) {
+        clearInterval(pcMicPollingTimer);
+        pcMicPollingTimer = null;
+      }
+      try {
+        const res = await fetch('/api/speech/pc/start', { method: 'POST' });
+        const data = await res.json();
+        if (!data.ok) {
+          isPcMicRecording = false;
+          updateHearingMicUI(false);
+          return false;
+        }
+
+        isPcMicRecording = true;
+        updateHearingMicUI(true, 'pc');
+        if (transBox) transBox.textContent = '🎙️ Escuchando tu voz... habla ahora (se traduce al pausar o al volver a pulsar)';
+
+        pcMicPollingTimer = setInterval(async () => {
+          try {
+            const stRes = await fetch('/api/speech/pc/status');
+            const st = await stRes.json();
+            if (!st.recording) {
+              clearInterval(pcMicPollingTimer);
+              pcMicPollingTimer = null;
+              isPcMicRecording = false;
+              updateHearingMicUI(false);
+              if (st.result && st.result.ok && st.result.text) {
+                currentSource = 'SIMULATOR';
+                highlightSourceButton('SIMULATOR');
+                if (transBox) transBox.textContent = `🖐️ Interpretando en Manos 3D LSC: "${st.result.text}"`;
+              } else if (st.result && st.result.error) {
+                if (transBox) transBox.textContent = `⚠️ ${st.result.error}`;
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }, 350);
+        return true;
+      } catch (err) {
+        isPcMicRecording = false;
+        updateHearingMicUI(false);
+        return false;
+      }
+    }
+
+    async function stopBackendPcMicRecording() {
+      const transBox = document.getElementById('hearingLiveTranscript');
+      if (pcMicPollingTimer) {
+        clearInterval(pcMicPollingTimer);
+        pcMicPollingTimer = null;
+      }
+      if (transBox) transBox.textContent = '⏳ Transcribiendo audio y traduciendo a Manos 3D...';
+      try {
+        const res = await fetch('/api/speech/pc/stop', { method: 'POST' });
+        const data = await res.json();
+        isPcMicRecording = false;
+        updateHearingMicUI(false);
+        if (data.ok && data.text) {
+          currentSource = 'SIMULATOR';
+          highlightSourceButton('SIMULATOR');
+          if (transBox) transBox.textContent = `🖐️ Interpretando en Manos 3D LSC: "${data.text}"`;
+        } else if (transBox) {
+          transBox.textContent = `⚠️ ${data.error || 'No se detectó voz clara.'}`;
+        }
+      } catch (err) {
+        isPcMicRecording = false;
+        updateHearingMicUI(false);
+        if (transBox) transBox.textContent = '⚠️ Error al procesar el audio.';
+      }
+    }
+
+    function updateHearingMicUI(listening, mode = 'web') {
       const btn = document.getElementById('btnHearingMic');
       const lbl = document.getElementById('btnHearingMicLabel');
       const badge = document.getElementById('hearingMicStatusBadge');
@@ -2342,12 +2450,12 @@
 
       if (listening) {
         btn.className = 'w-full min-h-[50px] p-3 rounded-2xl border-2 border-roseLiquid bg-roseLiquid/25 text-roseLiquid font-display font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(255,51,102,0.45)] animate-pulse';
-        lbl.textContent = '🔴 Grabando voz... Habla ahora';
-        badge.textContent = 'Grabando voz...';
+        lbl.textContent = mode === 'pc' ? '⏹️ Detener y Traducir (Micrófono PC)' : '🔴 Grabando voz... Habla ahora';
+        badge.textContent = mode === 'pc' ? 'Grabando (PC Mic)...' : 'Grabando voz...';
         badge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-roseLiquid/50 bg-roseLiquid/20 text-roseLiquid font-bold';
       } else {
         btn.className = 'w-full min-h-[50px] p-3 rounded-2xl border-2 border-emeraldLiquid/50 bg-emeraldLiquid/15 hover:bg-emeraldLiquid/25 text-emeraldLiquid font-display font-bold text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,157,0.2)] active:scale-98 transition-all';
-        lbl.textContent = '🎙️ Presionar para Hablar como Oyente';
+        lbl.textContent = '🎙️ Hablar por Micrófono (Traduce a Texto y Manos 3D)';
         badge.textContent = 'Micrófono listo';
         badge.className = 'font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-white/15 bg-white/5 text-textSecondary';
       }

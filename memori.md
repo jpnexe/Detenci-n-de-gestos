@@ -576,4 +576,24 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
 * Detección de ADB verificada (`C:\Users\NOSE - PC\AppData\Local\Android\Sdk\platform-tools\adb.exe`).
 * `python test_pipeline.py` ejecutado: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
 
+---
+
+### [2026-11-13] — Refinamiento del Reconocimiento de Voz (STT) para Traducción de Oyente a Señas
+
+#### 1. Diagnóstico del Problema Reportado
+* **Síntoma:** Al pulsar el botón de micrófono para hablar y que el programa traduzca a texto y Manos 3D, no escuchaba ni traducía nada.
+* **Causas raíz:**
+  1. `SpeechRecognition` (Web Speech API) fallaba silenciosamente en `onerror` (por errores `network`, permisos o ausencia en WebView/navegadores) sin avisar ni ofrecer respaldo.
+  2. `continuous = false` cerraba prematuramente antes de capturar frases completas o descartaba texto provisional (`interimResults`).
+  3. En `mobile.html`, enviaba `HEARING_SPEECH` en vez de `TRANSLATE_TO_HANDS`, por lo que no activaba el intérprete 3D de señas.
+
+#### 2. Modificaciones Implementadas
+1. **Motor Híbrido STT en Backend ([`backend/speech_transcriber.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/speech_transcriber.py) y [`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py)):**
+   - Transcripción de clips WebM/WAV/OGG vía Gemini Audio (`POST /api/speech/transcribe`) con respaldo offline de Windows (`System.Speech.Recognition`).
+   - Grabador directo del micrófono del PC con `sounddevice` (`POST /api/speech/pc/start`, `POST /api/speech/pc/stop`, `GET /api/speech/pc/status`) y auto-corte inteligente por silencio (VAD).
+2. **Respaldo Automático y Feedback en Tiempo Real ([`static/index.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/index.html) y [`static/mobile.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/mobile.html)):**
+   - En PC (`index.html`), `toggleHearingMic()` prioriza directamente el micrófono del PC vía `sounddevice` + Gemini Audio (`_client`) para evitar bloqueos y timeouts de Web Speech API en navegadores Windows, con respaldo automático a Web Speech API si `sounddevice` no está disponible.
+   - Se añadió filtro de nivel RMS mínimo (`max_rms < 120.0`) en `PcMicRecorder` para evitar transcripciones erróneas en silencio total.
+   - En móvil (`mobile.html`), si `SpeechRecognition` falla, usa `MediaRecorder` → `/api/speech/transcribe` y envía `TRANSLATE_TO_HANDS`.
+
 

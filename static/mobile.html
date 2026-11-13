@@ -3120,14 +3120,114 @@
       }
     }
 
+    let mobileMediaRecorder = null;
+    let mobileAudioChunks = [];
+    let isMobileAudioRecording = false;
+
+    function dispatchMobileHearingText(finalText) {
+      const clean = (finalText || '').trim();
+      if (!clean) return;
+      const liveBox = document.getElementById('mobileHearingLiveBox');
+      if (liveBox) liveBox.textContent = `🖐️ Traducido: "${clean}"`;
+
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      mobileChatHistory.push({
+        role: 'HEARING_PERSON',
+        text: clean,
+        timestamp: timeStr
+      });
+      renderMobileConversationState({
+        active_tokens: mobileActiveTokens,
+        current_sentence: mobileCurrentSentence,
+        chat_history: mobileChatHistory
+      });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'TRANSLATE_TO_HANDS',
+          text: clean
+        }));
+      } else if (serverHost) {
+        fetch(`http://${serverHost}/api/conversation/translate_to_hands`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: clean })
+        }).catch(() => {});
+      }
+    }
+
+    async function startMobileMediaRecorderFallback() {
+      const btn = document.getElementById('btnMobileHearingMic');
+      const liveBox = document.getElementById('mobileHearingLiveBox');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+        if (liveBox) liveBox.textContent = '⚠️ El navegador móvil bloqueó el micrófono (usa USB 127.0.0.1 o el botón de micrófono en el PC).';
+        return;
+      }
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mobileAudioChunks = [];
+        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        mobileMediaRecorder = mime ? new MediaRecorder(audioStream, { mimeType: mime }) : new MediaRecorder(audioStream);
+
+        mobileMediaRecorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) mobileAudioChunks.push(ev.data);
+        };
+
+        mobileMediaRecorder.onstop = async () => {
+          audioStream.getTracks().forEach((t) => t.stop());
+          isMobileAudioRecording = false;
+          if (btn) {
+            btn.classList.remove('listening');
+            btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
+          }
+          if (!mobileAudioChunks.length) return;
+          if (liveBox) liveBox.textContent = '⏳ Transcribiendo audio...';
+          const blob = new Blob(mobileAudioChunks, { type: mobileMediaRecorder.mimeType || 'audio/webm' });
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            try {
+              const baseUrl = serverHost ? `http://${serverHost}` : '';
+              const resp = await fetch(`${baseUrl}/api/speech/transcribe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  audio_base64: reader.result,
+                  mime_type: blob.type || 'audio/webm',
+                  translate_to_hands: true
+                })
+              });
+              const data = await resp.json();
+              if (data.ok && data.text) {
+                dispatchMobileHearingText(data.text);
+              } else if (liveBox) {
+                liveBox.textContent = `⚠️ ${data.error || 'No se pudo transcribir la voz.'}`;
+              }
+            } catch (err) {
+              if (liveBox) liveBox.textContent = '⚠️ Error enviando audio al servidor.';
+            }
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        mobileMediaRecorder.start();
+        isMobileAudioRecording = true;
+        if (btn) {
+          btn.classList.add('listening');
+          btn.innerHTML = '<span>⏹️ Detener y Traducir Voz</span>';
+        }
+        if (liveBox) liveBox.textContent = '🔴 Grabando audio... Habla y vuelve a tocar para traducir.';
+      } catch (err) {
+        if (liveBox) liveBox.textContent = '⚠️ Permiso de micrófono denegado o requiere conexión USB/HTTPS.';
+      }
+    }
+
     function toggleMobileHearingMic() {
       vibrateHaptic(35);
       const btn = document.getElementById('btnMobileHearingMic');
       const liveBox = document.getElementById('mobileHearingLiveBox');
 
-      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRec) {
-        alert('El reconocimiento de voz Web Speech API no está soportado en este navegador móvil.');
+      if (isMobileAudioRecording && mobileMediaRecorder) {
+        try { mobileMediaRecorder.stop(); } catch (e) {}
         return;
       }
 
@@ -3140,6 +3240,16 @@
         }
         return;
       }
+
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        startMobileMediaRecorderFallback();
+        return;
+      }
+
+      let fellBack = false;
+      let latestInterim = '';
+      let finalCaptured = '';
 
       try {
         hearingRecognition = new SpeechRec();
@@ -3163,36 +3273,25 @@
             if (evt.results[i].isFinal) final += evt.results[i][0].transcript;
             else interim += evt.results[i][0].transcript;
           }
-          const spoken = final || interim;
-          if (liveBox) liveBox.textContent = `"${spoken}"`;
+          if (interim.trim()) latestInterim = interim.trim();
+          const spoken = (final || interim).trim();
+          if (liveBox && spoken) liveBox.textContent = `"${spoken}"`;
 
-          if (final) {
-            const now = new Date();
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            mobileChatHistory.push({
-              role: 'HEARING_PERSON',
-              text: final,
-              timestamp: timeStr
-            });
-            renderMobileConversationState({
-              active_tokens: mobileActiveTokens,
-              current_sentence: mobileCurrentSentence,
-              chat_history: mobileChatHistory
-            });
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'HEARING_SPEECH',
-                text: final
-              }));
-            }
+          if (final.trim()) {
+            finalCaptured = final.trim();
+            dispatchMobileHearingText(finalCaptured);
           }
         };
 
         hearingRecognition.onend = () => {
+          if (fellBack) return;
           isHearingListening = false;
           if (btn) {
             btn.classList.remove('listening');
             btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
+          }
+          if (!finalCaptured && latestInterim) {
+            dispatchMobileHearingText(latestInterim);
           }
         };
 
@@ -3203,11 +3302,19 @@
             btn.classList.remove('listening');
             btn.innerHTML = '<span>🎤 Presionar para Hablar como Oyente</span>';
           }
+          const code = err && err.error ? err.error : '';
+          if (['network', 'service-not-allowed', 'not-allowed', 'audio-capture'].includes(code)) {
+            fellBack = true;
+            startMobileMediaRecorderFallback();
+          } else if (liveBox && code !== 'aborted') {
+            liveBox.textContent = `⚠️ No se pudo escuchar (${code || 'error'}). Intenta de nuevo.`;
+          }
         };
 
         hearingRecognition.start();
       } catch (err) {
         console.error('Error starting SpeechRec:', err);
+        startMobileMediaRecorderFallback();
       }
     }
 
