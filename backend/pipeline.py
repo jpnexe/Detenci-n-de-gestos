@@ -77,6 +77,7 @@ class SignBridgePipeline:
         self.last_mobile_frame_ts = 0.0
         self.mobile_frame_bgr: Optional[np.ndarray] = None
         self.mobile_client_count = 0
+        self.recent_primary_vectors: List[List[float]] = []
 
         # Interpolación suave para el simulador 3D cuando no hay cámara física activa
         self._sim_current_pose = get_canonical_hand_pose("G1").copy()
@@ -592,6 +593,12 @@ class SignBridgePipeline:
 
         # Si hay cámara activa pero no se detecta una mano en escena
         hand_detected = landmarks is not None
+        if hand_detected and active_source in ("LOCAL_CAM", "MOBILE_CAM"):
+            p_vec = (multi_hand_data.get("primary") or {}).get("vector_63d")
+            if p_vec is not None and len(p_vec) == 63:
+                self.recent_primary_vectors.append(list(p_vec))
+                if len(self.recent_primary_vectors) > 15:
+                    self.recent_primary_vectors = self.recent_primary_vectors[-15:]
         pointer_info = {"active": False, "cursor": [int(self.hardware.curr_x), int(self.hardware.curr_y)], "pinching": False, "clicked": False}
 
         # Actualizar análisis cinemático de movimiento
@@ -774,8 +781,11 @@ class SignBridgePipeline:
                     is_triggered=bool(stabilized.get("triggered", False)),
                     motion=motion_data,
                     is_online=(self.mode == "ONLINE"),
+                    simulator_hint=(self.simulated_gesture if active_source == "SIMULATOR_3D" else None),
                 )
                 if conv_sign:
+                    stabilized["stabilized_id"] = conv_sign["sign_id"]
+                    stabilized["name"] = conv_sign["label"]
                     stabilized["sign_label"] = conv_sign["label"]
                     stabilized["sign_message"] = conv_sign["default_phrase"]
                     stabilized["sign_emoji"] = conv_sign["emoji"]

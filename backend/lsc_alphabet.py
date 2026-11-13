@@ -896,7 +896,7 @@ def classify_lsc_alphabet(
         }
 
     # =========================================================================
-    # A. TRAZOS DINÁMICOS PRIORITARIOS (J, Z, S_TRAZADA, Ñ, H, G)
+    # A. TRAZOS DINÁMICOS PRIORITARIOS (J, Z, H, G, Ñ, S_TRAZADA)
     # =========================================================================
     # 1. Letra J (Curva descendente trazada con el meñique)
     if pinky and not index and not middle and not ring and trace_j:
@@ -906,53 +906,87 @@ def classify_lsc_alphabet(
     if index and not ring and not pinky and trace_z:
         return _res("L_Z", 0.98, dyn=True)
 
-    # 3. Letra H (Índice y medio juntos con deslizamiento lateral o posición horizontal)
+    # 3. Letra H (Índice y medio juntos horizontales; no confundir con V/R inclinadas o N hacia abajo)
     v_idx_x = float(fine.get("v_idx_x", 0.0))
     v_idx_y = float(fine.get("v_idx_y", -1.0))
-    is_lateral = (pointing_dir == "SIDE") or (abs(v_idx_x) > 0.65 * max(1e-4, abs(v_idx_y)))
-    is_h_dynamic = trace_h or is_moving_horiz or (is_osc_x and is_lateral)
+    is_lateral = (pointing_dir == "SIDE") or (abs(v_idx_x) > 1.15 * max(1e-4, abs(v_idx_y)))
+    is_not_vertical_up = (v_idx_y > -0.62)  # Evita secuestrar V/R/K verticales aunque se mueva la mano
+    is_h_dynamic = (trace_h or is_moving_horiz) and is_not_vertical_up
 
-    if index and middle and not ring and not pinky and (spread < 0.38):
-        if is_h_dynamic or is_lateral:
+    if index and middle and not ring and not pinky and (spread < 0.32) and not is_crossed_r and not fingertips_down:
+        if is_lateral or is_h_dynamic:
             return _res("L_H", 0.98 if is_h_dynamic else 0.96, dyn=is_h_dynamic)
 
     # 4. Letra G (Solo índice horizontal con o sin deslizamiento lateral)
-    if index and not middle and not ring and not pinky and not trace_s and not trace_z:
-        if is_lateral or (trace_h and not is_osc_x):
+    if index and not middle and not ring and not pinky and not trace_s and not trace_z and not fingertips_down:
+        if is_lateral or (trace_h and not is_osc_x and is_not_vertical_up):
             return _res("L_G", 0.97 if is_h_dynamic else 0.96, dyn=is_h_dynamic)
 
-    # 5. Letra Ñ (Configuración N con oscilación horizontal de virgulilla)
-    if is_osc_x and (fingertips_down or sims.get("L_N", 0) > 0.86 or (index and middle and not ring and not pinky)):
+    # 5. Letra Ñ (Configuración N apuntando hacia abajo con oscilación horizontal de virgulilla)
+    if is_osc_x and (fingertips_down or v_idx_y > 0.22) and not ring and not pinky:
         return _res("L_NTILDE", 0.98, dyn=True)
 
-    # 6. Letra S Trazada
-    if trace_s:
+    # 6. Letra S Trazada (solo índice o puño trazando curva S, nunca mano abierta)
+    if trace_s and not ring and not pinky and not middle:
         return _res("L_S", 0.98, dyn=True)
 
     # =========================================================================
-    # B. RECONOCIMIENTO DE ALTA PRECISIÓN POR PLANTILLAS CANÓNICAS 3D Y DESAMBIGUACIÓN
+    # B. RECONOCIMIENTO DE ALTA PRECISIÓN POR PLANTILLAS CANÓNICAS 3D Y FILTRO ANATÓMICO
     # =========================================================================
     if sims:
-        sorted_sims = sorted(sims.items(), key=lambda x: x[1], reverse=True)
+        # Penalización anatómica estricta: evita que gestos con distinto número de dedos
+        # ganen por similitud global de la palma en 63D.
+        filtered_sims = dict(sims)
+        expected_groups = {
+            "0_fingers": {"L_A", "L_E", "L_O", "L_S", "L_T", "L_C", "L_M", "L_N", "L_P", "L_Q", "L_X"},
+            "1_index": {"L_D", "L_F", "L_G", "L_L", "L_P", "L_Q", "L_S", "L_T", "L_X", "L_Z"},
+            "1_pinky": {"L_I", "L_J", "L_Y"},
+            "2_idx_mid": {"L_H", "L_K", "L_N", "L_P", "L_R", "L_T", "L_V", "L_Z"},
+            "2_idx_pinky": {"L_U"},
+            "3_fingers": {"L_F", "L_M", "L_W"},
+            "4_fingers": {"L_B", "L_C", "L_E", "L_Q"},
+        }
+        if not index and not middle and not ring and not pinky:
+            allowed = expected_groups["0_fingers"]
+        elif index and not middle and not ring and not pinky:
+            allowed = expected_groups["1_index"]
+        elif pinky and not index and not middle and not ring:
+            allowed = expected_groups["1_pinky"]
+        elif index and middle and not ring and not pinky:
+            allowed = expected_groups["2_idx_mid"]
+        elif index and pinky and not middle and not ring:
+            allowed = expected_groups["2_idx_pinky"]
+        elif (index and middle and ring and not pinky) or (middle and ring and pinky and not index):
+            allowed = expected_groups["3_fingers"]
+        elif index and middle and ring and pinky:
+            allowed = expected_groups["4_fingers"]
+        else:
+            allowed = set(filtered_sims.keys())
+
+        for lid in list(filtered_sims.keys()):
+            if lid not in allowed:
+                filtered_sims[lid] -= 0.10
+
+        sorted_sims = sorted(filtered_sims.items(), key=lambda x: x[1], reverse=True)
         best_lid, best_sim = sorted_sims[0]
         second_lid, second_sim = sorted_sims[1]
         cands = {best_lid, second_lid}
 
         # Desambiguación anatómica para pares de alta proximidad métrica
         if cands == {"L_O", "L_C"}:
-            chosen = "L_O" if d_thumb_idx_tip < 0.10 else "L_C"
+            chosen = "L_O" if d_thumb_idx_tip < 0.12 else "L_C"
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_M", "L_W"}:
             chosen = "L_M" if fingertips_down else "L_W"
             return _res(chosen, conf=max(best_sim, 0.96))
 
-        if cands == {"L_N", "L_V"}:
-            chosen = "L_N" if fingertips_down else "L_V"
+        if cands == {"L_N", "L_V"} or (best_lid == "L_N" and not fingertips_down and v_idx_y < -0.1):
+            chosen = "L_N" if (fingertips_down or v_idx_y > 0.20) else ("L_R" if is_crossed_r else "L_V")
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_A", "L_S"}:
-            chosen = "L_A" if (thumb or d_thumb_idx > 0.30) else "L_S"
+            chosen = "L_A" if (thumb or d_thumb_idx > 0.28) else "L_S"
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_E", "L_A"}:
@@ -960,11 +994,11 @@ def classify_lsc_alphabet(
             return _res(chosen, conf=max(best_sim, 0.95))
 
         if cands == {"L_I", "L_Y"}:
-            chosen = "L_Y" if (thumb and d_thumb_idx > 0.38) else "L_I"
+            chosen = "L_Y" if (thumb and d_thumb_idx > 0.36) else "L_I"
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_D", "L_L"}:
-            chosen = "L_L" if (thumb and d_thumb_idx > 0.35) else "L_D"
+            chosen = "L_L" if (thumb and d_thumb_idx > 0.34) else "L_D"
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_K", "L_V"}:

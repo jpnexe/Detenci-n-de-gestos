@@ -520,6 +520,42 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
 #### 3. Verificación
 * `python test_pipeline.py` ejecutado: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
 
+---
+
+### [2026-11-13] — Calibración con Muestras Reales, Filtro Anatómico LSC y Conversión de Imágenes a Señas
+
+#### 1. Modificaciones Implementadas
+1. **Refinamiento Cinemático y Filtro Anatómico ([`backend/motion_analyzer.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/motion_analyzer.py) y [`backend/lsc_alphabet.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/lsc_alphabet.py)):**
+   - Calibración antitemblor de `trace_h`, `trace_s`, `is_oscillating_x` e `is_moving_horiz`, y reducción de `latch` a `0.55 s`.
+   - Aislamiento estricto de `L_H` (orientación horizontal real > 49°, sin confundir `V`/`R`/`N`), `L_NTILDE` (solo apuntando abajo) y `L_S` trazada.
+   - Penalización anatómica (`-0.10`) sobre `sims` cuando el conteo de dedos extendidos no coincide con el grupo esperado.
+2. **Calibración Real y Conversión de Imágenes a Señas ([`backend/custom_signs.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/custom_signs.py), [`backend/conversation_engine.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/conversation_engine.py), [`backend/classifier_gemini.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/classifier_gemini.py), [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py), [`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py)):**
+   - Almacén persistente `models/custom_signs.json` con `CustomSignStore`.
+   - Captura en vivo de 10 muestras reales `vector_63d` desde cámara (`POST /api/custom_signs/calibrate`) con soporte de `motion_type` (`STATIC`, `MOVE_HORIZ`, `OSCILLATE_X`, etc.).
+   - Importador `import_sign_from_image` (`POST /api/custom_signs/from_image`): extrae landmarks 3D con MediaPipe `HandLandmarker` sobre la imagen y analiza indicaciones/movimiento/significado con Gemini Vision.
+   - Inyección dinámica de señas personalizadas `C_*` tanto en modo local (similitud coseno `>= 0.925`) como en el prompt de **Gemini Online**.
+3. **Interfaz de Calibración e Importación ([`static/index.html`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/static/index.html)):**
+   - Botón `Calibrar / Imagen` y modal `#modalCustomSign` con captura en cámara, subida de imagen + indicaciones y listado/eliminación de señas guardadas.
+
+#### 2. Verificación
+* Prueba unitaria de `CustomSignStore` (calibración y coincidencia por movimiento): **OK**.
+* `python test_pipeline.py`: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`, 27/27 letras LSC).
+
+---
+
+### [2026-11-13] — Refuerzo de los 77 Gestos Existentes (0 Fallos en Simulador y Cámara Real)
+
+#### 1. Diagnóstico del Problema Reportado
+* Al auditar las 50 señas conversacionales y las 27 letras LSC a través del pipeline completo (`pipe.process_step()`), 47 de las 50 señas conversacionales eran clasificadas incorrectamente o marcadas como `DESCONOCIDO` debido a:
+  1. En [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py), cuando `conversation_engine.process_frame_sign()` reconocía la seña (`conv_sign`), no se actualizaba `stabilized["stabilized_id"]` ni `stabilized["name"]`, dejando el `G0` del MLP local visible en el HUD.
+  2. En [`backend/conversation_engine.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/conversation_engine.py), `S_POR_FAVOR` y `S_ESTUDIAR` quedaban por debajo de `S_MUCHO_GUSTO` en prioridad bimanual; `S_MAL` exigía erróneamente `thumb=True` lateral; `S_HOLA` exigía `spread >= 0.25`; y faltaban reglas para `S_UNIVERSIDAD` y `S_DISCULPA` en modo conversación.
+  3. En modo `SIMULATOR_3D`, muchas señas nuevas compartían la misma pose base en `get_sign_3d_poses`, sin desempate de `simulator_hint`.
+
+#### 2. Modificaciones y Verificación
+* Corrección de prioridad bimanual (`S_POR_FAVOR`, `S_ESTUDIAR` antes de `S_MUCHO_GUSTO`), corrección de `S_MAL`, `S_HOLA`, `S_UNIVERSIDAD`, `S_DISCULPA` y soporte `simulator_hint` en [`backend/conversation_engine.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/conversation_engine.py).
+* Actualización de `stabilized["stabilized_id"]` y `stabilized["name"]` en [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py).
+* **Auditoría completa de las 77 señas (50 conversacionales + 27 letras LSC):** **77/77 reconocidas correctamente (0 fallos)**.
+
 #### 4. Archivos Modificados
 * [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py): Secuencia compartida `latest_tts_seq` y `latest_tts_text`.
 * [`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py): Emisión de `tts_to_speak` y `tts_seq` hacia `/ws/mobile`.

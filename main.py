@@ -39,6 +39,7 @@ from backend.usb_bridge import (
     setup_signbridge_usb_bridge,
 )
 from backend.speech_transcriber import pc_mic_recorder, transcribe_audio_bytes
+from backend.custom_signs import custom_sign_store, import_sign_from_image
 
 
 app = FastAPI(
@@ -354,6 +355,21 @@ class SpeechTranscribeRequest(BaseModel):
     translate_to_hands: bool = True
 
 
+class CalibrateSignRequest(BaseModel):
+    sign_id: str
+    label: Optional[str] = None
+    default_phrase: Optional[str] = None
+    motion_type: str = "STATIC"
+
+
+class ImportSignImageRequest(BaseModel):
+    image_base64: str
+    mime_type: str = "image/jpeg"
+    sign_name: str = ""
+    meaning: str = ""
+    instructions: str = ""
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -562,6 +578,68 @@ async def api_speech_pc_status():
         pipeline.set_video_source("SIMULATOR")
         res["animation"] = pipeline.translate_phrase_to_hands(res["text"])
     return status
+
+
+@app.get("/api/custom_signs")
+async def api_list_custom_signs():
+    """Lista todas las señas personalizadas y calibraciones reales guardadas."""
+    return {"signs": custom_sign_store.list_signs()}
+
+
+@app.post("/api/custom_signs/calibrate")
+async def api_calibrate_custom_sign(payload: CalibrateSignRequest):
+    """Captura los últimos frames reales de la mano en cámara para calibrar una letra o seña."""
+    samples = list(pipeline.recent_primary_vectors[-10:])
+    if not samples:
+        return JSONResponse(
+            {"ok": False, "error": "No se detecta una mano activa en cámara. Muestra tu mano y vuelve a pulsar."},
+            status_code=400,
+        )
+    sid = payload.sign_id.strip().upper()
+    meta = pipeline.conversation_engine.get_sign_meta(sid)
+    res = custom_sign_store.add_calibration_samples(
+        sign_id=sid,
+        vectors_63d=samples,
+        label=payload.label or meta.get("label") or sid,
+        default_phrase=payload.default_phrase or meta.get("default_phrase") or sid,
+        motion_type=payload.motion_type,
+        source="camera_calibration",
+    )
+    return res
+
+
+@app.post("/api/custom_signs/from_image")
+async def api_import_sign_from_image(payload: ImportSignImageRequest):
+    """Convierte una imagen de seña (con indicaciones/significado) en una seña reconocible por el programa."""
+    b64 = payload.image_base64 or ""
+    if "," in b64:
+        b64 = b64.split(",", 1)[1]
+    try:
+        image_bytes = base64.b64decode(b64)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Imagen Base64 inválida."}, status_code=400)
+
+    loop = asyncio.get_running_loop()
+    res = await loop.run_in_executor(
+        None,
+        import_sign_from_image,
+        custom_sign_store,
+        image_bytes,
+        payload.mime_type,
+        payload.sign_name,
+        payload.meaning,
+        payload.instructions,
+        pipeline._landmarker,
+        pipeline.gemini_classifier,
+    )
+    return res
+
+
+@app.delete("/api/custom_signs/{sign_id}")
+async def api_delete_custom_sign(sign_id: str):
+    """Elimina una calibración o seña personalizada."""
+    removed = custom_sign_store.delete_sign(sign_id)
+    return {"ok": removed, "sign_id": sign_id.upper()}
 
 
 @app.post("/api/conversation/add_token")

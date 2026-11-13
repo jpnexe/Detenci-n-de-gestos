@@ -149,26 +149,26 @@ class HandMotionHistory:
             return reversals, max_amp
 
         # Oscilación horizontal: Palma (adiós), Índice (negación NO), Mano colgada (virgulilla Ñ)
-        rev_x_palm, amp_x_palm = count_reversals(pxs, min_amp=0.018)
-        rev_x_index, amp_x_index = count_reversals(ixs, min_amp=0.018)
-        rev_x_wrist, amp_x_wrist = count_reversals(wxs, min_amp=0.018)
+        rev_x_palm, amp_x_palm = count_reversals(pxs, min_amp=0.024)
+        rev_x_index, amp_x_index = count_reversals(ixs, min_amp=0.024)
+        rev_x_wrist, amp_x_wrist = count_reversals(wxs, min_amp=0.024)
         max_rev_x = max(rev_x_palm, rev_x_index, rev_x_wrist)
         max_amp_x = max(amp_x_palm, amp_x_index, amp_x_wrist)
 
-        is_oscillating_x = (max_rev_x >= 2 and max_amp_x >= 0.022)
+        is_oscillating_x = (max_rev_x >= 2 and max_amp_x >= 0.030)
 
         # Oscilación vertical: Índice o muñeca asintiendo (S_SI)
-        rev_y_index, amp_y_index = count_reversals(iys, min_amp=0.018)
-        rev_y_palm, amp_y_palm = count_reversals(pys, min_amp=0.018)
+        rev_y_index, amp_y_index = count_reversals(iys, min_amp=0.022)
+        rev_y_palm, amp_y_palm = count_reversals(pys, min_amp=0.022)
         max_rev_y = max(rev_y_index, rev_y_palm)
         max_amp_y = max(amp_y_index, amp_y_palm)
 
-        is_oscillating_y = (max_rev_y >= 2 and max_amp_y >= 0.022)
+        is_oscillating_y = (max_rev_y >= 2 and max_amp_y >= 0.026)
 
         # Desplazamientos directos continuos (eje Y pantalla: positivo = abajo)
-        is_moving_down = (net_dy > 0.040) and (efficiency > 0.48) and (speed > 0.07)
-        is_moving_up = (net_dy < -0.040) and (efficiency > 0.48) and (speed > 0.07)
-        is_moving_horiz = (abs(net_dx) > 0.024) and (efficiency > 0.38) and (speed > 0.05 or speed_index > 0.05)
+        is_moving_down = (net_dy > 0.042) and (efficiency > 0.50) and (speed > 0.07)
+        is_moving_up = (net_dy < -0.042) and (efficiency > 0.50) and (speed > 0.07)
+        is_moving_horiz = (abs(net_dx) > 0.034) and (efficiency > 0.45) and (speed > 0.055 or speed_index > 0.055)
 
         # 3. DETECCIÓN DE TRAZO DE LA LETRA 'J' (Meñique dibujando gancho hacia abajo y curva)
         # Una 'J' en LSC/Dactilología se realiza descendiendo y luego curvando hacia adentro/arriba
@@ -217,25 +217,25 @@ class HandMotionHistory:
         if not trace_z and is_z_latched:
             trace_z = True
 
-        # 5. DETECCIÓN DE TRAZO DE LA LETRA 'S'
+        # 5. DETECCIÓN DE TRAZO DE LA LETRA 'S' (exige amplitud real en X e Y y velocidad activa)
         trace_s = False
         is_s_latched = (cur_time < self.s_latch_until)
-        if n >= 7 and rev_x_index >= 2 and (max(iys) - min(iys) >= 0.022):
-            self.s_latch_until = cur_time + 0.65
+        if n >= 7 and rev_x_index >= 2 and amp_x_index >= 0.028 and (max(iys) - min(iys) >= 0.030) and speed_index >= 0.055:
+            self.s_latch_until = cur_time + 0.55
             trace_s = True
         elif is_s_latched:
             trace_s = True
 
         # 6. DETECCIÓN DE DESLIZAMIENTO LATERAL (LETRA 'H' Y 'G')
-        # La 'H' y 'G' en LSC implican mantener el índice (y medio en H) horizontales y desplazarlos lateralmente
+        # La 'H' y 'G' implican mantener dedos horizontales y desplazarlos lateralmente con predominancia horizontal clara
         trace_h = False
         is_h_latched = (cur_time < self.h_latch_until)
         idx_dx = ixs[-1] - ixs[0]
         idx_dy = iys[-1] - iys[0]
-        is_idx_horiz = (abs(idx_dx) >= 0.020) and (abs(idx_dx) > 0.65 * max(1e-4, abs(idx_dy)))
-        is_palm_horiz = (abs(net_dx) >= 0.020) and (abs(net_dx) > 0.65 * max(1e-4, abs(net_dy)))
-        if n >= 4 and (speed >= 0.045 or speed_index >= 0.045) and (is_idx_horiz or is_palm_horiz or (max_amp_x >= 0.016 and max_rev_x >= 1)):
-            self.h_latch_until = cur_time + 0.65
+        is_idx_horiz = (abs(idx_dx) >= 0.032) and (abs(idx_dx) > 1.15 * max(1e-4, abs(idx_dy)))
+        is_palm_horiz = (abs(net_dx) >= 0.032) and (abs(net_dx) > 1.15 * max(1e-4, abs(net_dy)))
+        if n >= 5 and (speed >= 0.055 or speed_index >= 0.055) and (is_idx_horiz or is_palm_horiz):
+            self.h_latch_until = cur_time + 0.55
             trace_h = True
         elif is_h_latched:
             trace_h = True

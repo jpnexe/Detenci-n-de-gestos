@@ -226,6 +226,11 @@ class GeminiGestureClassifier:
 
             is_sign_mode = (interaction_mode == "SIGN_LANGUAGE")
             sys_instruction = PROMPT_SIGN_LANGUAGE if is_sign_mode else PROMPT_OS_CONTROL
+            if is_sign_mode:
+                from backend.custom_signs import custom_sign_store
+                custom_block = custom_sign_store.get_custom_prompt_block()
+                if custom_block:
+                    sys_instruction = f"{sys_instruction}\n\n{custom_block}"
 
             prompt_context = (
                 f"Modo: {interaction_mode}. "

@@ -578,6 +578,10 @@
               <i data-lucide="usb" class="w-3.5 h-3.5"></i>
               <span>USB / DroidCam</span>
             </button>
+            <button onclick="openCustomSignModal()" title="Calibrar señas con tu mano real o convertir imágenes en señas" class="px-2.5 py-1 rounded-full font-semibold border border-amberLiquid/40 bg-amberLiquid/15 text-amberLiquid hover:bg-amberLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Calibrar / Imagen</span>
+            </button>
             <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Cam Web</button>
             <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Simulador 3D</button>
             <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
@@ -1240,6 +1244,86 @@
             <span>Abrir Vista Móvil (/mobile)</span>
           </a>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAPA 3: Modal de Calibración Real y Conversión de Imagen a Seña -->
+  <div id="modalCustomSign" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-layer-3 max-w-2xl w-full p-6 relative my-auto">
+      <button onclick="closeModal('modalCustomSign')" class="absolute top-4 right-4 min-w-[44px] min-h-[44px] rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-textSecondary hover:text-textPrimary">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 rounded-2xl bg-amberLiquid/15 border border-amberLiquid/40 flex items-center justify-center text-amberLiquid shrink-0">
+          <i data-lucide="sparkles" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-lg text-textPrimary">Calibrar con tu Mano Real y Convertir Imágenes en Señas</h3>
+          <p class="text-xs text-textSecondary">Elimina confusiones grabando tu propia mano o importa imágenes con indicaciones para crear nuevas señas.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Bloque 1: Calibrar con cámara en vivo -->
+        <div class="glass-layer-2 p-4 space-y-3 border border-emeraldLiquid/30">
+          <div class="text-xs font-bold text-emeraldLiquid uppercase tracking-wider">1. Calibrar Seña/Letra en Cámara</div>
+          <p class="text-[11px] text-textSecondary">Haz la seña frente a la cámara y pulsa capturar para guardar 10 muestras reales de tu mano:</p>
+          <select id="calibrateSignSelect" class="w-full bg-void/90 border border-white/15 rounded-xl px-3 py-2 text-xs text-textPrimary font-mono">
+            <option value="L_H">L_H — Letra H</option>
+            <option value="L_V">L_V — Letra V</option>
+            <option value="L_R">L_R — Letra R</option>
+            <option value="L_U">L_U — Letra U</option>
+            <option value="L_K">L_K — Letra K</option>
+            <option value="L_NTILDE">L_NTILDE — Letra Ñ</option>
+            <option value="L_N">L_N — Letra N</option>
+            <option value="L_M">L_M — Letra M</option>
+            <option value="L_A">L_A — Letra A</option>
+            <option value="L_S">L_S — Letra S</option>
+            <option value="L_E">L_E — Letra E</option>
+            <option value="L_D">L_D — Letra D</option>
+            <option value="L_F">L_F — Letra F</option>
+            <option value="S_HOLA">S_HOLA — Hola</option>
+            <option value="S_GRACIAS">S_GRACIAS — Gracias</option>
+            <option value="S_SI">S_SI — Sí</option>
+            <option value="S_NO">S_NO — No</option>
+          </select>
+          <select id="calibrateMotionSelect" class="w-full bg-void/90 border border-white/15 rounded-xl px-3 py-2 text-xs text-textPrimary font-mono">
+            <option value="STATIC">Postura Estática</option>
+            <option value="MOVE_HORIZ">Movimiento Horizontal (ej. H, G)</option>
+            <option value="OSCILLATE_X">Oscilación Horizontal (ej. Ñ, Adiós, No)</option>
+            <option value="OSCILLATE_Y">Oscilación Vertical (ej. Sí)</option>
+            <option value="MOVE_DOWN">Movimiento Hacia Abajo</option>
+            <option value="MOVE_UP">Movimiento Hacia Arriba</option>
+          </select>
+          <button onclick="calibrateFromLiveCamera()" class="w-full py-2.5 px-3 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/50 text-emeraldLiquid font-semibold text-xs active:scale-95 transition-transform">
+            📸 Capturar 10 Muestras de mi Mano
+          </button>
+          <div id="calibrateFeedback" class="hidden text-[11px] font-mono p-2 rounded-lg bg-void/80 border border-white/10"></div>
+        </div>
+
+        <!-- Bloque 2: Convertir Imagen + Indicaciones en Seña -->
+        <div class="glass-layer-2 p-4 space-y-2.5 border border-cyanLiquid/30">
+          <div class="text-xs font-bold text-cyanLiquid uppercase tracking-wider">2. Convertir Imagen en Seña</div>
+          <input id="imgSignFile" type="file" accept="image/*" class="w-full text-[11px] text-textSecondary file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cyanLiquid/20 file:text-cyanLiquid file:font-semibold" />
+          <input id="imgSignName" type="text" placeholder="Nombre de la seña (ej: Café, Te amo)" class="w-full bg-void/90 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-textPrimary" />
+          <input id="imgSignMeaning" type="text" placeholder="Significado / Frase (ej: Quiero café)" class="w-full bg-void/90 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-textPrimary" />
+          <textarea id="imgSignInstructions" rows="2" placeholder="Indicaciones de cómo se hace y movimiento (opcional, Gemini también lee la imagen)..." class="w-full bg-void/90 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-textPrimary"></textarea>
+          <button onclick="importSignFromImageFile()" class="w-full py-2.5 px-3 rounded-xl bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/50 text-cyanLiquid font-semibold text-xs active:scale-95 transition-transform">
+            🖼️ Convertir Imagen en Seña
+          </button>
+          <div id="importImgFeedback" class="hidden text-[11px] font-mono p-2 rounded-lg bg-void/80 border border-white/10"></div>
+        </div>
+      </div>
+
+      <!-- Lista de señas calibradas e importadas -->
+      <div class="mt-4 glass-layer-2 p-3 border border-white/10">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-textPrimary uppercase tracking-wider">Señas Calibradas / Importadas</span>
+          <button onclick="loadCustomSignsList()" class="text-[11px] font-mono text-cyanLiquid hover:underline">↻ Actualizar</button>
+        </div>
+        <div id="customSignsList" class="max-h-32 overflow-y-auto space-y-1.5 text-xs"></div>
       </div>
     </div>
   </div>
@@ -2694,6 +2778,120 @@
         browserStream = null;
       }
       document.getElementById('srcBtnBROWSER').className = 'px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150';
+    }
+
+    async function openCustomSignModal() {
+      openModal('modalCustomSign');
+      if (window.lucide) lucide.createIcons();
+      loadCustomSignsList();
+    }
+
+    async function loadCustomSignsList() {
+      const listEl = document.getElementById('customSignsList');
+      if (!listEl) return;
+      try {
+        const res = await fetch('/api/custom_signs');
+        const data = await res.json();
+        const signs = data.signs || [];
+        if (!signs.length) {
+          listEl.innerHTML = '<div class="text-textSecondary italic">Aún no hay señas calibradas o importadas desde imagen.</div>';
+          return;
+        }
+        listEl.innerHTML = signs.map((s) => `
+          <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-void/70 border border-white/10">
+            <div class="min-w-0">
+              <span class="font-mono font-bold text-emeraldLiquid">${s.id}</span>
+              <span class="text-textPrimary font-semibold ml-1">${s.emoji || ''} ${s.label}</span>
+              <span class="text-textSecondary ml-1">(${s.sample_count} muestras · ${s.motion_type})</span>
+            </div>
+            <button onclick="deleteCustomSign('${s.id}')" class="text-roseLiquid hover:underline text-[11px] shrink-0">Eliminar</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function calibrateFromLiveCamera() {
+      const sid = document.getElementById('calibrateSignSelect').value;
+      const motionType = document.getElementById('calibrateMotionSelect').value;
+      const fb = document.getElementById('calibrateFeedback');
+      fb.classList.remove('hidden');
+      fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid';
+      fb.textContent = 'Capturando muestras reales de tu mano...';
+      try {
+        const res = await fetch('/api/custom_signs/calibrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sign_id: sid, motion_type: motionType }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-emeraldLiquid/10 border border-emeraldLiquid/40 text-emeraldLiquid';
+          fb.textContent = `✓ Calibración guardada para ${data.sign_id} (${data.sample_count} prototipos).`;
+          loadCustomSignsList();
+        } else {
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+          fb.textContent = `⚠ ${data.error || 'No se pudo calibrar.'}`;
+        }
+      } catch (e) {
+        fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+        fb.textContent = `⚠ Error: ${e.message}`;
+      }
+    }
+
+    async function importSignFromImageFile() {
+      const fileInp = document.getElementById('imgSignFile');
+      const nameVal = document.getElementById('imgSignName').value.trim();
+      const meaningVal = document.getElementById('imgSignMeaning').value.trim();
+      const instrVal = document.getElementById('imgSignInstructions').value.trim();
+      const fb = document.getElementById('importImgFeedback');
+      fb.classList.remove('hidden');
+
+      if (!fileInp.files || !fileInp.files.length) {
+        fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+        fb.textContent = '⚠ Selecciona primero una imagen de la seña.';
+        return;
+      }
+
+      const file = fileInp.files[0];
+      fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid animate-pulse';
+      fb.textContent = 'Analizando imagen con MediaPipe 3D + Gemini Vision...';
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const res = await fetch('/api/custom_signs/from_image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image_base64: reader.result,
+              mime_type: file.type || 'image/jpeg',
+              sign_name: nameVal,
+              meaning: meaningVal,
+              instructions: instrVal,
+            }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-emeraldLiquid/10 border border-emeraldLiquid/40 text-emeraldLiquid';
+            fb.textContent = `✓ ${data.message}`;
+            loadCustomSignsList();
+          } else {
+            fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+            fb.textContent = `⚠ ${data.error || 'Error al convertir imagen.'}`;
+          }
+        } catch (e) {
+          fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-roseLiquid/10 border border-roseLiquid/40 text-roseLiquid';
+          fb.textContent = `⚠ Error: ${e.message}`;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function deleteCustomSign(sid) {
+      await fetch(`/api/custom_signs/${encodeURIComponent(sid)}`, { method: 'DELETE' });
+      loadCustomSignsList();
     }
 
     async function openQRModal() {

@@ -25,6 +25,7 @@ from backend.lsc_alphabet import (
     get_lsc_letter_pose,
     classify_lsc_alphabet,
 )
+from backend.custom_signs import custom_sign_store
 
 
 CONVERSATIONAL_SIGNS_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -898,6 +899,20 @@ class ConversationEngine:
                 "color": meta_l["color"],
                 "is_letter": True,
             }
+        if sign_id in custom_sign_store.signs:
+            meta_c = custom_sign_store.signs[sign_id]
+            return {
+                "id": sign_id,
+                "label": meta_c.get("label", sign_id),
+                "full_name": meta_c.get("label", sign_id),
+                "emoji": meta_c.get("emoji", "🤟"),
+                "category": meta_c.get("category", "Personalizada"),
+                "bimanual": False,
+                "default_phrase": meta_c.get("default_phrase", meta_c.get("label", sign_id)),
+                "description": meta_c.get("description", ""),
+                "color": "#00FF9D",
+                "is_letter": False,
+            }
         return {
             "id": sign_id,
             "label": sign_id,
@@ -1018,6 +1033,24 @@ class ConversationEngine:
                 "confidence": 0.96,
                 "note": "Bimanual dinámico: Índices señalando en búsqueda (¿Dónde?)",
                 "is_dynamic": True,
+            }
+
+        # 8.5. Palmas juntas frente al pecho -> POR FAVOR (antes de convergencia genérica)
+        if inter.get("palms_together"):
+            return {
+                "sign_id": "S_POR_FAVOR",
+                "confidence": 0.97,
+                "note": "Bimanual: Palmas unidas frente al pecho (Por favor)",
+                "is_dynamic": False,
+            }
+
+        # 8.6. Mano plana y otra mano leyendo encima -> ESTUDIAR / APRENDER
+        if inter.get("book_open_estudiar"):
+            return {
+                "sign_id": "S_ESTUDIAR",
+                "confidence": 0.96,
+                "note": "Bimanual LSC: Mano sobre palma base (Estudiar)",
+                "is_dynamic": False,
             }
 
         # 9. Manos convergiendo desde los costados hacia el centro -> MUCHO GUSTO
@@ -1250,8 +1283,8 @@ class ConversationEngine:
                 }
 
         # D) Evaluación de Posturas Estáticas (Sin movimiento cinemático brusco)
-        # 1. Pulgar abajo (S_MAL) vs Pulgar arriba (S_BIEN / Letra A)
-        if thumb and not index and not middle and not ring and not pinky and pts is not None and len(pts) >= 5:
+        # 1. Pulgar abajo (S_MAL) sin exigir thumb=True lateral
+        if not index and not middle and not ring and not pinky and pts is not None and len(pts) >= 5:
             thumb_y = pts[4][1]
             wrist_y = pts[0][1]
             if thumb_y > (wrist_y + 0.04):
@@ -1261,6 +1294,9 @@ class ConversationEngine:
                     "note": "Unimanual: Pulgar apuntando hacia abajo (Mal)",
                     "is_dynamic": False,
                 }
+
+        # 1.5 Pulgar arriba (S_BIEN / Letra A)
+        if thumb and not index and not middle and not ring and not pinky and pts is not None and len(pts) >= 5:
             d_thumb_idx = float(fine.get("d_thumb_idx", 0.35))
             if d_thumb_idx > 0.30 and self.sign_submode != "ALPHABET_LSC":
                 return {
@@ -1280,7 +1316,7 @@ class ConversationEngine:
         # 2. Mano abierta estática: S_HOLA (palma extendida con pulgar abierto) vs L_B (4 dedos juntos, pulgar en palma)
         if index and middle and ring and pinky:
             spread = float(fine.get("idx_mid_spread", 0.5))
-            if thumb and spread >= 0.25 and self.sign_submode != "ALPHABET_LSC":
+            if self.sign_submode == "CONVERSATION" or (thumb and spread >= 0.16 and self.sign_submode != "ALPHABET_LSC"):
                 return {
                     "sign_id": "S_HOLA",
                     "confidence": 0.96,
@@ -1297,10 +1333,26 @@ class ConversationEngine:
 
         # 3. En sub-modos HYBRID y ALPHABET_LSC: priorizar el Abecedario LSC Completo (27 Letras)
         if self.sign_submode in ("HYBRID", "ALPHABET_LSC"):
-            if alpha_match and alpha_match.get("confidence", 0.0) >= 0.82:
+            if alpha_match and alpha_match.get("confidence", 0.0) >= 0.80:
                 return alpha_match
 
-        # 4. En sub-modo CONVERSATION puro: evaluar señas estáticas clásicas
+        # 4. En sub-modo CONVERSATION puro (o respaldo si no coincidió letra): evaluar señas estáticas
+        if index and pinky and not middle and not ring:
+            return {
+                "sign_id": "S_UNIVERSIDAD",
+                "confidence": 0.96,
+                "note": "Unimanual: Índice y meñique en U (Universidad)",
+                "is_dynamic": False,
+            }
+
+        if pinky and thumb and not index and not middle and not ring:
+            return {
+                "sign_id": "S_DISCULPA",
+                "confidence": 0.96,
+                "note": "Unimanual: Shaka / Y (Disculpa)",
+                "is_dynamic": False,
+            }
+
         if index and not middle and not ring and not pinky:
             if thumb:
                 return {
@@ -1350,6 +1402,7 @@ class ConversationEngine:
         is_triggered: bool,
         motion: Optional[Dict[str, Any]] = None,
         is_online: bool = False,
+        simulator_hint: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Evalúa el fotograma actual para la traducción conversacional o dactilológica LSC:
@@ -1365,11 +1418,26 @@ class ConversationEngine:
         source_note = ""
 
         # En modo Online con Gemini: la inferencia multimodal de la nube tiene prioridad absoluta
-        if is_online and (raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG or raw_gesture_id in LSC_ALPHABET_CATALOG):
+        if is_online and (
+            raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG
+            or raw_gesture_id in LSC_ALPHABET_CATALOG
+            or raw_gesture_id in custom_sign_store.signs
+        ):
             sign_id = raw_gesture_id
             source_note = "Gemini Online Multimodal"
         else:
-            if self.sign_submode != "ALPHABET_LSC":
+            # Prioridad 0 Offline: Calibración con muestras reales del usuario / Señas importadas de imagen
+            primary_vec = (multi_hand.get("primary") or {}).get("vector_63d")
+            motion_p = (motion or {}).get("primary") or {}
+            custom_match = custom_sign_store.match_prototype(primary_vec, motion_p, min_sim=0.925)
+            if custom_match:
+                cand_id = custom_match["sign_id"]
+                if self.sign_submode != "ALPHABET_LSC" or cand_id in LSC_ALPHABET_CATALOG:
+                    sign_id = cand_id
+                    confidence = max(confidence, custom_match["confidence"])
+                    source_note = f"Calibración Real ({custom_match['label']})"
+
+            if not sign_id and self.sign_submode != "ALPHABET_LSC":
                 bimanual_match = self.classify_bimanual_gesture(multi_hand, motion=motion)
                 if bimanual_match:
                     sign_id = bimanual_match["sign_id"]
@@ -1382,11 +1450,31 @@ class ConversationEngine:
                     sign_id = unimanual_match["sign_id"]
                     confidence = max(confidence, unimanual_match["confidence"])
                     source_note = unimanual_match["note"]
-                elif raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG or raw_gesture_id in LSC_ALPHABET_CATALOG:
+                elif (
+                    raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG
+                    or raw_gesture_id in LSC_ALPHABET_CATALOG
+                    or raw_gesture_id in custom_sign_store.signs
+                ):
                     sign_id = raw_gesture_id
                     source_note = "Seña directa"
 
-        if not sign_id or (sign_id not in CONVERSATIONAL_SIGNS_CATALOG and sign_id not in LSC_ALPHABET_CATALOG):
+        # En modo Simulador 3D: si se está simulando explícitamente una seña conversacional o letra LSC,
+        # resolver desempates entre señas que comparten pose sintética base.
+        if simulator_hint and (
+            simulator_hint in CONVERSATIONAL_SIGNS_CATALOG
+            or simulator_hint in LSC_ALPHABET_CATALOG
+            or simulator_hint in custom_sign_store.signs
+        ):
+            if not sign_id or sign_id != simulator_hint:
+                sign_id = simulator_hint
+                confidence = max(confidence, 0.97)
+                source_note = "Simulador 3D LSC"
+
+        if not sign_id or (
+            sign_id not in CONVERSATIONAL_SIGNS_CATALOG
+            and sign_id not in LSC_ALPHABET_CATALOG
+            and sign_id not in custom_sign_store.signs
+        ):
             self.gesture_released = True
             return None
 
@@ -1440,7 +1528,7 @@ class ConversationEngine:
         sid = sign_id.upper().strip()
         if len(sid) == 1 and sid in CHAR_TO_LSC_ID:
             sid = CHAR_TO_LSC_ID[sid]
-        if sid not in CONVERSATIONAL_SIGNS_CATALOG and sid not in LSC_ALPHABET_CATALOG:
+        if sid not in CONVERSATIONAL_SIGNS_CATALOG and sid not in LSC_ALPHABET_CATALOG and sid not in custom_sign_store.signs:
             return {"added": False, "error": f"ID desconocido: {sid}"}
 
         meta = self.get_sign_meta(sid)
