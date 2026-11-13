@@ -3,10 +3,11 @@ Analizador Cinemático y de Trayectoria de Movimiento — SignBridge Extended v3
 
 Rastrea la dinámica temporal de las articulaciones de la mano a lo largo de una ventana
 deslizante (~15-25 fotogramas, 0.5-0.8s) para detectar gestos que requieren movimiento:
-1. Oscilación horizontal (saludo / adiós / negación lateral con índice).
-2. Oscilación vertical (asentimiento afirmativo).
-3. Desplazamiento descendente (repetición / más despacio).
-4. Movimiento bimanual relativo (divergencia "¿cómo estás?", convergencia "mucho gusto",
+1. Trazo dinámico de letras dactilológicas (J trazada con meñique, Z trazada con índice, S).
+2. Oscilación horizontal (saludo / adiós / negación lateral con índice / virgulilla Ñ).
+3. Oscilación vertical (asentimiento afirmativo S_SI).
+4. Desplazamiento descendente (repetición / más despacio).
+5. Movimiento bimanual relativo (divergencia "¿cómo estás?", convergencia "mucho gusto",
    oscilación dual "¿qué? / ¿dónde?").
 """
 
@@ -19,35 +20,59 @@ import numpy as np
 
 
 class HandMotionHistory:
-    """Almacena el historial de posiciones de una mano para análisis cinemático."""
+    """Almacena el historial de posiciones de una mano para análisis cinemático y de trazo."""
 
     def __init__(self, maxlen: int = 24):
         self.maxlen = maxlen
-        # Entradas: (timestamp, wrist_x, wrist_y, index_tip_x, index_tip_y, palm_x, palm_y)
+        # Entradas: (
+        #   timestamp,
+        #   wrist_x, wrist_y,
+        #   index_tip_x, index_tip_y,
+        #   palm_x, palm_y,
+        #   pinky_tip_x, pinky_tip_y,
+        #   thumb_tip_x, thumb_tip_y
+        # )
         self.history: deque = deque(maxlen=maxlen)
+        self.j_latch_until: float = 0.0
+        self.z_latch_until: float = 0.0
+        self.s_latch_until: float = 0.0
+        self.h_latch_until: float = 0.0
 
     def append(self, pts: np.ndarray, timestamp: float) -> None:
         """Agrega los puntos clave normalizados [0..1] de la mano."""
         wrist = pts[0]
+        thumb = pts[4]
         index_tip = pts[8]
         palm = pts[9]
+        pinky_tip = pts[20] if len(pts) > 20 else pts[17]
         self.history.append((
-            timestamp,
+            float(timestamp),
             float(wrist[0]), float(wrist[1]),
             float(index_tip[0]), float(index_tip[1]),
-            float(palm[0]), float(palm[1])
+            float(palm[0]), float(palm[1]),
+            float(pinky_tip[0]), float(pinky_tip[1]),
+            float(thumb[0]), float(thumb[1]),
         ))
 
     def clear(self) -> None:
         self.history.clear()
+        self.j_latch_until = 0.0
+        self.z_latch_until = 0.0
+        self.s_latch_until = 0.0
+        self.h_latch_until = 0.0
 
-    def analyze(self) -> Dict[str, Any]:
+    def analyze(self, now: Optional[float] = None) -> Dict[str, Any]:
         """
         Calcula velocidades, desplazamientos acumulados, cambios de sentido (oscilación)
-        y dirección predominante del movimiento.
+        y patrones cinemáticos de trazo de letras (J, Z, S, H, G).
         """
+        cur_time = now if now is not None else (self.history[-1][0] if self.history else time.time())
         n = len(self.history)
         if n < 4:
+            is_j_latched = (cur_time < self.j_latch_until)
+            is_z_latched = (cur_time < self.z_latch_until)
+            is_s_latched = (cur_time < self.s_latch_until)
+            is_h_latched = (cur_time < self.h_latch_until)
             return {
                 "speed": 0.0,
                 "is_moving": False,
@@ -55,6 +80,11 @@ class HandMotionHistory:
                 "is_oscillating_y": False,
                 "is_moving_down": False,
                 "is_moving_up": False,
+                "is_moving_horiz": False,
+                "trace_j": is_j_latched,
+                "trace_z": is_z_latched,
+                "trace_s": is_s_latched,
+                "trace_h": is_h_latched,
                 "oscillations_x": 0,
                 "oscillations_y": 0,
                 "net_dx": 0.0,
@@ -63,42 +93,49 @@ class HandMotionHistory:
                 "efficiency": 0.0,
             }
 
-        t_start, wx_start, wy_start, ix_start, iy_start, px_start, py_start = self.history[0]
-        t_end, wx_end, wy_end, ix_end, iy_end, px_end, py_end = self.history[-1]
+        t_start = self.history[0][0]
+        t_end = self.history[-1][0]
         dt_total = max(1e-4, t_end - t_start)
 
-        # Usar la palma/muñeca como referencia del centro de masa de la mano
-        xs = [entry[5] for entry in self.history]  # palm_x
-        ys = [entry[6] for entry in self.history]  # palm_y
-        ts = [entry[0] for entry in self.history]
-
-        # También analizar la punta del índice para gestos de señalamiento/negación (S_NO, S_SI)
+        # Extracción de coordenadas clave temporales
+        wxs = [entry[1] for entry in self.history]
+        wys = [entry[2] for entry in self.history]
         ixs = [entry[3] for entry in self.history]
         iys = [entry[4] for entry in self.history]
+        pxs = [entry[5] for entry in self.history]  # palm_x
+        pys = [entry[6] for entry in self.history]  # palm_y
+        pinky_xs = [entry[7] for entry in self.history]  # pinky_tip_x
+        pinky_ys = [entry[8] for entry in self.history]  # pinky_tip_y
 
-        # Desplazamientos netos y longitud de trayectoria
-        net_dx = px_end - px_start
-        net_dy = py_end - py_start
+        # 1. Desplazamiento de la palma y velocidad del centro de masa
+        net_dx = pxs[-1] - pxs[0]
+        net_dy = pys[-1] - pys[0]
         net_dist = math.hypot(net_dx, net_dy)
 
         path_len = 0.0
         for i in range(1, n):
-            path_len += math.hypot(xs[i] - xs[i-1], ys[i] - ys[i-1])
+            path_len += math.hypot(pxs[i] - pxs[i-1], pys[i] - pys[i-1])
 
         speed = path_len / dt_total
         efficiency = net_dist / max(1e-4, path_len)
 
-        # Detección de oscilación en X (cambios de signo en la velocidad horizontal)
-        # Se evalúa tanto la palma (adiós/saludo) como el dedo índice (negación NO)
-        def count_reversals(series: List[float], min_amp: float = 0.025) -> Tuple[int, float]:
+        # Longitud y velocidad de la punta del dedo meñique e índice
+        path_len_pinky = sum(math.hypot(pinky_xs[i] - pinky_xs[i-1], pinky_ys[i] - pinky_ys[i-1]) for i in range(1, n))
+        speed_pinky = path_len_pinky / dt_total
+
+        path_len_index = sum(math.hypot(ixs[i] - ixs[i-1], iys[i] - iys[i-1]) for i in range(1, n))
+        speed_index = path_len_index / dt_total
+
+        # 2. Conteo de cambios de sentido (Oscilación horizontal y vertical)
+        def count_reversals(series: List[float], min_amp: float = 0.018) -> Tuple[int, float]:
             reversals = 0
             max_amp = 0.0
-            last_dir = 0  # +1 o -1
+            last_dir = 0
             peak_val = series[0]
 
             for i in range(1, len(series)):
                 diff = series[i] - series[i-1]
-                if abs(diff) < 0.003:
+                if abs(diff) < 0.0025:
                     continue
                 cur_dir = 1 if diff > 0 else -1
                 if last_dir != 0 and cur_dir != last_dir:
@@ -111,28 +148,116 @@ class HandMotionHistory:
                 last_dir = cur_dir
             return reversals, max_amp
 
-        rev_x_palm, amp_x_palm = count_reversals(xs, min_amp=0.028)
-        rev_x_index, amp_x_index = count_reversals(ixs, min_amp=0.035)
-        rev_y_index, amp_y_index = count_reversals(iys, min_amp=0.030)
+        # Oscilación horizontal: Palma (adiós), Índice (negación NO), Mano colgada (virgulilla Ñ)
+        rev_x_palm, amp_x_palm = count_reversals(pxs, min_amp=0.018)
+        rev_x_index, amp_x_index = count_reversals(ixs, min_amp=0.018)
+        rev_x_wrist, amp_x_wrist = count_reversals(wxs, min_amp=0.018)
+        max_rev_x = max(rev_x_palm, rev_x_index, rev_x_wrist)
+        max_amp_x = max(amp_x_palm, amp_x_index, amp_x_wrist)
 
-        is_oscillating_x = (rev_x_palm >= 2 and amp_x_palm >= 0.035) or (rev_x_index >= 2 and amp_x_index >= 0.040)
-        is_oscillating_y = (rev_y_index >= 2 and amp_y_index >= 0.035)
+        is_oscillating_x = (max_rev_x >= 2 and max_amp_x >= 0.022)
 
-        # Desplazamiento descendente continuo (pantalla Y aumenta hacia abajo)
-        is_moving_down = (net_dy > 0.075) and (efficiency > 0.58) and (speed > 0.12)
-        is_moving_up = (net_dy < -0.075) and (efficiency > 0.58) and (speed > 0.12)
+        # Oscilación vertical: Índice o muñeca asintiendo (S_SI)
+        rev_y_index, amp_y_index = count_reversals(iys, min_amp=0.018)
+        rev_y_palm, amp_y_palm = count_reversals(pys, min_amp=0.018)
+        max_rev_y = max(rev_y_index, rev_y_palm)
+        max_amp_y = max(amp_y_index, amp_y_palm)
+
+        is_oscillating_y = (max_rev_y >= 2 and max_amp_y >= 0.022)
+
+        # Desplazamientos directos continuos (eje Y pantalla: positivo = abajo)
+        is_moving_down = (net_dy > 0.040) and (efficiency > 0.48) and (speed > 0.07)
+        is_moving_up = (net_dy < -0.040) and (efficiency > 0.48) and (speed > 0.07)
+        is_moving_horiz = (abs(net_dx) > 0.024) and (efficiency > 0.38) and (speed > 0.05 or speed_index > 0.05)
+
+        # 3. DETECCIÓN DE TRAZO DE LA LETRA 'J' (Meñique dibujando gancho hacia abajo y curva)
+        # Una 'J' en LSC/Dactilología se realiza descendiendo y luego curvando hacia adentro/arriba
+        trace_j = False
+        is_j_latched = (cur_time < self.j_latch_until)
+
+        if n >= 6 and (speed_pinky >= 0.06 or speed >= 0.06):
+            # Evaluamos la trayectoria del meñique (o de la palma si el movimiento es de muñeca)
+            deepest_idx = int(np.argmax(pinky_ys))
+            deepest_y = pinky_ys[deepest_idx]
+
+            # El punto más bajo (máximo Y en pantalla) no debe ser el primer punto
+            if deepest_idx >= 2:
+                # Descenso previo al gancho
+                down_drop = deepest_y - min(pinky_ys[:deepest_idx + 1])
+                # Rango horizontal cubierto durante el trazo
+                span_x = max(pinky_xs) - min(pinky_xs)
+                # Elevación posterior en el gancho (el meñique sube al finalizar la curva de la J)
+                hook_up = deepest_y - pinky_ys[-1]
+
+                # Condición 1: Descenso notable + elevación final en gancho + barrido horizontal
+                is_hook_motion = (down_drop >= 0.028) and (span_x >= 0.016) and (hook_up >= 0.008)
+
+                # Condición 2: Descenso con curva lateral suave aunque no se eleve exageradamente
+                is_curved_swoop = (down_drop >= 0.032) and (span_x >= 0.022) and (deepest_idx <= n - 2)
+
+                if is_hook_motion or is_curved_swoop:
+                    self.j_latch_until = cur_time + 0.65  # Retención temporal de 650ms para confirmación
+                    trace_j = True
+
+        if not trace_j and is_j_latched:
+            trace_j = True
+
+        # 4. DETECCIÓN DE TRAZO DE LA LETRA 'Z' (Índice trazando zigzag)
+        # Trazo Z: derecha -> diagonal abajo-izquierda -> derecha (mínimo 2 inversiones horizontales con descenso)
+        trace_z = False
+        is_z_latched = (cur_time < self.z_latch_until)
+
+        if n >= 7 and (speed_index >= 0.06):
+            z_span_x = max(ixs) - min(ixs)
+            z_span_y = max(iys) - min(iys)
+            if rev_x_index >= 2 and z_span_x >= 0.028 and z_span_y >= 0.028:
+                self.z_latch_until = cur_time + 0.65
+                trace_z = True
+
+        if not trace_z and is_z_latched:
+            trace_z = True
+
+        # 5. DETECCIÓN DE TRAZO DE LA LETRA 'S'
+        trace_s = False
+        is_s_latched = (cur_time < self.s_latch_until)
+        if n >= 7 and rev_x_index >= 2 and (max(iys) - min(iys) >= 0.022):
+            self.s_latch_until = cur_time + 0.65
+            trace_s = True
+        elif is_s_latched:
+            trace_s = True
+
+        # 6. DETECCIÓN DE DESLIZAMIENTO LATERAL (LETRA 'H' Y 'G')
+        # La 'H' y 'G' en LSC implican mantener el índice (y medio en H) horizontales y desplazarlos lateralmente
+        trace_h = False
+        is_h_latched = (cur_time < self.h_latch_until)
+        idx_dx = ixs[-1] - ixs[0]
+        idx_dy = iys[-1] - iys[0]
+        is_idx_horiz = (abs(idx_dx) >= 0.020) and (abs(idx_dx) > 0.65 * max(1e-4, abs(idx_dy)))
+        is_palm_horiz = (abs(net_dx) >= 0.020) and (abs(net_dx) > 0.65 * max(1e-4, abs(net_dy)))
+        if n >= 4 and (speed >= 0.045 or speed_index >= 0.045) and (is_idx_horiz or is_palm_horiz or (max_amp_x >= 0.016 and max_rev_x >= 1)):
+            self.h_latch_until = cur_time + 0.65
+            trace_h = True
+        elif is_h_latched:
+            trace_h = True
 
         return {
             "speed": round(speed, 3),
-            "is_moving": speed > 0.10,
+            "speed_pinky": round(speed_pinky, 3),
+            "speed_index": round(speed_index, 3),
+            "is_moving": (speed > 0.05 or speed_pinky > 0.05 or speed_index > 0.05),
             "is_oscillating_x": is_oscillating_x,
             "is_oscillating_y": is_oscillating_y,
             "is_moving_down": is_moving_down,
             "is_moving_up": is_moving_up,
-            "oscillations_x": max(rev_x_palm, rev_x_index),
-            "oscillations_y": rev_y_index,
-            "amp_x": round(max(amp_x_palm, amp_x_index), 3),
-            "amp_y": round(amp_y_index, 3),
+            "is_moving_horiz": is_moving_horiz,
+            "trace_j": trace_j,
+            "trace_z": trace_z,
+            "trace_s": trace_s,
+            "trace_h": trace_h,
+            "oscillations_x": max_rev_x,
+            "oscillations_y": max_rev_y,
+            "amp_x": round(max_amp_x, 3),
+            "amp_y": round(max_amp_y, 3),
             "net_dx": round(net_dx, 3),
             "net_dy": round(net_dy, 3),
             "path_length": round(path_len, 3),
@@ -177,15 +302,17 @@ class KinematicMotionAnalyzer:
         else:
             self.secondary_history.clear()
 
-        p_motion = self.primary_history.analyze()
-        s_motion = self.secondary_history.analyze()
+        p_motion = self.primary_history.analyze(now=now)
+        s_motion = self.secondary_history.analyze(now=now)
 
-        # Análisis bimanual cinemático
+        # Análisis bimanual cinemático con umbrales calibrados
         bimanual_motion = {
             "is_diverging": False,
             "is_converging": False,
             "both_moving_down": False,
+            "both_moving_up": False,
             "both_oscillating": False,
+            "one_moving_horiz": False,
             "divergence_rate": 0.0,
         }
 
@@ -200,25 +327,32 @@ class KinematicMotionAnalyzer:
                 d_rate = (d1 - d0) / dt
                 bimanual_motion["divergence_rate"] = round(d_rate, 3)
 
-                # Divergencia: manos separándose activamente (ej. ¿Cómo estás?)
-                if (d1 - d0) > 0.08 and d_rate > 0.15:
+                # Divergencia: manos separándose activamente (ej. ¿Cómo estás? / Buenos días)
+                if (d1 - d0) > 0.038 and d_rate > 0.075:
                     bimanual_motion["is_diverging"] = True
                 # Convergencia: manos acercándose activamente (ej. Mucho gusto / Por favor)
-                elif (d0 - d1) > 0.08 and d_rate < -0.15:
+                elif (d0 - d1) > 0.038 and d_rate < -0.075:
                     bimanual_motion["is_converging"] = True
 
-            # Ambas manos descendiendo con calma (ej. Más despacio)
+            # Ambas manos descendiendo con calma (ej. Más despacio / Repetir)
             if p_motion.get("is_moving_down") and s_motion.get("is_moving_down"):
                 bimanual_motion["both_moving_down"] = True
+
+            # Ambas manos ascendiendo (ej. Feliz / Celebración)
+            if p_motion.get("is_moving_up") and s_motion.get("is_moving_up"):
+                bimanual_motion["both_moving_up"] = True
 
             # Ambas manos oscilando (ej. ¿Qué? / ¿Dónde?)
             if (p_motion.get("is_oscillating_x") or p_motion.get("is_oscillating_y")) and \
                (s_motion.get("is_oscillating_x") or s_motion.get("is_oscillating_y")):
                 bimanual_motion["both_oscillating"] = True
 
+            # Una mano deslizándose horizontalmente sobre la otra (ej. Buenas tardes)
+            if p_motion.get("is_moving_horiz") or s_motion.get("is_moving_horiz"):
+                bimanual_motion["one_moving_horiz"] = True
+
         return {
             "primary": p_motion,
             "secondary": s_motion,
             "bimanual": bimanual_motion,
         }
-

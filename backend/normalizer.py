@@ -93,6 +93,85 @@ def normalize_landmarks(
         and not finger_states["pinky"]
     )
 
+    # 6. Métricas finas de geometría dactilológica (orientación, apertura, distancias relativas)
+    palm_sz = max(1e-4, float(np.linalg.norm(normalized_pts[MIDDLE_MCP, :2] - normalized_pts[WRIST, :2])))
+    v_idx = normalized_pts[INDEX_TIP, :2] - normalized_pts[INDEX_MCP, :2]
+    v_mid = normalized_pts[MIDDLE_TIP, :2] - normalized_pts[MIDDLE_MCP, :2]
+    v_hand = normalized_pts[MIDDLE_MCP, :2] - normalized_pts[WRIST, :2]
+
+    # Vector representativo de dirección de señalamiento
+    if finger_states["index"]:
+        dir_vec = v_idx
+    elif finger_states["middle"]:
+        dir_vec = v_mid
+    else:
+        dir_vec = v_hand
+
+    dx_dir, dy_dir = float(dir_vec[0]), float(dir_vec[1])
+    # En pantalla Y es positivo hacia abajo, negativo hacia arriba
+    if abs(dx_dir) > 0.82 * max(1e-4, abs(dy_dir)):
+        pointing_dir = "SIDE"
+    elif dy_dir > 0.06:
+        pointing_dir = "DOWN"
+    else:
+        pointing_dir = "UP"
+
+    idx_mid_spread = float(np.linalg.norm(normalized_pts[INDEX_TIP, :2] - normalized_pts[MIDDLE_TIP, :2])) / palm_sz
+    d_thumb_idx = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[INDEX_MCP, :2])) / palm_sz
+    d_thumb_mid = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[MIDDLE_MCP, :2])) / palm_sz
+    d_thumb_idx_pip = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[INDEX_PIP, :2])) / palm_sz
+    d_thumb_idx_tip = float(np.linalg.norm(normalized_pts[THUMB_TIP, :2] - normalized_pts[INDEX_TIP, :2])) / palm_sz
+
+    # Detección de dedos en garra / gancho (hook) para letras C, E, X
+    hooks = {}
+    for name, mcp_idx, tip_idx in (
+        ("index", INDEX_MCP, INDEX_TIP),
+        ("middle", MIDDLE_MCP, MIDDLE_TIP),
+        ("ring", RING_MCP, RING_TIP),
+        ("pinky", PINKY_MCP, PINKY_TIP),
+    ):
+        d_mcp_tip = float(np.linalg.norm(normalized_pts[tip_idx, :2] - normalized_pts[mcp_idx, :2])) / palm_sz
+        hooks[name] = bool(0.26 <= d_mcp_tip <= 0.70)
+
+    # Evaluación de dedos apuntando hacia abajo o al frente (letras M, N, P, Q)
+    y_tips = [normalized_pts[t, 1] for t in (INDEX_TIP, MIDDLE_TIP, RING_TIP)]
+    y_mcps = [normalized_pts[m, 1] for m in (INDEX_MCP, MIDDLE_MCP, RING_MCP)]
+    tip_drop = float(np.mean(y_tips) - np.mean(y_mcps))
+    fingertips_down = bool(tip_drop > 0.028 or dy_dir > 0.04 or pointing_dir == "DOWN")
+
+    is_crossed_r = bool(
+        finger_states["index"] and finger_states["middle"]
+        and idx_mid_spread < 0.28
+        and (normalized_pts[INDEX_TIP, 0] > normalized_pts[MIDDLE_TIP, 0])
+    )
+    is_o_circle = bool(d_thumb_idx_tip < 0.24 and not finger_states["pinky"])
+    is_c_arch = bool(0.24 <= d_thumb_idx_tip <= 0.72 and finger_states["index"] and finger_states["thumb"])
+    is_x_hook = bool(hooks.get("index", False) and not finger_states["middle"] and not finger_states["ring"] and not finger_states["pinky"])
+    is_e_claw = bool(sum(1 for k in ("index", "middle", "ring", "pinky") if hooks.get(k, False)) >= 3 and not is_o_circle and not is_c_arch)
+    is_q_cluster = bool(fingertips_down and finger_states["thumb"] and finger_states["index"])
+    thumb_across_front = bool(d_thumb_idx_pip < 0.35 and d_thumb_mid < 0.42 and not finger_states["thumb"])
+
+    fine = {
+        "pointing_dir": pointing_dir,
+        "hand_hanging_down": (pointing_dir == "DOWN" or fingertips_down),
+        "fingertips_down": fingertips_down,
+        "idx_mid_spread": round(idx_mid_spread, 3),
+        "d_thumb_idx": round(d_thumb_idx, 3),
+        "d_thumb_mid": round(d_thumb_mid, 3),
+        "d_thumb_idx_pip": round(d_thumb_idx_pip, 3),
+        "d_thumb_idx_tip": round(d_thumb_idx_tip, 3),
+        "hooks": hooks,
+        "is_crossed_r": is_crossed_r,
+        "is_o_circle": is_o_circle,
+        "is_c_arch": is_c_arch,
+        "is_x_hook": is_x_hook,
+        "is_e_claw": is_e_claw,
+        "is_q_cluster": is_q_cluster,
+        "thumb_across_front": thumb_across_front,
+        "v_idx_x": round(dx_dir, 3),
+        "v_idx_y": round(dy_dir, 3),
+    }
+
     telemetry = {
         "wrist": [_r(pts_raw[WRIST][0]), _r(pts_raw[WRIST][1]), _r(pts_raw[WRIST][2])],
         "index_tip": [_r(pts_raw[INDEX_TIP][0]), _r(pts_raw[INDEX_TIP][1]), _r(pts_raw[INDEX_TIP][2])],
@@ -107,6 +186,7 @@ def normalize_landmarks(
         "is_l_gesture": is_l_gesture,
         "is_pinch": is_l_gesture,
         "pinch_distance": _r(thumb_index_dist),
+        "fine": fine,
     }
 
     return vector_63d, telemetry

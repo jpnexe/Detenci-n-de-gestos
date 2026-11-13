@@ -32,6 +32,7 @@ import qrcode
 from backend.pipeline import SignBridgePipeline
 from backend.classifier_local import GESTURE_CATALOG
 from backend.conversation_engine import CONVERSATIONAL_SIGNS_CATALOG
+from backend.lsc_alphabet import LSC_ALPHABET_CATALOG
 
 
 app = FastAPI(
@@ -89,11 +90,13 @@ class LocalCameraWorker:
 
     def _loop(self) -> None:
         try:
-            # Abrir cámara local usando DirectShow sin forzar configuraciones que desestabilicen el sensor
             cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
             if not cap.isOpened():
                 cap = cv2.VideoCapture(0)
             if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                cap.set(cv2.CAP_PROP_FPS, 30)
                 self.cap = cap
                 while self.running:
                     ok, frame = cap.read()
@@ -101,20 +104,12 @@ class LocalCameraWorker:
                         with self._lock:
                             self.latest_frame = frame
                             self.available = True
-                        time.sleep(0.015)
                     else:
-                        time.sleep(0.04)
+                        time.sleep(0.05)
             else:
                 self.available = False
         except Exception:
             self.available = False
-        finally:
-            if self.cap is not None:
-                try:
-                    self.cap.release()
-                except Exception:
-                    pass
-                self.cap = None
 
     def read(self):
         with self._lock:
@@ -179,6 +174,18 @@ class HearingMessageRequest(BaseModel):
 
 class CommitSentenceRequest(BaseModel):
     phrase: Optional[str] = None
+
+
+class SubmodeRequest(BaseModel):
+    submode: str  # "HYBRID" | "CONVERSATION" | "ALPHABET_LSC"
+
+
+class TranslateToHandsRequest(BaseModel):
+    text: str
+
+
+class AddTokenRequest(BaseModel):
+    sign_id: str
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -256,7 +263,25 @@ async def api_catalog():
 
 @app.get("/api/conversation/catalog")
 async def api_conversation_catalog():
-    return {"catalog": CONVERSATIONAL_SIGNS_CATALOG}
+    return {
+        "catalog": CONVERSATIONAL_SIGNS_CATALOG,
+        "alphabet_catalog": LSC_ALPHABET_CATALOG,
+    }
+
+
+@app.post("/api/conversation/submode")
+async def api_conversation_submode(payload: SubmodeRequest):
+    return pipeline.set_sign_submode(payload.submode)
+
+
+@app.post("/api/conversation/translate_to_hands")
+async def api_conversation_translate_to_hands(payload: TranslateToHandsRequest):
+    return pipeline.translate_phrase_to_hands(payload.text)
+
+
+@app.post("/api/conversation/add_token")
+async def api_conversation_add_token(payload: AddTokenRequest):
+    return pipeline.add_manual_sign_token(payload.sign_id)
 
 
 @app.get("/api/conversation/state")
@@ -383,12 +408,16 @@ async def api_reset_detection():
 @app.post("/api/trigger")
 async def api_manual_trigger(payload: ManualTriggerRequest):
     gid = payload.gesture_id.upper().strip()
-    if gid not in GESTURE_CATALOG:
-        return JSONResponse({"error": "Gesto inválido"}, status_code=400)
-    meta = GESTURE_CATALOG[gid]
-    ev = pipeline.hardware.execute_action(gid, meta["action"], meta["name"])
-    pipeline.stabilizer.pulse_until = time.time() + 0.7
-    return {"triggered": True, "event": ev}
+    if gid in GESTURE_CATALOG:
+        meta = GESTURE_CATALOG[gid]
+        ev = pipeline.hardware.execute_action(gid, meta["action"], meta["name"])
+        pipeline.stabilizer.pulse_until = time.time() + 0.7
+        return {"triggered": True, "event": ev}
+    elif gid in CONVERSATIONAL_SIGNS_CATALOG or gid in LSC_ALPHABET_CATALOG:
+        pipeline.set_simulated_gesture(gid)
+        res = pipeline.add_manual_sign_token(gid)
+        return {"triggered": True, "conversation": res}
+    return JSONResponse({"error": "Gesto inválido"}, status_code=400)
 
 
 @app.websocket("/ws/hud")
@@ -432,6 +461,12 @@ async def ws_hud_endpoint(websocket: WebSocket):
                         pipeline.clear_conversation_tokens()
                     elif cmd == "HEARING_SPEECH":
                         pipeline.add_hearing_spoken_text(data.get("text", ""))
+                    elif cmd == "SET_SIGN_SUBMODE":
+                        pipeline.set_sign_submode(data.get("submode", "HYBRID"))
+                    elif cmd == "TRANSLATE_TO_HANDS":
+                        pipeline.translate_phrase_to_hands(data.get("text", ""))
+                    elif cmd == "ADD_SIGN_TOKEN":
+                        pipeline.add_manual_sign_token(data.get("sign_id", ""))
                     elif cmd == "CLIENT_FRAME":
                         b64_str = data.get("frame", "")
                         if "," in b64_str:
@@ -446,11 +481,16 @@ async def ws_hud_endpoint(websocket: WebSocket):
 
     recv_task = asyncio.create_task(receive_commands())
     try:
+        target_dt = 0.033  # ~30 FPS constantes y fluidos
         while connected:
+            t_loop_start = time.perf_counter()
             local_frame = camera_worker.read() if camera_worker.available else None
-            packet = pipeline.process_step(local_cam_bgr=local_frame)
+            # Ejecutar procesamiento CPU-intensivo (MediaPipe + OpenCV) en hilo secundario para no bloquear el event loop
+            packet = await asyncio.to_thread(pipeline.process_step, local_frame)
             await websocket.send_json(packet)
-            await asyncio.sleep(0.038)  # ~26 FPS constantes para HUD
+            t_elapsed = time.perf_counter() - t_loop_start
+            sleep_sec = max(0.002, target_dt - t_elapsed)
+            await asyncio.sleep(sleep_sec)
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -524,8 +564,7 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                         pipeline.set_mode("ONLINE")
                 elif msg_type == "SIMULATE":
                     gid = payload.get("gesture_id", "G1")
-                    if gid in GESTURE_CATALOG:
-                        pipeline.set_simulated_gesture(gid)
+                    pipeline.set_simulated_gesture(gid)
                 elif msg_type == "TRIGGER":
                     gid = payload.get("gesture_id", "G1")
                     if gid in GESTURE_CATALOG:
@@ -533,6 +572,9 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                         meta = GESTURE_CATALOG[gid]
                         pipeline.hardware.execute_action(gid, meta["action"], meta["name"])
                         pipeline.stabilizer.pulse_until = time.time() + 0.7
+                    elif gid in CONVERSATIONAL_SIGNS_CATALOG or gid in LSC_ALPHABET_CATALOG:
+                        pipeline.set_simulated_gesture(gid)
+                        pipeline.add_manual_sign_token(gid)
                 elif msg_type == "CONVERSATION_COMMIT":
                     pipeline.commit_conversation_sentence(payload.get("phrase"))
                 elif msg_type == "CONVERSATION_BACKSPACE":
@@ -541,19 +583,49 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                     pipeline.clear_conversation_tokens()
                 elif msg_type == "HEARING_SPEECH":
                     pipeline.add_hearing_spoken_text(payload.get("text", ""))
+                elif msg_type == "SET_SIGN_SUBMODE":
+                    pipeline.set_sign_submode(payload.get("submode", "HYBRID"))
+                elif msg_type == "TRANSLATE_TO_HANDS":
+                    pipeline.translate_phrase_to_hands(payload.get("text", ""))
+                elif msg_type == "ADD_SIGN_TOKEN":
+                    pipeline.add_manual_sign_token(payload.get("sign_id", ""))
 
             # Si el navegador del PC está cerrado o en segundo plano, el APK impulsa el pipeline
             if (time.perf_counter() - pipeline._last_frame_ts) > 0.032:
                 local_frame = camera_worker.read() if camera_worker.available else None
-                pipeline.process_step(local_cam_bgr=local_frame)
+                await asyncio.to_thread(pipeline.process_step, local_frame)
 
             cur_gid = (
                 pipeline.stabilizer.buffer[-1]
                 if pipeline.stabilizer.buffer
                 else (pipeline.stabilizer.last_triggered_gesture or "G0")
             )
-            meta_cur = GESTURE_CATALOG.get(cur_gid, GESTURE_CATALOG["G0"])
+            if cur_gid in GESTURE_CATALOG:
+                meta_cur = GESTURE_CATALOG[cur_gid]
+            elif cur_gid in CONVERSATIONAL_SIGNS_CATALOG:
+                s_meta = CONVERSATIONAL_SIGNS_CATALOG[cur_gid]
+                meta_cur = {
+                    "short_label": s_meta["label"],
+                    "sign_label": f"SEÑA ({s_meta['label']})",
+                    "sign_message": s_meta["default_phrase"],
+                    "action_label": f"Seña LSC ({s_meta['category']})",
+                }
+            elif cur_gid in LSC_ALPHABET_CATALOG:
+                l_meta = LSC_ALPHABET_CATALOG[cur_gid]
+                meta_cur = {
+                    "short_label": f"LETRA {l_meta['letter']}",
+                    "sign_label": f"ABECEDARIO LSC ({l_meta['letter']})",
+                    "sign_message": l_meta["description"],
+                    "action_label": f"Deletreo LSC ({'DINÁMICO' if l_meta.get('is_dynamic') else 'ESTÁTICO'})",
+                }
+            else:
+                meta_cur = GESTURE_CATALOG["G0"]
             gem_status = pipeline.gemini_classifier.get_status()
+
+            extra_tts = pipeline.conversation_engine.pop_tts_queue()
+            if extra_tts:
+                pipeline.latest_tts_seq += 1
+                pipeline.latest_tts_text = extra_tts
 
             await websocket.send_json({
                 "status": "streaming",
@@ -584,7 +656,8 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 "events": pipeline.hardware.get_recent_events()[:6],
                 "sign_history": pipeline.sign_history[:6],
                 "conversation": pipeline.conversation_engine.get_state(),
-                "tts_to_speak": pipeline.conversation_engine.pop_tts_queue(),
+                "tts_to_speak": pipeline.latest_tts_text,
+                "tts_seq": pipeline.latest_tts_seq,
                 "bimanual": len(pipeline.multi_hand_landmarks) >= 2,
                 "hands_count": len(pipeline.multi_hand_landmarks),
                 "hud_frame_b64": pipeline.latest_rendered_b64,

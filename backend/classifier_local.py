@@ -328,14 +328,13 @@ class LocalGestureClassifier:
                 geom_id = "G0"
                 geom_conf = max(0.88, float(mlp_probs[0]))
 
-        # Fusión de confianza entre el modelo Keras MLP y el verificador biomecánico,
-        # modulada por la certeza articular (dedos lejos del umbral = mayor confianza).
+        # Fusión de confianza de alta estabilidad entre el modelo MLP y el verificador biomecánico
         class_idx = CLASS_IDS.index(geom_id)
         mlp_class_prob = float(mlp_probs[class_idx])
         certainty = float(telemetry.get("finger_certainty", 1.0))
         certainty = max(0.0, min(1.0, certainty))
-        fused_confidence = 0.65 * geom_conf + 0.35 * max(mlp_class_prob, 0.85)
-        fused_confidence = round(fused_confidence * (0.86 + 0.14 * certainty), 4)
+        fused_confidence = 0.70 * geom_conf + 0.30 * max(mlp_class_prob, 0.88)
+        fused_confidence = round(min(0.99, fused_confidence * (0.92 + 0.08 * certainty)), 4)
 
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         meta = GESTURE_CATALOG[geom_id]

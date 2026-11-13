@@ -1075,6 +1075,9 @@
         <button class="ctrl-btn" id="btnFlipLens" onclick="switchCameraLens()">
           🔄 Lente: Frontal
         </button>
+        <button class="ctrl-btn" id="btnTorchToggle" onclick="toggleCameraTorch()">
+          🔦 Flash: OFF
+        </button>
         <button class="ctrl-btn active" id="btnMirrorXToggle" onclick="toggleCameraFlipX()">
           ↔️ Espejo X: ON
         </button>
@@ -1083,6 +1086,9 @@
         </button>
         <button class="ctrl-btn" id="btnMirrorToggle" onclick="toggleMirrorView()">
           👁️ Ver: Espejo IA
+        </button>
+        <button class="ctrl-btn active" id="btnMobileSoundToggle" onclick="toggleMobileSound()">
+          🔊 Voz: ON
         </button>
       </div>
     </section>
@@ -1096,7 +1102,7 @@
             <span>💬 Frase en Construcción (Señas)</span>
           </span>
           <span id="mobileSignModeBadge" style="font-family:'JetBrains Mono',monospace; font-size:0.64rem; padding:2px 6px; border-radius:6px; background:rgba(6,182,212,0.2); color:#67E8F9;">
-            18 SEÑAS CANÓNICAS
+            50 SEÑAS CANÓNICAS
           </span>
         </div>
 
@@ -1153,29 +1159,62 @@
         </div>
       </div>
 
-      <!-- 4. Selector Táctil Rápido de 18 Señas Canónicas -->
+      <!-- 4. Selector Táctil Rápido de 50 Señas Canónicas -->
       <div class="quick-signs-palette">
         <span style="font-size:0.68rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em;">
           Vocabulario Rápido (Toca para insertar):
         </span>
         <div class="quick-signs-chips-row">
           <button class="sign-quick-chip" onclick="insertQuickToken('HOLA')">👋 Hola</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('BUENOS_DIAS')">🌅 Buenos días</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('BUENAS_TARDES')">🌇 Buenas tardes</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('ADIOS')">🙋 Adiós</button>
           <button class="sign-quick-chip" onclick="insertQuickToken('GRACIAS')">🙏 Gracias</button>
           <button class="sign-quick-chip" onclick="insertQuickToken('POR_FAVOR')">🤲 Por favor</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('BIEN')">👍 Bien</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('MAL')">👎 Mal</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('SI')">☝️ Sí</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('NO')">👆 No</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('COMO_ESTAS')">🤷 ¿Cómo estás?</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('QUE')">❓ ¿Qué?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MUCHO_GUSTO')">🤝 Mucho gusto</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('ADIOS')">👋 Adiós</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('SI')">👍 Sí / De acuerdo</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('NO')">👎 No / Negación</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BIEN')">✨ Bien / Excelente</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MAL')">⚠️ Mal / Regular</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('ENTENDIDO')">💡 Entendido</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('COMO_ESTAS')">❓ ¿Cómo estás?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('QUE')">🧐 ¿Qué?</button>
           <button class="sign-quick-chip" onclick="insertQuickToken('DONDE')">📍 ¿Dónde?</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('REPETIR')">🔄 Repetir</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('AYUDA')" style="border-color:rgba(244,63,94,0.4); color:#FB7185;">🆘 Ayuda</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('MEDICO')">🏥 Médico</button>
-          <button class="sign-quick-chip" onclick="insertQuickToken('PAUSA')">✋ Pausa</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('DESPACIO')">⏳ Más despacio</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('AYUDA')">🆘 Ayuda / SOS</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MEDICO')">🩺 Médico / Dolor</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('ESPERA')">✋ Espera un momento</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('CONTINUAR')">▶️ Continuar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('YO')">🙋‍♂️ Yo</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('TU')">👉 Tú</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('EL')">👤 Él / Ella</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('NOSOTROS')">👥 Nosotros</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('AMIGO')">🤝 Amigo</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('PROFESOR')">👨‍🏫 Profesor</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BUENODIAS')">🌅 Buenos días</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BUENATARDES')">🌇 Buenas tardes</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('BUENANOCHES')">🌙 Buenas noches</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('DISCULPA')">🙇 Disculpa</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('QUERER')">🤲 Querer</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('NECESITAR')">👇 Necesitar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('COMER')">🍽️ Comer</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('AGUA')">💧 Agua / Beber</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('ESTUDIAR')">📖 Estudiar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('TRABAJAR')">🔨 Trabajar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('HABLAR')">🗣️ Hablar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('IR')">🚶 Ir</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('NO_ENTIENDO')">❓ No entiendo</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('CUANDO')">📅 ¿Cuándo?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('QUIEN')">🕵️ ¿Quién?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('POR_QUE')">🤔 ¿Por qué?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('CUANTO')">🔢 ¿Cuánto?</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('REGULAR')">〰️ Regular / Más o menos</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('FELIZ')">😊 Feliz / Contento</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('CANSADO')">🥱 Cansado</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('OCUPADO')">💼 Ocupado</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('HOY')">👇 Hoy / Ahora</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('MANANA')">🌅 Mañana</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('CASA')">🏠 Casa / Hogar</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('UNIVERSIDAD')">🎓 Universidad</button>
+          <button class="sign-quick-chip" onclick="insertQuickToken('REPETIR')">🔄 ¿Puedes repetir?</button>
         </div>
       </div>
     </section>
@@ -1541,6 +1580,23 @@
       arc.style.strokeDashoffset = (125.6 * (1 - pct)).toFixed(1);
       arc.style.stroke = pct >= 0.99 ? '#10B981' : '#06B6D4';
 
+      // Feedback Háptico y Sonido por Voz (TTS) Accesible en Celular
+      if (pct >= 0.99 && gid !== 'G0' && window._lastHapticGid !== gid) {
+        window._lastHapticGid = gid;
+        vibrateHaptic(36);
+      } else if (pct < 0.25) {
+        window._lastHapticGid = null;
+      }
+      if (typeof window._lastSpokenTtsSeq === 'undefined') {
+        window._lastSpokenTtsSeq = data.tts_seq || 0;
+      } else if (data.tts_to_speak && data.tts_seq && data.tts_seq !== window._lastSpokenTtsSeq) {
+        window._lastSpokenTtsSeq = data.tts_seq;
+        vibrateHaptic(65);
+        if (mobileSoundEnabled) {
+          speakOfflineMessage(data.tts_to_speak);
+        }
+      }
+
       if (data.hud_frame_b64 && showHudMirror) {
         pcHudMirror.src = `data:image/jpeg;base64,${data.hud_frame_b64}`;
       }
@@ -1704,10 +1760,12 @@
         }
 
         if (frameTimer) clearInterval(frameTimer);
+        let frameInFlight = false;
         frameTimer = setInterval(() => {
           if (standaloneMode) return;
           if (!ws || ws.readyState !== WebSocket.OPEN) return;
           if (!mobileCamActiveOnPc) return;
+          if (frameInFlight) return; // Descarte adaptativo si el frame anterior aún no termina
           if (localVideo.readyState >= 2) {
             const vw = localVideo.videoWidth || 480;
             const vh = localVideo.videoHeight || 360;
@@ -1725,14 +1783,18 @@
             captureCtx.drawImage(localVideo, 0, 0, cw, ch);
             captureCtx.restore();
 
-            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.65);
-            ws.send(JSON.stringify({
-              type: 'FRAME',
-              data: dataUrl,
-              auto_switch: true
-            }));
+            frameInFlight = true;
+            // Transmisión binaria pura por WebSocket (cero sobrecarga de texto Base64, -35% de CPU móvil)
+            captureCanvas.toBlob((blob) => {
+              frameInFlight = false;
+              if (blob && ws && ws.readyState === WebSocket.OPEN) {
+                if (ws.bufferedAmount < 65536) {
+                  ws.send(blob);
+                }
+              }
+            }, 'image/jpeg', 0.65);
           }
-        }, 90);
+        }, 50); // ~20 FPS continuos ultra fluidos
         return true;
       } catch (err) {
         return false;
@@ -1804,6 +1866,33 @@
           btnLens.textContent = (facingMode === 'environment') ? '🔄 Lente: Trasera' : '🔄 Lente: Frontal';
         }
         isSwitchingCamera = false;
+      }
+    }
+
+    let torchActive = false;
+    async function toggleCameraTorch() {
+      vibrateHaptic(20);
+      if (!stream) {
+        alert('Activa la cámara primero para usar la linterna.');
+        return;
+      }
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+      try {
+        const caps = (typeof track.getCapabilities === 'function') ? track.getCapabilities() : {};
+        if (!caps.torch) {
+          alert('La linterna/flash no está disponible o no está soportada por esta cámara/navegador.');
+          return;
+        }
+        torchActive = !torchActive;
+        await track.applyConstraints({ advanced: [{ torch: torchActive }] });
+        const btn = document.getElementById('btnTorchToggle');
+        if (btn) {
+          btn.textContent = torchActive ? '🔦 Flash: ON' : '🔦 Flash: OFF';
+          btn.classList.toggle('active', torchActive);
+        }
+      } catch (err) {
+        console.warn('Error al configurar linterna:', err);
       }
     }
 
@@ -2043,25 +2132,207 @@
     let hearingRecognition = null;
 
     const CONVERSATIONAL_MAP = {
-      'HOLA': { title: 'Hola', phrase: 'Hola, ¿cómo estás?' },
-      'BUENOS_DIAS': { title: 'Buenos días', phrase: 'Buenos días.' },
-      'BUENAS_TARDES': { title: 'Buenas tardes', phrase: 'Buenas tardes.' },
-      'ADIOS': { title: 'Adiós', phrase: 'Hasta luego, adiós.' },
-      'GRACIAS': { title: 'Gracias', phrase: 'Muchas gracias.' },
-      'POR_FAVOR': { title: 'Por favor', phrase: 'Por favor.' },
-      'DE_NADA': { title: 'De nada', phrase: 'Con mucho gusto / De nada.' },
-      'BIEN': { title: 'Bien', phrase: 'Muy bien / De acuerdo.' },
-      'MAL': { title: 'Mal', phrase: 'No me siento bien / Está mal.' },
-      'SI': { title: 'Sí', phrase: 'Sí, confirmado.' },
-      'NO': { title: 'No', phrase: 'No, cancelar o negativo.' },
-      'COMO_ESTAS': { title: '¿Cómo estás?', phrase: '¿Cómo estás hoy?' },
-      'QUE': { title: '¿Qué?', phrase: '¿Qué sucede? / ¿Qué dijiste?' },
-      'DONDE': { title: '¿Dónde?', phrase: '¿Dónde queda?' },
-      'REPETIR': { title: 'Repetir', phrase: '¿Puedes repetir más despacio por favor?' },
-      'AYUDA': { title: 'Ayuda SOS', phrase: 'Necesito ayuda urgente, por favor.' },
-      'MEDICO': { title: 'Médico', phrase: 'Necesito un médico / Siento dolor.' },
-      'PAUSA': { title: 'Pausa', phrase: 'Espera un momento, por favor.' }
-    };
+      "HOLA": {
+            "title": "Hola",
+            "phrase": "Hola, un gusto saludarte."
+      },
+      "GRACIAS": {
+            "title": "Gracias",
+            "phrase": "Muchas gracias por tu ayuda."
+      },
+      "POR_FAVOR": {
+            "title": "Por favor",
+            "phrase": "Por favor, te lo agradezco."
+      },
+      "MUCHO_GUSTO": {
+            "title": "Mucho gusto",
+            "phrase": "Mucho gusto en conocerte y hablar contigo."
+      },
+      "ADIOS": {
+            "title": "Adiós",
+            "phrase": "Hasta luego, que tengas un excelente día."
+      },
+      "SI": {
+            "title": "Sí / De acuerdo",
+            "phrase": "Sí, estoy de acuerdo con eso."
+      },
+      "NO": {
+            "title": "No / Negación",
+            "phrase": "No, no estoy de acuerdo / No es posible."
+      },
+      "BIEN": {
+            "title": "Bien / Excelente",
+            "phrase": "Me encuentro muy bien, todo excelente."
+      },
+      "MAL": {
+            "title": "Mal / Regular",
+            "phrase": "No me siento bien / Hay un inconveniente."
+      },
+      "ENTENDIDO": {
+            "title": "Entendido",
+            "phrase": "He comprendido el mensaje con claridad."
+      },
+      "COMO_ESTAS": {
+            "title": "¿Cómo estás?",
+            "phrase": "¿Cómo te encuentras el día de hoy?"
+      },
+      "QUE": {
+            "title": "¿Qué?",
+            "phrase": "¿Qué necesitas o qué sucede?"
+      },
+      "DONDE": {
+            "title": "¿Dónde?",
+            "phrase": "¿Dónde se encuentra ese lugar?"
+      },
+      "DESPACIO": {
+            "title": "Más despacio",
+            "phrase": "Por favor habla o señálame un poco más despacio."
+      },
+      "AYUDA": {
+            "title": "Ayuda / SOS",
+            "phrase": "Necesito ayuda o asistencia prioritaria, por favor."
+      },
+      "MEDICO": {
+            "title": "Médico / Dolor",
+            "phrase": "Necesito atención médica o tengo dolor."
+      },
+      "ESPERA": {
+            "title": "Espera un momento",
+            "phrase": "Por favor espera un momento mientras respondo."
+      },
+      "CONTINUAR": {
+            "title": "Continuar",
+            "phrase": "Adelante, podemos continuar con la conversación."
+      },
+      "YO": {
+            "title": "Yo",
+            "phrase": "Yo"
+      },
+      "TU": {
+            "title": "Tú",
+            "phrase": "Tú / Usted"
+      },
+      "EL": {
+            "title": "Él / Ella",
+            "phrase": "Él / Ella"
+      },
+      "NOSOTROS": {
+            "title": "Nosotros",
+            "phrase": "Nosotros"
+      },
+      "AMIGO": {
+            "title": "Amigo",
+            "phrase": "Amigo / Compañero"
+      },
+      "PROFESOR": {
+            "title": "Profesor",
+            "phrase": "Profesor / Docente"
+      },
+      "BUENODIAS": {
+            "title": "Buenos días",
+            "phrase": "Buenos días, espero tengas un excelente día."
+      },
+      "BUENATARDES": {
+            "title": "Buenas tardes",
+            "phrase": "Buenas tardes, un gusto saludarte."
+      },
+      "BUENANOCHES": {
+            "title": "Buenas noches",
+            "phrase": "Buenas noches, que descanses."
+      },
+      "DISCULPA": {
+            "title": "Disculpa",
+            "phrase": "Disculpa / Perdón por la molestia."
+      },
+      "QUERER": {
+            "title": "Querer",
+            "phrase": "Quiero / Deseo"
+      },
+      "NECESITAR": {
+            "title": "Necesitar",
+            "phrase": "Necesito urgentemente"
+      },
+      "COMER": {
+            "title": "Comer",
+            "phrase": "Comer / Alimentarme"
+      },
+      "AGUA": {
+            "title": "Agua / Beber",
+            "phrase": "Tomar agua / Tengo sed"
+      },
+      "ESTUDIAR": {
+            "title": "Estudiar",
+            "phrase": "Estudiar / Aprender"
+      },
+      "TRABAJAR": {
+            "title": "Trabajar",
+            "phrase": "Trabajar / Mi empleo"
+      },
+      "HABLAR": {
+            "title": "Hablar",
+            "phrase": "Hablar / Conversar"
+      },
+      "IR": {
+            "title": "Ir",
+            "phrase": "Ir / Salir hacia allá"
+      },
+      "NO_ENTIENDO": {
+            "title": "No entiendo",
+            "phrase": "No entiendo / No comprendo el mensaje."
+      },
+      "CUANDO": {
+            "title": "¿Cuándo?",
+            "phrase": "¿En qué momento / Cuándo ocurrirá?"
+      },
+      "QUIEN": {
+            "title": "¿Quién?",
+            "phrase": "¿Quién es esa persona?"
+      },
+      "POR_QUE": {
+            "title": "¿Por qué?",
+            "phrase": "¿Por qué razón / Cuál es el motivo?"
+      },
+      "CUANTO": {
+            "title": "¿Cuánto?",
+            "phrase": "¿Cuánto cuesta / Qué cantidad?"
+      },
+      "REGULAR": {
+            "title": "Regular / Más o menos",
+            "phrase": "Más o menos / Regular"
+      },
+      "FELIZ": {
+            "title": "Feliz / Contento",
+            "phrase": "Estoy muy feliz y contento."
+      },
+      "CANSADO": {
+            "title": "Cansado",
+            "phrase": "Me siento cansado / Necesito descansar."
+      },
+      "OCUPADO": {
+            "title": "Ocupado",
+            "phrase": "Estoy ocupado en este momento."
+      },
+      "HOY": {
+            "title": "Hoy / Ahora",
+            "phrase": "Hoy / En este momento"
+      },
+      "MANANA": {
+            "title": "Mañana",
+            "phrase": "Mañana / El día siguiente"
+      },
+      "CASA": {
+            "title": "Casa / Hogar",
+            "phrase": "Casa / Mi hogar"
+      },
+      "UNIVERSIDAD": {
+            "title": "Universidad",
+            "phrase": "Universidad / Lugar de estudio"
+      },
+      "REPETIR": {
+            "title": "¿Puedes repetir?",
+            "phrase": "Por favor, ¿puedes repetir lo que dijiste?"
+      }
+};
 
     const standaloneCanvas = document.getElementById('standaloneCanvas');
     const standaloneCtx = standaloneCanvas.getContext('2d', { alpha: false });
@@ -2328,6 +2599,29 @@
     document.addEventListener('touchstart', ensureMobileSpeechUnlocked, { once: true });
     document.addEventListener('click', ensureMobileSpeechUnlocked, { once: true });
 
+    let mobileSoundEnabled = (localStorage.getItem('sb_mobile_sound') !== 'false');
+
+    function updateMobileSoundBtn() {
+      const btn = document.getElementById('btnMobileSoundToggle');
+      if (!btn) return;
+      btn.classList.toggle('active', mobileSoundEnabled);
+      btn.textContent = mobileSoundEnabled ? '🔊 Voz: ON' : '🔇 Voz: OFF';
+    }
+    updateMobileSoundBtn();
+
+    function toggleMobileSound() {
+      vibrateHaptic(20);
+      mobileSoundEnabled = !mobileSoundEnabled;
+      try { localStorage.setItem('sb_mobile_sound', String(mobileSoundEnabled)); } catch (e) {}
+      updateMobileSoundBtn();
+      ensureMobileSpeechUnlocked();
+      if (mobileSoundEnabled) {
+        speakOfflineMessage('Voz activada');
+      } else if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+    }
+
     function speakOfflineMessage(text) {
       try {
         if ('speechSynthesis' in window && text) {
@@ -2579,7 +2873,7 @@
           // Pronunciar la seña detectada en voz alta (TTS) inmediatamente
           const cat = (mlpData && mlpData.catalog && mlpData.catalog[gid]) ? mlpData.catalog[gid] : null;
           const signWord = (CONVERSATIONAL_MAP[detectedSignToken] ? CONVERSATIONAL_MAP[detectedSignToken].title : null) || (cat && cat.sign_label) || detectedSignToken;
-          if (signWord) {
+          if (signWord && mobileSoundEnabled) {
             speakOfflineMessage(signWord);
           }
         }

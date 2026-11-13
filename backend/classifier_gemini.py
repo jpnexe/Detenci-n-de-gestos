@@ -18,6 +18,7 @@ from dotenv import load_dotenv, set_key
 
 from backend.classifier_local import GESTURE_CATALOG, LocalGestureClassifier
 from backend.conversation_engine import CONVERSATIONAL_SIGNS_CATALOG
+from backend.lsc_alphabet import LSC_ALPHABET_CATALOG
 
 load_dotenv(override=True)
 
@@ -35,9 +36,10 @@ Responde ÚNICAMENTE en JSON válido:
 {"gesture_id": "G0"|"G1"|"G2"|"G3"|"G4"|"G5", "confidence": 0.85-0.99, "semantic_note": "breve explicación en español"}
 """
 
-PROMPT_SIGN_LANGUAGE = """Eres el traductor conversacional multimodal de SignBridge Extended (Lengua de Señas).
+PROMPT_SIGN_LANGUAGE = """Eres el traductor conversacional multimodal de SignBridge Extended (Lengua de Señas Colombiana - LSC).
 Analiza la imagen de la(s) mano(s) y la cinemática articular.
-Clasifica ESTRICTAMENTE en una de las señas canónicas:
+Clasifica con rigor en una de las señas conversacionales o letras del Abecedario LSC:
+SEÑAS CONVERSACIONALES:
 - "S_HOLA": Saludo con palma abierta al frente.
 - "S_ADIOS": Mano abierta oscilando lateralmente en despedida.
 - "S_GRACIAS": Mano proyectándose al frente o palmas juntas en agradecimiento.
@@ -46,25 +48,51 @@ Clasifica ESTRICTAMENTE en una de las señas canónicas:
 - "S_NO": Dedo índice o L oscilando lateralmente en negación.
 - "S_BIEN": Pulgar extendido hacia arriba firmemente (bien/OK).
 - "S_MAL": Pulgar apuntando hacia abajo o mano bamboleando (mal/regular).
-- "S_AYUDA": Puño sobre palma plana (SOS) o Shaka/3 dedos.
+- "S_AYUDA": Puño sobre palma plana (SOS) o señal de auxilio.
 - "S_CONTINUAR": Dedos índice y medio en V/Paz (continuar/adelante).
 - "S_ENTENDIDO": Puño cerrado afirmando o toque en la sien.
 - "S_ESPERA": Ambas palmas abiertas mirando al frente empujando el aire.
 - "S_COMO_ESTAS": Ambas manos abriéndose hacia los lados desde el centro.
 - "S_QUE": Ambas palmas abiertas hacia arriba oscilando suavemente.
 - "S_DESPACIO": Ambas palmas abiertas horizontales descendiendo con calma.
-- "G0": Postura neutra, en transición o no identificada con certeza.
+- "S_MUCHO_GUSTO": Palmas convergiendo al centro en saludo formal.
+- "S_BUENOS_DIAS": Mano dominante elevándose sobre antebrazo base.
+- "S_BUENAS_TARDES": Mano dominante deslizándose sobre antebrazo horizontal.
+- "S_BUENAS_NOCHES": Mano dominante descendiendo en arco sobre brazo base.
+- "S_AMIGO": Ambas manos uniéndose cálidamente.
+- "S_CASA": Manos unidas en tejado o ángulo de triángulo.
+- "S_TRABAJAR": Puños golpeándose suavemente en ritmo.
+- "S_ESTUDIAR": Mano repasando la palma base como un libro.
+- "S_MEDICO": Dedos tocando el pulso en la muñeca contraria.
+- "S_DONDE": Índices de ambas manos apuntando en búsqueda espacial.
+- "S_CUANDO": Índice girando alrededor de la otra mano.
+- "S_QUIEN": Índice rozando la barbilla o mejilla.
+- "S_POR_QUE": Índice en la frente proyectándose hacia afuera.
+- "S_QUERER": Manos abiertas retrayéndose hacia el pecho.
+- "S_NECESITAR": Puño/gancho descendiendo con firmeza.
+- "S_FELIZ": Manos abiertas ascendiendo frente al pecho.
+- "S_TRISTE": Mano descendiendo lentamente frente al rostro.
+- "S_CANSADO": Manos relajadas cayendo sobre el pecho.
+- "S_OCUPADO": Manos activas cruzándose en acción.
+- "S_NO_ENTIENDO": Índice oscilando en negación a la altura de la sien.
+- "S_REPETIR": Mano abierta realizando barrido descendente.
+- "S_HABLAR": Índices alternando movimiento en diálogo.
+- "S_IR": Índice proyectándose hacia adelante en dirección de marcha.
+ABECEDARIO LSC DACTILOLÓGICO:
+- Letras individuales: "L_A".."L_Z", "L_NTILDE" (ejemplo: "L_A", "L_B", "L_C", "L_J", "L_Z", "L_Ñ" -> "L_NTILDE").
+RECHAZO:
+- "G0": Postura neutra, mano en reposo o no identificada con suficiente certeza.
 
 Responde ÚNICAMENTE en JSON válido:
-{"gesture_id": "S_HOLA"|"S_ADIOS"|"S_GRACIAS"|"S_POR_FAVOR"|"S_SI"|"S_NO"|"S_BIEN"|"S_MAL"|"S_AYUDA"|"S_CONTINUAR"|"S_ENTENDIDO"|"S_ESPERA"|"S_COMO_ESTAS"|"S_QUE"|"S_DESPACIO"|"G0", "confidence": 0.85-0.99, "semantic_note": "breve explicación en español"}
+{"gesture_id": "<ID_SEÑA_O_LETRA>", "confidence": 0.85-0.99, "semantic_note": "breve explicación en español"}
 """
 
 DEFAULT_FAST_MODEL = "gemini-3.5-flash-lite"
 FALLBACK_MODELS = [
     "gemini-3.5-flash-lite",
-    "gemini-flash-lite-latest",
-    "gemini-3-flash-preview",
-    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
 ]
 
 
@@ -84,7 +112,7 @@ class GeminiGestureClassifier:
         self._lock = threading.Lock()
         self._in_flight = False
         self._last_request_ts = 0.0
-        self._min_interval_sec = 0.60
+        self._min_interval_sec = 0.40
         self._cached_result: Optional[Dict[str, Any]] = None
         self._last_error: Optional[str] = None
         self._last_success_ts = 0.0
@@ -201,9 +229,9 @@ class GeminiGestureClassifier:
 
             prompt_context = (
                 f"Modo: {interaction_mode}. "
-                f"Dedos detectados: {telemetry.get('fingers')}. "
+                f"Dedos extendidos según tracking: {[k for k, v in telemetry.get('fingers', {}).items() if v]}. "
                 f"Escala euclidiana: {telemetry.get('euclidean_scale')}. "
-                f"Predicción local sugerida: {local_pred.get('gesture_id')} ({local_pred.get('name')})."
+                f"Analiza la imagen cuidadosamente y clasifica el gesto o seña real ejecutada por el usuario."
             )
 
             # Intentar con el modelo activo o pasar a los modelos de respaldo si la nube satura
@@ -243,23 +271,57 @@ class GeminiGestureClassifier:
             semantic_note = parsed.get("semantic_note", "Análisis multimodal Gemini en tiempo real")
 
             # Resolver metadata según el catálogo correspondiente
-            if is_sign_mode and raw_gid in CONVERSATIONAL_SIGNS_CATALOG:
-                meta_sign = CONVERSATIONAL_SIGNS_CATALOG[raw_gid]
-                res_obj = {
-                    "gesture_id": raw_gid,
-                    "name": meta_sign["label"],
-                    "short_label": meta_sign["label"],
-                    "sign_label": meta_sign["label"],
-                    "sign_message": meta_sign["default_phrase"],
-                    "action": "NONE",
-                    "action_label": "Traducción Gemini",
-                    "confidence": round(min(max(conf, 0.50), 0.99), 4),
-                    "probabilities": local_pred.get("probabilities", {}),
-                    "latency_ms": latency_ms,
-                    "engine": f"Gemini ({used_model})",
-                    "semantic_note": semantic_note,
-                    "cloud_verified": True,
-                }
+            if is_sign_mode:
+                if raw_gid in CONVERSATIONAL_SIGNS_CATALOG:
+                    meta_sign = CONVERSATIONAL_SIGNS_CATALOG[raw_gid]
+                    res_obj = {
+                        "gesture_id": raw_gid,
+                        "name": meta_sign["label"],
+                        "short_label": meta_sign["label"],
+                        "sign_label": meta_sign["label"],
+                        "sign_message": meta_sign["default_phrase"],
+                        "action": "NONE",
+                        "action_label": "Traducción Gemini",
+                        "confidence": round(min(max(conf, 0.50), 0.99), 4),
+                        "probabilities": {},
+                        "latency_ms": latency_ms,
+                        "engine": f"Gemini ({used_model})",
+                        "semantic_note": semantic_note,
+                        "cloud_verified": True,
+                    }
+                elif raw_gid in LSC_ALPHABET_CATALOG:
+                    meta_l = LSC_ALPHABET_CATALOG[raw_gid]
+                    res_obj = {
+                        "gesture_id": raw_gid,
+                        "name": f"Letra {meta_l['letter']}",
+                        "short_label": f"LETRA {meta_l['letter']}",
+                        "sign_label": f"LETRA {meta_l['letter']}",
+                        "sign_message": meta_l.get("description", ""),
+                        "action": "NONE",
+                        "action_label": "Deletreo LSC (Gemini)",
+                        "confidence": round(min(max(conf, 0.50), 0.99), 4),
+                        "probabilities": {},
+                        "latency_ms": latency_ms,
+                        "engine": f"Gemini ({used_model})",
+                        "semantic_note": semantic_note,
+                        "cloud_verified": True,
+                    }
+                else:
+                    res_obj = {
+                        "gesture_id": "G0",
+                        "name": GESTURE_CATALOG["G0"]["name"],
+                        "short_label": "DESCONOCIDO",
+                        "sign_label": "DESCONOCIDO",
+                        "sign_message": "Esperando seña intencional...",
+                        "action": "NONE",
+                        "action_label": "Esperando seña intencional",
+                        "confidence": 0.0,
+                        "probabilities": {k: 0.0 for k in GESTURE_CATALOG},
+                        "latency_ms": latency_ms,
+                        "engine": f"Gemini ({used_model})",
+                        "semantic_note": semantic_note,
+                        "cloud_verified": True,
+                    }
             elif raw_gid in GESTURE_CATALOG:
                 meta = GESTURE_CATALOG[raw_gid]
                 res_obj = {
@@ -315,7 +377,7 @@ class GeminiGestureClassifier:
     ) -> Dict[str, Any]:
         """
         Retorna la inferencia multimodal de Gemini.
-        Dispara peticiones asíncronas no-bloqueantes cada ~600 ms y sirve el resultado
+        Dispara peticiones asíncronas no-bloqueantes cada ~400 ms y sirve el resultado
         verificado sin congelar el hilo principal de renderizado de la cámara.
         """
         local_pred = self.fallback.predict(vector_63d, telemetry)
@@ -333,28 +395,26 @@ class GeminiGestureClassifier:
                         daemon=True,
                     ).start()
 
-                # Si tenemos un resultado verificado por la nube recibido en los últimos 6.0 segundos
-                if self._cached_result is not None and (now - self._last_success_ts) < 6.0:
+                # Si tenemos un resultado verificado por la nube recibido en los últimos 2.0 segundos
+                if self._cached_result is not None and (now - self._last_success_ts) < 2.0:
                     return dict(self._cached_result)
 
-        # Si aún está en vuelo o sin clave configurada, proveer telemetría local con estado visual claro
-        gid = local_pred["gesture_id"]
-        meta = GESTURE_CATALOG.get(gid, GESTURE_CATALOG["G0"])
+        # Si aún está en vuelo o sin clave configurada, reportar estado activo de Gemini sin contaminar con el modelo local
         note = (
-            f"Gemini API conectada ({self._active_model_resolved}) — Consultando frame..."
+            f"Gemini API activa ({self._active_model_resolved}) — Analizando fotograma en la nube..."
             if self._client is not None
             else "Modo Online: Configura GEMINI_API_KEY para análisis cloud en vivo"
         )
         return {
-            "gesture_id": gid,
-            "name": meta["name"],
-            "short_label": meta["short_label"],
-            "sign_label": meta.get("sign_label", meta["short_label"]),
-            "sign_message": meta.get("sign_message", ""),
-            "action": meta["action"],
-            "action_label": meta["action_label"],
-            "confidence": round(local_pred["confidence"], 4),
-            "probabilities": local_pred["probabilities"],
+            "gesture_id": "G0",
+            "name": GESTURE_CATALOG["G0"]["name"],
+            "short_label": "DESCONOCIDO",
+            "sign_label": "DESCONOCIDO",
+            "sign_message": "Esperando seña intencional...",
+            "action": "NONE",
+            "action_label": "Esperando verificación Gemini",
+            "confidence": 0.0,
+            "probabilities": {k: 0.0 for k in GESTURE_CATALOG},
             "latency_ms": 32.0 if self._client is not None else 18.0,
             "engine": f"Gemini Online ({self._active_model_resolved})",
             "semantic_note": note,

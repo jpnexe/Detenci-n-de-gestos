@@ -13,11 +13,52 @@ from typing import Deque, Dict, Any, Optional
 from backend.classifier_local import GESTURE_CATALOG
 
 
+def is_gesture_dynamic(gid: str, raw_prediction: Optional[Dict[str, Any]] = None) -> bool:
+    """
+    Determina de manera genérica y extensible si un gesto o seña es de naturaleza dinámica.
+    Consulta dinámicamente:
+    1. Si la predicción cruda reporta `is_dynamic: True`.
+    2. El catálogo unificado de señas conversacionales (CONVERSATIONAL_SIGNS_CATALOG).
+    3. El catálogo oficial del abecedario dactilológico LSC (LSC_ALPHABET_CATALOG).
+    Cualquier seña actual o agregada en el futuro con `is_dynamic: True` queda
+    automáticamente tratada con la estabilización rápida y responsiva.
+    """
+    if raw_prediction and raw_prediction.get("is_dynamic"):
+        return True
+
+    # Comprobación dinámica en catálogos del sistema (tiempo de ejecución extensible)
+    try:
+        from backend.conversation_engine import CONVERSATIONAL_SIGNS_CATALOG
+        meta = CONVERSATIONAL_SIGNS_CATALOG.get(gid)
+        if meta and meta.get("is_dynamic"):
+            return True
+    except Exception:
+        pass
+
+    try:
+        from backend.lsc_alphabet import LSC_ALPHABET_CATALOG
+        meta_lsc = LSC_ALPHABET_CATALOG.get(gid)
+        if meta_lsc and meta_lsc.get("is_dynamic"):
+            return True
+    except Exception:
+        pass
+
+    known_dynamic = {
+        "L_H", "L_G", "L_J", "L_Z", "L_NTILDE", "L_S",
+        "S_ADIOS", "S_NO", "S_SI", "S_MAL", "S_REPETIR", "S_DESPACIO", "S_QUE",
+        "S_COMO_ESTAS", "S_GRACIAS", "S_REGULAR", "S_MUCHO_GUSTO", "S_BUENOS_DIAS",
+        "S_BUENAS_TARDES", "S_BUENAS_NOCHES", "S_FELIZ", "S_TRABAJAR", "S_HABLAR",
+        "S_IR", "S_NO_ENTIENDO", "S_DONDE", "S_NECESITAR", "S_COMER", "S_CANSADO",
+        "S_OCUPADO", "S_MANANA", "S_UNIVERSIDAD"
+    }
+    return gid in known_dynamic
+
+
 class TemporalStabilizer:
     def __init__(
         self,
         buffer_size: int = 8,
-        min_confidence: float = 0.85,
+        min_confidence: float = 0.78,
         cooldown_sec: float = 1.15,
     ):
         self.buffer_size = buffer_size
@@ -53,11 +94,10 @@ class TemporalStabilizer:
         self.buffer.append(gid)
         self.conf_buffer.append(conf)
 
-        # Gestos dinámicos basados en movimiento (oscilación, deslizamiento, saludo, negación)
-        is_dynamic = bool(raw_prediction.get("is_dynamic", False)) or gid in (
-            "S_ADIOS", "S_NO", "S_SI", "S_MAL", "S_REPETIR", "S_DESPACIO", "S_QUE", "S_COMO_ESTAS"
-        )
-        required_frames = max(4, self.buffer_size // 2) if is_dynamic else self.buffer_size
+        # Gestos dinámicos basados en movimiento o verificados por Gemini Cloud
+        is_dynamic = is_gesture_dynamic(gid, raw_prediction)
+        is_cloud = bool(raw_prediction.get("cloud_verified", False))
+        required_frames = max(2, self.buffer_size // 4) if (is_dynamic or is_cloud) else self.buffer_size
 
         # Conteo de consistencia en la ventana circular
         if gid == "G0":
@@ -67,7 +107,10 @@ class TemporalStabilizer:
             matching_frames = sum(1 for item in self.buffer if item == gid)
             ring_progress = round(min(1.0, matching_frames / float(required_frames)), 3)
 
-        in_cooldown = (now - self.last_trigger_time) < self.cooldown_sec
+        # Cooldown adaptativo: 1.15s para el MISMO gesto (evitar repetición accidental),
+        # pero solo 0.35s al cambiar hacia un gesto diferente (para deletreo y fluidez conversacional)
+        effective_cooldown = self.cooldown_sec if (gid == self.last_triggered_gesture) else min(0.35, self.cooldown_sec)
+        in_cooldown = (now - self.last_trigger_time) < effective_cooldown
         triggered = False
 
         # Si el buffer circular confirma el comando según su tipo (dinámico o estático) y no estamos en cooldown
@@ -76,7 +119,7 @@ class TemporalStabilizer:
             self.last_trigger_time = now
             self.last_triggered_gesture = gid
             self.pulse_until = now + 0.65
-            # Reiniciar parcialmente el buffer tras disparo para requerir nueva retención deliberada
+            # Reiniciar el buffer tras disparo para requerir nueva intención deliberada
             self.buffer.clear()
 
         pulse_active = now < self.pulse_until
