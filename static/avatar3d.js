@@ -20,15 +20,15 @@
 
   const AVATAR_PRESETS = {
     hasune_glb: {
-      name: 'Hasune 3D (GLB Cuerpo Completo)',
+      name: 'Student Hatsune 3D (GLB)',
       renderStyle: 'glb',
-      glbUrl: '/avatares/Hasune%20avatar.glb',
+      glbUrl: '/avatares/Student%20Hatsune.glb',
       hairStyle: 'twintails',
       accessory: 'headphones',
       hairColor: '#22D3EE',
       eyeColor: '#00F0FF',
       skinColor: '#FCE0D2',
-      outfitColor: '#28303D',
+      outfitColor: '#1E293B',
       accentColor: '#22D3EE',
       gloveColor: '#FCE0D2',
       nailColor: '#22D3EE',
@@ -154,9 +154,10 @@
 
     _loadConfig() {
       try {
-        const raw = localStorage.getItem('sb_avatar3d_cfg_v3');
+        const raw = localStorage.getItem('sb_avatar3d_cfg_v5');
         if (raw) {
-          return { ...AVATAR_PRESETS.hasune_glb, ...JSON.parse(raw) };
+          const parsed = JSON.parse(raw);
+          return { ...AVATAR_PRESETS.hasune_glb, ...parsed, glbUrl: '/avatares/Student%20Hatsune.glb' };
         }
       } catch (e) {}
       return { ...AVATAR_PRESETS.hasune_glb };
@@ -164,7 +165,7 @@
 
     _saveConfig() {
       try {
-        localStorage.setItem('sb_avatar3d_cfg_v3', JSON.stringify(this.config));
+        localStorage.setItem('sb_avatar3d_cfg_v5', JSON.stringify(this.config));
       } catch (e) {}
     }
 
@@ -187,9 +188,14 @@
       }
 
       this.scene = new THREE.Scene();
-      this.camera = new THREE.PerspectiveCamera(36, 16 / 10, 0.1, 50);
-      this.camera.position.set(0, 0.25, 3.6);
-      this.camera.lookAt(0, 0.08, 0);
+      this.camera = new THREE.PerspectiveCamera(34, 16 / 10, 0.1, 50);
+      if (this.config.renderStyle === 'glb') {
+        this.camera.position.set(0, 0.42, 2.05);
+        this.camera.lookAt(0, 0.34, 0);
+      } else {
+        this.camera.position.set(0, 0.25, 3.6);
+        this.camera.lookAt(0, 0.08, 0);
+      }
 
       // Iluminación estilo anime/estudio
       const ambient = new THREE.AmbientLight(0xdbeafe, 0.95);
@@ -267,6 +273,15 @@
 
     buildCharacter() {
       const THREE = window.THREE;
+      if (this.camera) {
+        if (this.config.renderStyle === 'glb') {
+          this.camera.position.set(0, 0.42, 2.05);
+          this.camera.lookAt(0, 0.34, 0);
+        } else {
+          this.camera.position.set(0, 0.25, 3.6);
+          this.camera.lookAt(0, 0.08, 0);
+        }
+      }
       if (this.charGroup) {
         this.rootGroup.remove(this.charGroup);
       }
@@ -281,7 +296,7 @@
 
       // Modo Modelo 3D Real (.glb) con esqueleto Mixamo
       if (this.config.renderStyle === 'glb') {
-        this._loadGlbModel(this.config.glbUrl || '/avatares/Hasune%20avatar.glb');
+        this._loadGlbModel(this.config.glbUrl || '/avatares/Student%20Hatsune.glb');
         return;
       }
 
@@ -770,6 +785,9 @@
       this.config = { ...this.config, ...newCfg };
       this._saveConfig();
       if (this.initialized) {
+        if (this.config.renderStyle === 'glb' && this.glbModel) {
+          this._colorizeGlbModel(this.glbModel);
+        }
         this.buildCharacter();
         // Reconstruir manos con nuevo color de piel/guantes
         this.rootGroup.remove(this.primaryHand.group);
@@ -828,14 +846,14 @@
           box.getSize(size);
           box.getCenter(center);
 
-          const targetHeight = 2.65;
+          const targetHeight = 2.75;
           const scale = targetHeight / Math.max(0.01, size.y);
           model.scale.setScalar(scale);
 
-          // Posicionar torso/cabeza en el centro de la cámara
+          // Posicionar pecho/cara/manos en primer plano
           model.position.set(
             -center.x * scale,
-            -box.min.y * scale - 1.72,
+            -box.min.y * scale - 1.68,
             -center.z * scale + 0.15
           );
 
@@ -846,20 +864,31 @@
           this.glbPrevQuats = {};
           this.glbRestPalmNormals = {};
 
+          // Cargar textura original extraída de base_basic_shaded.glb
+          const texLoader = new THREE.TextureLoader();
+          const shadedTex = texLoader.load('/avatares/student_hatsune_tex.png');
+          shadedTex.flipY = false;
+          if ('colorSpace' in shadedTex && THREE.SRGBColorSpace) {
+            shadedTex.colorSpace = THREE.SRGBColorSpace;
+          } else if ('encoding' in shadedTex && THREE.sRGBEncoding) {
+            shadedTex.encoding = THREE.sRGBEncoding;
+          }
+
           model.updateMatrixWorld(true);
           model.traverse((obj) => {
             if (obj.isMesh) {
               obj.frustumCulled = false;
               if (obj.material) {
                 obj.material.side = THREE.DoubleSide;
-                // Mejorar definición cel-shading si el modelo viene sin texturas
                 if (!obj.material.map) {
-                  obj.material = this._animeToonMat('#E2E8F0', {
-                    emissive: '#1E293B',
-                    emissiveIntensity: 0.18,
+                  obj.material = new THREE.MeshStandardMaterial({
+                    map: shadedTex,
+                    color: 0xffffff,
+                    roughness: 0.72,
+                    metalness: 0.04,
+                    skinning: true,
+                    side: THREE.DoubleSide,
                   });
-                  obj.material.skinning = true;
-                  obj.material.side = THREE.DoubleSide;
                 }
               }
             }
@@ -870,8 +899,9 @@
             }
           });
 
-          // Corregir pesos del cabello (coletas) para que NO se deformen al mover los brazos
+          // Corregir pesos del cabello (coletas) y colorear regiones anatómicas del avatar
           this._fixGlbHairWeights(model);
+          this._colorizeGlbModel(model);
 
           // Calcular dirección de descanso en mundo para cada hueso respecto a su primer hijo
           const wp = new THREE.Vector3();
@@ -969,6 +999,94 @@
       bone.updateMatrixWorld(true);
     }
 
+    _colorizeGlbModel(model) {
+      const THREE = window.THREE;
+      const cHair = new THREE.Color(this.config.hairColor || '#22D3EE');
+      const cSkin = new THREE.Color(this.config.skinColor || '#FCE0D2');
+      const cShirt = new THREE.Color('#F1F5F9');
+      const cDark = new THREE.Color(this.config.outfitColor || '#1E293B');
+      const cAccent = new THREE.Color(this.config.accentColor || '#22D3EE');
+      const cShoes = new THREE.Color('#0F172A');
+
+      model.traverse((obj) => {
+        if (!obj.isMesh || !obj.geometry) return;
+        if (obj.material && obj.material.map) return; // Conservar textura HD real si está aplicada
+        const geo = obj.geometry;
+        const pos = geo.attributes.position;
+        const skinIdx = geo.attributes.skinIndex;
+        const skinWgt = geo.attributes.skinWeight;
+        if (!pos) return;
+
+        const bones = obj.skeleton ? obj.skeleton.bones : [];
+        const boneNames = bones.map((b) => b.name || '');
+
+        const count = pos.count;
+        const colors = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const x = pos.getX(i);
+          const y = pos.getY(i);
+          const z = pos.getZ(i);
+          const ax = Math.abs(x);
+
+          // Determinar el hueso dominante real entre las 4 influencias principales
+          let domBone = '';
+          if (skinIdx && skinWgt) {
+            const i0 = skinIdx.getX(i), i1 = skinIdx.getY(i), i2 = skinIdx.getZ(i), i3 = skinIdx.getW(i);
+            const w0 = skinWgt.getX(i), w1 = skinWgt.getY(i), w2 = skinWgt.getZ(i), w3 = skinWgt.getW(i);
+            let bestI = i0, bestW = w0;
+            if (w1 > bestW) { bestW = w1; bestI = i1; }
+            if (w2 > bestW) { bestW = w2; bestI = i2; }
+            if (w3 > bestW) { bestW = w3; bestI = i3; }
+            domBone = boneNames[bestI] || '';
+          }
+
+          let col = cDark;
+
+          if (/^(Left|Right)Hand/.test(domBone)) {
+            // Manos y dedos en color piel cálido con uñas turquesa en la punta
+            col = ax > 0.808 ? cAccent : cSkin;
+          } else if (/^(Left|Right)ForeArm/.test(domBone)) {
+            // Antebrazos en color piel con borde de manga estudiantil cerca del codo
+            col = ax < 0.35 ? cAccent : cSkin;
+          } else if (/^(Left|Right)(Arm|Shoulder)/.test(domBone)) {
+            // Manga corta de camisa estudiantil y brazo
+            col = ax < 0.32 ? cShirt : (ax < 0.35 ? cAccent : cSkin);
+          } else if (domBone === 'Head') {
+            // En Student Hatsune.glb, Head va de Y=1.565 a 1.899
+            const isEye = y >= 1.645 && y <= 1.688 && ax >= 0.020 && ax <= 0.060 && z >= 0.075;
+            const isFace = y >= 1.575 && y <= 1.735 && ax <= 0.078 && z >= 0.032 && !(y > 1.685 && z > 0.105);
+            col = isEye ? cAccent : (isFace ? cSkin : cHair);
+          } else if (domBone === 'Neck') {
+            col = z >= -0.025 ? cSkin : cHair;
+          } else if (domBone === 'Spine2' || domBone === 'Spine1' || domBone === 'Spine') {
+            // Uniforme estudiantil: camisa blanca/gris claro, cuello marinero oscuro y corbata turquesa
+            const isTie = ax < 0.034 && z > 0.055 && y >= 1.22 && y <= 1.49;
+            const isCollar = y >= 1.46 && ax < 0.115 && z > 0.01;
+            col = isTie ? cAccent : (isCollar ? cDark : cShirt);
+          } else if (domBone === 'Hips') {
+            // Falda plisada oscura con línea turquesa en el borde inferior
+            col = y < 0.91 ? cAccent : (y > 1.17 ? cShirt : cDark);
+          } else if (/UpLeg/.test(domBone)) {
+            // Falda en la parte alta del muslo y piel en las piernas
+            col = y >= 0.89 ? (y < 0.915 ? cAccent : cDark) : cSkin;
+          } else if (/Leg/.test(domBone)) {
+            // Medias estudiantiles oscuras con borde turquesa arriba
+            col = y > 0.52 ? cAccent : cDark;
+          } else if (/Foot|Toe/.test(domBone)) {
+            col = cShoes;
+          } else {
+            col = y > 1.55 ? cHair : cDark;
+          }
+
+          colors[i * 3] = col.r;
+          colors[i * 3 + 1] = col.g;
+          colors[i * 3 + 2] = col.b;
+        }
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geo.attributes.color.needsUpdate = true;
+      });
+    }
+
     _fixGlbHairWeights(model) {
       model.traverse((obj) => {
         if (!obj.isSkinnedMesh || !obj.skeleton || !obj.geometry) return;
@@ -980,7 +1098,6 @@
         if (!pos || !skinIdx || !skinWgt) return;
 
         const spine2Idx = bones.findIndex((b) => b.name === 'Spine2' || b.name === 'Spine1');
-        const headIdx = bones.findIndex((b) => b.name === 'Head');
         const armBoneSet = new Set();
         bones.forEach((b, idx) => {
           if (/^(Left|Right)(Shoulder|Arm|ForeArm|Hand)/.test(b.name)) {
@@ -989,27 +1106,25 @@
         });
         if (spine2Idx < 0 || armBoneSet.size === 0) return;
 
+        // Comprobar si el modelo fue riggeado en T-pose limpio (como Student Hatsune.glb, donde minY de brazos es ~1.40)
+        // Si minY > 1.15, los brazos NO tienen coletas pegadas y NO debemos alterar sus pesos (evita el efecto fantasma).
         const count = pos.count;
+        let minArmY = 999;
+        for (let i = 0; i < count; i++) {
+          if (armBoneSet.has(skinIdx.getX(i)) && skinWgt.getX(i) > 0.3) {
+            const vy = pos.getY(i);
+            if (vy < minArmY) minArmY = vy;
+          }
+        }
+        if (minArmY > 1.15) {
+          return;
+        }
+
+        // Solo para modelos A-pose donde las coletas largas (vy < 0.80) se pegaron a los brazos
         for (let i = 0; i < count; i++) {
           const j0 = skinIdx.getX(i);
-          const j1 = skinIdx.getY(i);
-          const j2 = skinIdx.getZ(i);
-          const j3 = skinIdx.getW(i);
-          if (!armBoneSet.has(j0) && !armBoneSet.has(j1) && !armBoneSet.has(j2) && !armBoneSet.has(j3)) {
-            continue;
-          }
-
-          const vy = pos.getY(i);
-          const vz = pos.getZ(i);
-          // Coletas largas (debajo de las manos o detrás de los brazos) y parte alta de la cabeza
-          const isLowerHair = vy < 0.76;
-          const isBackHair = vz < -0.042;
-          const isUpperHeadHair = vy > 1.46;
-
-          if (isUpperHeadHair && headIdx >= 0) {
-            skinIdx.setXYZW(i, headIdx, 0, 0, 0);
-            skinWgt.setXYZW(i, 1, 0, 0, 0);
-          } else if (isLowerHair || isBackHair) {
+          if (!armBoneSet.has(j0)) continue;
+          if (pos.getY(i) < 0.80) {
             skinIdx.setXYZW(i, spine2Idx, 0, 0, 0);
             skinWgt.setXYZW(i, 1, 0, 0, 0);
           }
@@ -1019,16 +1134,50 @@
       });
     }
 
+    _setBoneWorldBasis(boneName, xAxis, yAxis, zAxis, alpha = 0.35) {
+      const THREE = window.THREE;
+      const bone = this.glbBones[boneName];
+      if (!bone || !bone.parent) return;
+
+      const mat = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+      const targetWorldQ = new THREE.Quaternion().setFromRotationMatrix(mat);
+      const parentWorldQ = new THREE.Quaternion();
+      bone.parent.getWorldQuaternion(parentWorldQ);
+      const targetLocalQ = parentWorldQ.invert().multiply(targetWorldQ);
+
+      const prevQ = this.glbPrevQuats[boneName] || bone.quaternion.clone();
+      prevQ.slerp(targetLocalQ, alpha);
+      bone.quaternion.copy(prevQ);
+      this.glbPrevQuats[boneName] = prevQ.clone();
+      bone.updateMatrixWorld(true);
+    }
+
+    _setFingerHingeLocal(boneName, curlRad, splayRad = 0, rollRad = 0, alpha = 0.48) {
+      const THREE = window.THREE;
+      const bone = this.glbBones[boneName];
+      const restQ = this.glbRestQuats[boneName];
+      if (!bone || !restQ) return;
+
+      const deltaQ = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(curlRad, rollRad, splayRad, 'XYZ')
+      );
+      const targetLocalQ = restQ.clone().multiply(deltaQ);
+      const prevQ = this.glbPrevQuats[boneName] || bone.quaternion.clone();
+      prevQ.slerp(targetLocalQ, alpha);
+      bone.quaternion.copy(prevQ);
+      this.glbPrevQuats[boneName] = prevQ.clone();
+      bone.updateMatrixWorld(true);
+    }
+
     _poseGlbArmAndHand(sidePrefix, pts, isActive) {
       const THREE = window.THREE;
       const isRight = sidePrefix === 'Right';
-      const sign = isRight ? 1 : -1;
+      const s = isRight ? 1 : -1;
 
       const armName = `${sidePrefix}Arm`;
       const foreArmName = `${sidePrefix}ForeArm`;
       const handName = `${sidePrefix}Hand`;
 
-      // Resetear a pose de descanso antes de calcular
       const chainNames = [
         `${sidePrefix}Shoulder`, armName, foreArmName, handName,
         `${sidePrefix}HandThumb1`, `${sidePrefix}HandThumb2`, `${sidePrefix}HandThumb3`,
@@ -1037,117 +1186,147 @@
         `${sidePrefix}HandRing1`, `${sidePrefix}HandRing2`, `${sidePrefix}HandRing3`,
         `${sidePrefix}HandPinky1`, `${sidePrefix}HandPinky2`, `${sidePrefix}HandPinky3`,
       ];
-      for (const n of chainNames) {
-        if (this.glbBones[n] && this.glbRestQuats[n]) {
-          this.glbBones[n].quaternion.copy(this.glbRestQuats[n]);
-        }
-      }
-      this.glbModel.updateMatrixWorld(true);
 
       if (!isActive || !pts || pts.length < 21) {
-        // Dejar el brazo inactivo en su pose natural de descanso (A-pose suave)
+        // Bajar el brazo inactivo desde T-pose a una A-pose relajada al costado del cuerpo
+        const yArmIdle = new THREE.Vector3(-0.22 * s, -0.96, 0.06).normalize();
+        const xArmIdle = new THREE.Vector3(0, 0.06 * s, 0.96 * s);
+        xArmIdle.addScaledVector(yArmIdle, -xArmIdle.dot(yArmIdle)).normalize();
+        const zArmIdle = new THREE.Vector3().crossVectors(xArmIdle, yArmIdle).normalize();
+        this._setBoneWorldBasis(armName, xArmIdle, yArmIdle, zArmIdle, 0.22);
+
+        const yFaIdle = new THREE.Vector3(-0.18 * s, -0.94, 0.24).normalize();
+        const xFaIdle = new THREE.Vector3(0, 0.24 * s, 0.94 * s);
+        xFaIdle.addScaledVector(yFaIdle, -xFaIdle.dot(yFaIdle)).normalize();
+        const zFaIdle = new THREE.Vector3().crossVectors(xFaIdle, yFaIdle).normalize();
+        this._setBoneWorldBasis(foreArmName, xFaIdle, yFaIdle, zFaIdle, 0.22);
+
+        for (const n of chainNames.slice(3)) {
+          const bone = this.glbBones[n];
+          const restQ = this.glbRestQuats[n];
+          if (bone && restQ) {
+            const prevQ = this.glbPrevQuats[n] || bone.quaternion.clone();
+            prevQ.slerp(restQ, 0.22);
+            bone.quaternion.copy(prevQ);
+            this.glbPrevQuats[n] = prevQ.clone();
+          }
+        }
+        this.glbModel.updateMatrixWorld(true);
         return;
       }
 
-      // Convertir puntos normalizados [0..1] a espacio 3D
+      // Convertir puntos normalizados [0..1] a espacio 3D local de la mano
       const worldPts = pts.map((p) => new THREE.Vector3(
-        (p[0] - 0.5) * 2.0,
-        -(p[1] - 0.5) * 1.6,
-        -(p[2] || 0) * 1.2
+        (p[0] - 0.5) * 1.8,
+        -(p[1] - 0.5) * 1.5,
+        -(p[2] || 0) * 1.1
       ));
       const wrist = worldPts[0];
+      const wx = Math.max(-0.35, Math.min(0.35, wrist.x));
+      const wy = Math.max(-0.35, Math.min(0.35, wrist.y));
 
-      // Posicionar brazo y antebrazo en pose limpia de intérprete frente al pecho/hombro
-      const upperArmTarget = new THREE.Vector3(
-        (isRight ? -0.26 : 0.26) + wrist.x * 0.14,
-        -0.55 + wrist.y * 0.22,
-        0.68
+      // 1. Brazo superior (Arm): base ortogonal sin torsión (evita dislocar hombro o manga)
+      const yArm = new THREE.Vector3(-0.20 * s + wx * 0.10, -0.86 + wy * 0.10, 0.42).normalize();
+      const xArm = new THREE.Vector3(0, 0.42 * s, 0.86 * s);
+      xArm.addScaledVector(yArm, -xArm.dot(yArm)).normalize();
+      const zArm = new THREE.Vector3().crossVectors(xArm, yArm).normalize();
+      this._setBoneWorldBasis(armName, xArm, yArm, zArm, 0.30);
+
+      // 2. Antebrazo (ForeArm): bisagra limpia hacia el frente sin girar la manga sobre su eje
+      const yFa = new THREE.Vector3(0.08 * s + wx * 0.18, 0.74 + wy * 0.20, 0.65).normalize();
+      const zFa = new THREE.Vector3(0, -0.65, 0.74);
+      zFa.addScaledVector(yFa, -zFa.dot(yFa)).normalize();
+      const xFa = new THREE.Vector3().crossVectors(yFa, zFa).normalize();
+      this._setBoneWorldBasis(foreArmName, xFa, yFa, zFa, 0.34);
+
+      // 3. Mano (Hand): orientación anatómica exacta para RightHand (+X=Pulgar, +Y=Dedos, +Z=Palma)
+      // y LeftHand (+X=Meñique, +Y=Dedos, +Z=Palma) mirando hacia la cámara (+Z)
+      const yHand = new THREE.Vector3().subVectors(worldPts[9], worldPts[0]);
+      if (yHand.lengthSq() < 1e-5) yHand.set(0, 1, 0);
+      yHand.normalize();
+
+      // Mantener la palma orientada hacia el frente (+Z) para que las señas sean 100% legibles,
+      // conservando la inclinación lateral/vertical real de los landmarks (ej: G, H, P, Q)
+      const zHand = new THREE.Vector3(
+        (worldPts[5].x - worldPts[17].x) * 0.25,
+        (worldPts[9].z - worldPts[0].z) * 0.65,
+        0.92
       );
-      this._aimBoneWorld(armName, upperArmTarget, 0.30);
+      zHand.addScaledVector(yHand, -zHand.dot(yHand));
+      if (zHand.lengthSq() < 1e-4) zHand.set(0, 0, 1);
+      zHand.normalize();
+      const xHand = new THREE.Vector3().crossVectors(yHand, zHand).normalize();
+      this._setBoneWorldBasis(handName, xHand, yHand, zHand, 0.45);
 
-      const foreArmTarget = new THREE.Vector3(
-        (isRight ? 0.06 : -0.06) + wrist.x * 0.25,
-        0.72 + wrist.y * 0.25,
-        0.62
-      );
-      this._aimBoneWorld(foreArmName, foreArmTarget, 0.34);
-
-      // Orientar la mano en 2 ejes: dirección (0->9) + giro de la palma (normal de la palma)
-      const handDir = new THREE.Vector3().subVectors(worldPts[9], worldPts[0]);
-      if (handDir.lengthSq() > 1e-6) {
-        this._aimBoneWorld(handName, handDir, 0.45);
-
-        const restPalmLocal = this.glbRestPalmNormals[sidePrefix];
-        const hBone = this.glbBones[handName];
-        if (restPalmLocal && hBone && hBone.parent) {
-          const vA = new THREE.Vector3().subVectors(worldPts[5], worldPts[0]);
-          const vB = new THREE.Vector3().subVectors(worldPts[17], worldPts[0]);
-          const targetPalmN = isRight
-            ? new THREE.Vector3().crossVectors(vA, vB)
-            : new THREE.Vector3().crossVectors(vB, vA);
-
-          if (targetPalmN.lengthSq() > 1e-6) {
-            targetPalmN.normalize();
-            const axis = handDir.clone().normalize();
-            const hWorldQ = new THREE.Quaternion();
-            hBone.getWorldQuaternion(hWorldQ);
-            const curPalmN = restPalmLocal.clone().applyQuaternion(hWorldQ);
-
-            // Proyectar ambas normales al plano perpendicular a handDir para corregir solo el giro (roll)
-            const curProj = curPalmN.sub(axis.clone().multiplyScalar(curPalmN.dot(axis)));
-            const tgtProj = targetPalmN.sub(axis.clone().multiplyScalar(targetPalmN.dot(axis)));
-            if (curProj.lengthSq() > 1e-4 && tgtProj.lengthSq() > 1e-4) {
-              curProj.normalize();
-              tgtProj.normalize();
-              const rollQ = new THREE.Quaternion().setFromUnitVectors(curProj, tgtProj);
-              const newWorldQ = rollQ.multiply(hWorldQ);
-              const parentWQ = new THREE.Quaternion();
-              hBone.parent.getWorldQuaternion(parentWQ);
-              const localQ = parentWQ.invert().multiply(newWorldQ);
-              const prevQ = this.glbPrevQuats[handName] || hBone.quaternion.clone();
-              prevQ.slerp(localQ, 0.45);
-              hBone.quaternion.copy(prevQ);
-              this.glbPrevQuats[handName] = prevQ.clone();
-              hBone.updateMatrixWorld(true);
-            }
-          }
-        }
-      }
-
-      // Retargeting de los 5 dedos (3 falanges cada uno)
-      const fingerMap = [
-        ['Thumb', 1, 2, 3, 4],
-        ['Index', 5, 6, 7, 8],
-        ['Middle', 9, 10, 11, 12],
-        ['Ring', 13, 14, 15, 16],
-        ['Pinky', 17, 18, 19, 20],
+      // 4. Dedos (Index, Middle, Ring, Pinky): dead-zone en nudillo para manos abiertas 100% rectas
+      // y flexión natural sin atravesar la palma en puños cerrados
+      const fingerSpecs = [
+        ['Index', 5, 6, 7, 8, -0.02],
+        ['Middle', 9, 10, 11, 12, 0.0],
+        ['Ring', 13, 14, 15, 16, 0.02],
+        ['Pinky', 17, 18, 19, 20, 0.05],
       ];
-      for (const [fName, i0, i1, i2, i3] of fingerMap) {
-        const d1 = new THREE.Vector3().subVectors(worldPts[i1], worldPts[i0]);
-        const d2 = new THREE.Vector3().subVectors(worldPts[i2], worldPts[i1]);
-        const d3 = new THREE.Vector3().subVectors(worldPts[i3], worldPts[i2]);
-        if (d1.lengthSq() > 1e-6) this._aimBoneWorld(`${sidePrefix}Hand${fName}1`, d1, 0.50);
-        if (d2.lengthSq() > 1e-6) this._aimBoneWorld(`${sidePrefix}Hand${fName}2`, d2, 0.50);
-        if (d3.lengthSq() > 1e-6) this._aimBoneWorld(`${sidePrefix}Hand${fName}3`, d3, 0.50);
+
+      for (const [fName, i0, i1, i2, i3, baseSplay] of fingerSpecs) {
+        const v1 = new THREE.Vector3().subVectors(worldPts[i1], worldPts[i0]).normalize();
+        const v2 = new THREE.Vector3().subVectors(worldPts[i2], worldPts[i1]).normalize();
+        const v3 = new THREE.Vector3().subVectors(worldPts[i3], worldPts[i2]).normalize();
+
+        // Comparar v1 contra el eje recto de la mano (yHand) para evitar que Index/Pinky queden doblados en mano abierta
+        const a1 = Math.max(0, yHand.angleTo(v1) - 0.14);
+        const a2 = Math.max(0, v1.angleTo(v2) - 0.08);
+        const a3 = Math.max(0, v2.angleTo(v3) - 0.08);
+
+        const mcpBoost = a2 > 1.0 ? (a2 - 1.0) * 0.42 : 0;
+        const curl1 = Math.max(0, Math.min(1.25, a1 * 1.15 + mcpBoost));
+        const curl2 = Math.max(0, Math.min(1.48, a2 * 0.80));
+        const curl3 = Math.max(0, Math.min(1.15, a3 * 0.85));
+
+        // Solo abrir lateralmente (splay) cuando el dedo está extendido; si está cerrado en puño, mantenerlo recto
+        const extFactor = Math.max(0, 1.0 - curl1 / 0.75);
+        const lat = v1.x - yHand.x;
+        const splay = Math.max(-0.26, Math.min(0.26, (lat * 0.70 + baseSplay) * s * extFactor));
+
+        this._setFingerHingeLocal(`${sidePrefix}Hand${fName}1`, curl1, splay, 0, 0.52);
+        this._setFingerHingeLocal(`${sidePrefix}Hand${fName}2`, curl2, 0, 0, 0.52);
+        this._setFingerHingeLocal(`${sidePrefix}Hand${fName}3`, curl3, 0, 0, 0.52);
       }
+
+      // 5. Pulgar (Thumb): oposición suave y controlada sin hundirse en la palma
+      const vT0 = new THREE.Vector3().subVectors(worldPts[2], worldPts[1]).normalize();
+      const vT1 = new THREE.Vector3().subVectors(worldPts[3], worldPts[2]).normalize();
+      const vT2 = new THREE.Vector3().subVectors(worldPts[4], worldPts[3]).normalize();
+      const aT1 = Math.max(0, vT0.angleTo(vT1) - 0.10);
+      const aT2 = Math.max(0, vT1.angleTo(vT2) - 0.10);
+
+      const thumbTipToPinky = worldPts[4].distanceTo(worldPts[17]);
+      const thumbOpen = Math.max(0, Math.min(1.0, (thumbTipToPinky - 0.18) * 3.0));
+      const thumbCross = 1.0 - thumbOpen;
+
+      const tCurl1 = Math.max(0, Math.min(0.65, thumbCross * 0.45 + aT1 * 0.18));
+      const tCurl2 = Math.max(0, Math.min(1.05, aT1 * 0.65));
+      const tCurl3 = Math.max(0, Math.min(0.95, aT2 * 0.75));
+      const tSplay = (thumbCross * 0.48 - thumbOpen * 0.15) * s;
+
+      this._setFingerHingeLocal(`${sidePrefix}HandThumb1`, tCurl1, tSplay, thumbCross * 0.25 * s, 0.50);
+      this._setFingerHingeLocal(`${sidePrefix}HandThumb2`, tCurl2, 0, 0, 0.50);
+      this._setFingerHingeLocal(`${sidePrefix}HandThumb3`, tCurl3, 0, 0, 0.50);
     }
 
     _updateGlbPose(t) {
       if (!this.glbModel) return;
-      const THREE = window.THREE;
 
-      // Respiración y movimiento sutil de cabeza/torso
+      // Mantener el cuerpo estable (solo respiración mínima natural para que no se mueva raro)
       const spine = this.glbBones['Spine1'] || this.glbBones['Spine'];
       if (spine && this.glbRestQuats[spine.name]) {
         spine.quaternion.copy(this.glbRestQuats[spine.name]);
-        spine.rotation.x += Math.sin(t * 2.0) * 0.015;
+        spine.rotation.x += Math.sin(t * 1.8) * 0.006;
       }
       const head = this.glbBones['Head'];
       if (head && this.glbRestQuats['Head']) {
         head.quaternion.copy(this.glbRestQuats['Head']);
-        head.rotation.x += this.isAnimatingText ? Math.sin(t * 5.0) * 0.04 : Math.sin(t * 1.4) * 0.018;
-        head.rotation.y += Math.sin(t * 0.8) * 0.035;
-        head.rotation.z += this.currentMood === 'surprised' ? 0.08 : 0;
+        head.rotation.x += this.isAnimatingText ? Math.sin(t * 3.5) * 0.015 : Math.sin(t * 1.2) * 0.008;
+        head.rotation.y += Math.sin(t * 0.6) * 0.012;
       }
       this.glbModel.updateMatrixWorld(true);
 

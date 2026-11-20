@@ -1348,17 +1348,33 @@
               </span>
             </div>
             <p class="text-[11px] text-textSecondary leading-relaxed">
-              Activa <b>Depuración USB</b> en tu Android, conecta el cable y elige el método:
+              Conecta el USB con <b>Depuración USB</b> activa y elige tu modo con su puerto:
             </p>
             <div class="flex flex-col gap-2">
-              <button onclick="connectUsbBridge('SIGNBRIDGE_USB')" class="w-full py-2 px-3 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/50 text-emeraldLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                <i data-lucide="cable" class="w-4 h-4"></i>
-                <span>Usar Cámara SignBridge por USB</span>
-              </button>
-              <button onclick="connectUsbBridge('DROIDCAM_USB')" class="w-full py-2 px-3 rounded-xl bg-cyanLiquid/15 hover:bg-cyanLiquid/25 border border-cyanLiquid/40 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                <i data-lucide="video" class="w-4 h-4"></i>
-                <span>Conectar DroidCam por USB (Puerto 4747)</span>
-              </button>
+              <!-- Modo A: Sin nada instalado (Navegador USB) -->
+              <div class="flex items-center gap-1.5">
+                <input id="usbNoAppPort" type="number" value="8000" min="1024" max="65535" title="Puerto USB en el celular (Sin App)" class="w-20 bg-void/90 border border-emeraldLiquid/40 rounded-xl px-2 py-2 text-xs text-emeraldLiquid font-mono text-center focus:outline-none" />
+                <button onclick="connectUsbBridge('SIGNBRIDGE_USB')" class="flex-1 py-2 px-3 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/50 text-emeraldLiquid font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                  <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                  <span>Sin App (Navegador USB)</span>
+                </button>
+              </div>
+              <!-- Modo B: Con App SignBridge (APK) -->
+              <div class="flex items-center gap-1.5">
+                <input id="usbAppPort" type="number" value="8000" min="1024" max="65535" title="Puerto USB para App SignBridge" class="w-20 bg-void/90 border border-amberLiquid/40 rounded-xl px-2 py-2 text-xs text-amberLiquid font-mono text-center focus:outline-none" />
+                <button onclick="connectUsbBridge('SIGNBRIDGE_APP_USB')" class="flex-1 py-2 px-3 rounded-xl bg-amberLiquid/15 hover:bg-amberLiquid/25 border border-amberLiquid/45 text-amberLiquid font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                  <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                  <span>Con App SignBridge (APK)</span>
+                </button>
+              </div>
+              <!-- Modo C: DroidCam / DroidCam OBS USB -->
+              <div class="flex items-center gap-1.5">
+                <input id="usbDroidcamPort" type="number" value="4747" min="1024" max="65535" title="Puerto DroidCam USB" class="w-20 bg-void/90 border border-cyanLiquid/40 rounded-xl px-2 py-2 text-xs text-cyanLiquid font-mono text-center focus:outline-none" />
+                <button onclick="connectUsbBridge('DROIDCAM_USB')" class="flex-1 py-2 px-3 rounded-xl bg-cyanLiquid/15 hover:bg-cyanLiquid/25 border border-cyanLiquid/40 text-cyanLiquid font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                  <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                  <span>DroidCam / OBS por USB</span>
+                </button>
+              </div>
             </div>
             <div id="usbBridgeFeedback" class="hidden text-[11px] font-mono p-2 rounded-lg bg-void/80 border border-white/10 text-textPrimary"></div>
           </div>
@@ -3454,16 +3470,25 @@
 
     async function connectUsbBridge(mode) {
       const fb = document.getElementById('usbBridgeFeedback');
+      let portVal = 8000;
+      if (mode === 'DROIDCAM_USB') {
+        portVal = parseInt(document.getElementById('usbDroidcamPort')?.value || '4747', 10) || 4747;
+      } else if (mode === 'SIGNBRIDGE_APP_USB') {
+        portVal = parseInt(document.getElementById('usbAppPort')?.value || '8000', 10) || 8000;
+      } else {
+        portVal = parseInt(document.getElementById('usbNoAppPort')?.value || '8000', 10) || 8000;
+      }
+
       if (fb) {
         fb.classList.remove('hidden');
         fb.className = 'text-[11px] font-mono p-2 rounded-lg bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid animate-pulse';
-        fb.textContent = 'Configurando túnel USB ADB...';
+        fb.textContent = `Configurando túnel USB ADB (puerto ${portVal})...`;
       }
       try {
         const res = await fetch('/api/usb/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode, open_on_phone: true }),
+          body: JSON.stringify({ mode, port: portVal, open_on_phone: true }),
         });
         const data = await res.json();
         if (data.ok) {

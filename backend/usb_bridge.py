@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import urllib.request
 from typing import Any, Dict, List, Optional
 
 
@@ -111,8 +112,45 @@ def get_adb_devices() -> Dict[str, Any]:
         }
 
 
-def setup_signbridge_usb_bridge(port: int = 8000, open_on_phone: bool = True) -> Dict[str, Any]:
-    """Configura `adb reverse tcp:<port> tcp:<port>` para usar `/mobile` por USB."""
+def _find_installed_package(adb_path: str, serial: str, candidates: List[str]) -> Optional[str]:
+    """Busca si alguno de los paquetes Android candidatos está instalado en el dispositivo."""
+    try:
+        proc = _run_adb(adb_path, ["-s", serial, "shell", "pm", "list", "packages"], timeout=5.0)
+        lines = [line.strip().replace("package:", "") for line in proc.stdout.splitlines()]
+        for cand in candidates:
+            if cand in lines:
+                return cand
+    except Exception:
+        pass
+    return None
+
+
+def _probe_mjpeg_url(port: int) -> str:
+    """Detecta qué ruta HTTP de DroidCam/DroidCam OBS responde en localhost:<port>."""
+    paths = ["/video", "/mjpegfeed?640x480", "/mjpegfeed"]
+    for p in paths:
+        url = f"http://127.0.0.1:{port}{p}"
+        try:
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=1.2) as resp:
+                if resp.status == 200:
+                    return url
+        except Exception:
+            continue
+    return f"http://127.0.0.1:{port}/video"
+
+
+def setup_signbridge_usb_bridge(
+    port: int = 8000,
+    server_port: int = 8000,
+    open_on_phone: bool = True,
+    launch_app: bool = False,
+) -> Dict[str, Any]:
+    """
+    Configura `adb reverse tcp:<port> tcp:<server_port>` para conectar por cable USB:
+    - Si `launch_app=False`: abre `/mobile?autostart=1` en el navegador del celular (sin instalar nada).
+    - Si `launch_app=True`: abre la app instalada `com.signbridge.extended` usando el túnel USB.
+    """
     status = get_adb_devices()
     if not status["adb_available"]:
         return {"ok": False, "error": status["error"], **status}
@@ -135,13 +173,53 @@ def setup_signbridge_usb_bridge(port: int = 8000, open_on_phone: bool = True) ->
     adb_path = status["adb_path"]
     target_serial = authorized[0]["serial"]
     try:
-        rev = _run_adb(adb_path, ["-s", target_serial, "reverse", f"tcp:{port}", f"tcp:{port}"], timeout=5.0)
+        rev = _run_adb(
+            adb_path,
+            ["-s", target_serial, "reverse", f"tcp:{port}", f"tcp:{server_port}"],
+            timeout=5.0,
+        )
         if rev.returncode != 0:
             err = (rev.stderr or rev.stdout or "Error ejecutando adb reverse").strip()
             return {"ok": False, "error": err, **status}
 
-        mobile_usb_url = f"http://127.0.0.1:{port}/mobile"
+        mobile_usb_url = f"http://127.0.0.1:{port}/mobile?autostart=1"
         opened = False
+
+        if launch_app:
+            app_pkg = _find_installed_package(
+                adb_path, target_serial, ["com.signbridge.extended"]
+            )
+            if not app_pkg:
+                return {
+                    "ok": False,
+                    "error": "La app SignBridge (com.signbridge.extended) no está instalada en el celular. Usa el modo 'Sin App (Navegador)' o instala el APK.",
+                    **status,
+                }
+            if open_on_phone:
+                launch = _run_adb(
+                    adb_path,
+                    [
+                        "-s", target_serial, "shell", "monkey",
+                        "-p", app_pkg, "-c", "android.intent.category.LAUNCHER", "1",
+                    ],
+                    timeout=5.0,
+                )
+                opened = launch.returncode == 0
+            return {
+                "ok": True,
+                "mode": "SIGNBRIDGE_APP_USB",
+                "port": port,
+                "server_port": server_port,
+                "device": authorized[0],
+                "mobile_usb_url": f"127.0.0.1:{port}",
+                "opened_on_phone": opened,
+                "message": (
+                    f"Túnel USB App activo ({authorized[0]['model']}, puerto {port} -> PC {server_port}). "
+                    f"En la app SignBridge usa host 127.0.0.1:{port}."
+                ),
+                **status,
+            }
+
         if open_on_phone:
             launch = _run_adb(
                 adb_path,
@@ -163,12 +241,14 @@ def setup_signbridge_usb_bridge(port: int = 8000, open_on_phone: bool = True) ->
         return {
             "ok": True,
             "mode": "SIGNBRIDGE_USB",
+            "port": port,
+            "server_port": server_port,
             "device": authorized[0],
             "mobile_usb_url": mobile_usb_url,
             "opened_on_phone": opened,
             "message": (
-                f"Túnel USB activo en {authorized[0]['model']}. "
-                f"Abre {mobile_usb_url} en el celular (o usa la app SignBridge en modo USB 127.0.0.1)."
+                f"Túnel USB Sin App activo en {authorized[0]['model']} (puerto {port} -> PC {server_port}). "
+                f"Si no abrió solo, abre {mobile_usb_url} en Chrome del celular."
             ),
             **status,
         }
@@ -176,8 +256,8 @@ def setup_signbridge_usb_bridge(port: int = 8000, open_on_phone: bool = True) ->
         return {"ok": False, "error": str(exc), **status}
 
 
-def setup_droidcam_usb_bridge(port: int = 4747) -> Dict[str, Any]:
-    """Configura `adb forward tcp:<port> tcp:<port>` para conectar DroidCam por cable USB."""
+def setup_droidcam_usb_bridge(port: int = 4747, open_on_phone: bool = True) -> Dict[str, Any]:
+    """Configura `adb forward tcp:<port> tcp:<port>` para conectar DroidCam / DroidCam OBS por cable USB."""
     status = get_adb_devices()
     if not status["adb_available"]:
         return {"ok": False, "error": status["error"], **status}
@@ -205,15 +285,32 @@ def setup_droidcam_usb_bridge(port: int = 4747) -> Dict[str, Any]:
             err = (fwd.stderr or fwd.stdout or "Error ejecutando adb forward").strip()
             return {"ok": False, "error": err, **status}
 
-        stream_url = f"http://127.0.0.1:{port}/video"
+        droid_pkg = _find_installed_package(
+            adb_path,
+            target_serial,
+            ["com.dev47apps.droidcam", "com.dev47apps.obsdroidcam", "com.dev47apps.droidcamx"],
+        )
+        if open_on_phone and droid_pkg:
+            _run_adb(
+                adb_path,
+                [
+                    "-s", target_serial, "shell", "monkey",
+                    "-p", droid_pkg, "-c", "android.intent.category.LAUNCHER", "1",
+                ],
+                timeout=5.0,
+            )
+
+        stream_url = _probe_mjpeg_url(port)
         return {
             "ok": True,
             "mode": "DROIDCAM_USB",
+            "port": port,
             "device": authorized[0],
+            "droidcam_package": droid_pkg,
             "stream_url": stream_url,
             "message": (
-                f"Túnel DroidCam USB activo en {authorized[0]['model']}. "
-                f"Asegúrate de tener abierta la app DroidCam en el celular."
+                f"Túnel DroidCam USB activo en {authorized[0]['model']} (puerto {port}). "
+                f"Stream: {stream_url}. Asegúrate de pulsar Play/Iniciar en DroidCam en el celular."
             ),
             **status,
         }

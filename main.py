@@ -166,11 +166,57 @@ class LocalCameraWorker:
 
         return None, "NONE"
 
+    def _run_http_mjpeg_loop(self, url: str) -> bool:
+        """
+        Lector nativo de streams HTTP MJPEG (DroidCam / DroidCam OBS / IP Webcam).
+        Evita cuelgues y latencia de OpenCV CAP_FFMPEG en Windows.
+        """
+        import urllib.request
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "SignBridge-MJPEG/1.0"})
+            with urllib.request.urlopen(req, timeout=3.0) as stream:
+                self.backend_label = "HTTP_MJPEG"
+                self.last_error = None
+                buf = bytearray()
+                while self.running and not self._reconnect_event.is_set():
+                    chunk = stream.read(4096)
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
+                    while True:
+                        soi = buf.find(b"\xff\xd8")
+                        if soi < 0:
+                            if len(buf) > 65536:
+                                del buf[:-2]
+                            break
+                        eoi = buf.find(b"\xff\xd9", soi + 2)
+                        if eoi < 0:
+                            if soi > 0:
+                                del buf[:soi]
+                            break
+                        jpg_bytes = bytes(buf[soi : eoi + 2])
+                        del buf[: eoi + 2]
+                        arr = np.frombuffer(jpg_bytes, dtype=np.uint8)
+                        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                        if frame is not None and frame.size > 0:
+                            with self._lock:
+                                self.latest_frame = frame
+                                self.available = True
+                return True
+        except Exception as exc:
+            self.available = False
+            self.last_error = f"MJPEG ({url}): {exc}"
+            return False
+
     def _loop(self) -> None:
         initial_auto_probed = False
         while self.running:
             self._reconnect_event.clear()
             current_target = self.target
+            if isinstance(current_target, str) and current_target.lower().startswith(("http://", "https://")):
+                if self._run_http_mjpeg_loop(current_target):
+                    continue
+
             cap, backend_label = self._open_capture(current_target)
 
             # Si el índice 0 por defecto no existe al arrancar, buscar en índices 1..3 (p.ej. DroidCam)
@@ -496,23 +542,32 @@ async def api_select_camera(payload: CameraSelectRequest):
 @app.post("/api/usb/connect")
 async def api_usb_connect(payload: UsbConnectRequest, request: Request):
     """
-    Configura conexión por cable USB mediante ADB:
-    - SIGNBRIDGE_USB: `adb reverse tcp:8000 tcp:8000` (cámara y audio por cable USB)
-    - DROIDCAM_USB: `adb forward tcp:4747 tcp:4747` + conecta OpenCV a http://127.0.0.1:4747/video
+    Configura conexión por cable USB mediante ADB en 3 modos:
+    - SIGNBRIDGE_USB: `adb reverse` al navegador del celular (sin app instalada)
+    - SIGNBRIDGE_APP_USB: `adb reverse` + abre la app SignBridge (APK)
+    - DROIDCAM_USB: `adb forward` + lector MJPEG directo para DroidCam / DroidCam OBS
     """
     mode = payload.mode.upper().strip()
     loop = asyncio.get_running_loop()
+    server_port = request.url.port or 8000
+
     if mode == "DROIDCAM_USB":
         port = payload.port or 4747
-        res = await loop.run_in_executor(None, setup_droidcam_usb_bridge, port)
+        res = await loop.run_in_executor(None, setup_droidcam_usb_bridge, port, payload.open_on_phone)
         if res.get("ok"):
             camera_worker.switch_target(res["stream_url"])
             pipeline.set_video_source("LOCAL")
         return res
 
-    port = payload.port or (request.url.port or 8000)
+    phone_port = payload.port or server_port
+    launch_app = (mode == "SIGNBRIDGE_APP_USB")
     res = await loop.run_in_executor(
-        None, setup_signbridge_usb_bridge, port, payload.open_on_phone
+        None,
+        setup_signbridge_usb_bridge,
+        phone_port,
+        server_port,
+        payload.open_on_phone,
+        launch_app,
     )
     if res.get("ok"):
         pipeline.set_video_source("MOBILE")

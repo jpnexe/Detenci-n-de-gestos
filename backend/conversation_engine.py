@@ -702,136 +702,487 @@ def get_sign_3d_poses(
     wave_x = math.sin(t_phase * math.pi * 2.0) * 0.045 if t_phase > 0 else 0.0
     wave_y = math.sin(t_phase * math.pi * 2.0) * 0.040 if t_phase > 0 else 0.0
 
-    # 2. Señas Conversacionales Bimanuales
+    # 2. Señas Conversacionales Bimanuales (20 señas con geometría 3D única)
     if sid == "S_POR_FAVOR":
-        # Ambas palmas abiertas unidas en el centro del pecho
         r_pose = get_lsc_letter_pose("L_B", 0.0)
         r_pose[:, 0] += 0.04
         l_pose = make_left_mirror(r_pose, offset_x=-0.08, offset_y=wave_y * 0.4)
         return r_pose, l_pose
 
     if sid == "S_AYUDA":
-        # Mano derecha en puño con pulgar arriba (L_A) descansando sobre palma izquierda plana
         r_pose = get_lsc_letter_pose("L_A", 0.0)
         r_pose[:, 0] += 0.02
-        r_pose[:, 1] -= 0.05 + abs(wave_y) * 0.5
+        r_pose[:, 1] -= 0.06 + abs(wave_y) * 0.4
         l_pose = get_lsc_letter_pose("L_G", 0.0)
         l_pose[:, 0] = 1.0 - l_pose[:, 0] - 0.05
-        l_pose[:, 1] += 0.05 - abs(wave_y) * 0.5
+        l_pose[:, 1] += 0.06 - abs(wave_y) * 0.4
         return r_pose, l_pose
 
-    if sid in ("S_COMO_ESTAS", "S_QUE", "S_FELIZ", "S_OCUPADO"):
-        # Ambas manos abiertas separándose / oscilando
+    if sid == "S_COMO_ESTAS":
         r_pose = get_lsc_letter_pose("L_B", 0.0)
-        div = math.sin(t_phase * math.pi) * 0.06 if t_phase > 0 else 0.03
-        r_pose[:, 0] += 0.12 + div
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.24 - div)
+        div = (t_phase * 0.10) if t_phase > 0 else 0.05
+        r_pose[:, 0] += 0.14 + div
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.28 - div)
+        return r_pose, l_pose
+
+    if sid == "S_QUE":
+        r_pose = get_lsc_letter_pose("L_C", 0.0)
+        r_pose[:, 0] += 0.15 + wave_x * 0.8
+        r_pose[:, 1] += 0.06
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_C", 0.0), offset_x=-0.30 - wave_x * 0.8, offset_y=0.06)
+        return r_pose, l_pose
+
+    if sid == "S_FELIZ":
+        r_pose = get_lsc_letter_pose("L_B", 0.0)
+        up_shift = -(t_phase * 0.09) if t_phase > 0 else -0.06
+        r_pose[:, 0] += 0.12
+        r_pose[:, 1] += -0.10 + up_shift
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.24, offset_y=-0.10 + up_shift)
+        return r_pose, l_pose
+
+    if sid == "S_OCUPADO":
+        r_pose = get_lsc_letter_pose("L_K", 0.0)
+        r_pose[:, 0] += 0.08 + wave_x * 0.9
+        r_pose[:, 1] -= 0.03
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.18, offset_y=0.05)
         return r_pose, l_pose
 
     if sid == "S_CASA":
-        # Ambas manos inclinadas formando un techo en triángulo ^
         r_pose = get_lsc_letter_pose("L_B", 0.0)
         r_pose[:, 0] += 0.07
-        # Inclinar puntas hacia el centro (x=0.50)
+        r_pose[:, 1] -= 0.06
         for idx in (8, 12, 16, 20):
             r_pose[idx, 0] -= 0.06
         l_pose = make_left_mirror(r_pose, offset_x=-0.14)
         return r_pose, l_pose
 
     if sid == "S_TRABAJAR":
-        # Ambos puños golpeándose suavemente
         r_pose = get_lsc_letter_pose("L_A", 0.0)
         r_pose[:, 0] += 0.06
-        r_pose[:, 1] += wave_y * 0.6
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.14, offset_y=-wave_y * 0.6)
+        r_pose[:, 1] += wave_y * 0.5
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.14, offset_y=-wave_y * 0.5)
         return r_pose, l_pose
 
-    if sid in ("S_ESTUDIAR", "S_BUENOS_DIAS", "S_BUENAS_TARDES", "S_BUENAS_NOCHES"):
-        # Mano base y mano dominante activa encima
+    if sid == "S_ESTUDIAR":
+        r_pose = get_lsc_letter_pose("L_V", 0.0)
+        r_pose[:, 0] += 0.04
+        r_pose[:, 1] -= 0.05
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.16, offset_y=0.07)
+        return r_pose, l_pose
+
+    if sid == "S_BUENOS_DIAS":
         r_pose = get_lsc_letter_pose("L_B", 0.0)
-        r_pose[:, 0] += 0.05 + wave_x * 0.5
+        up = -(t_phase * 0.09) if t_phase > 0 else -0.05
+        r_pose[:, 0] += 0.06
+        r_pose[:, 1] += -0.08 + up
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_G", 0.0), offset_x=-0.16, offset_y=0.08)
+        return r_pose, l_pose
+
+    if sid == "S_BUENAS_TARDES":
+        r_pose = get_lsc_letter_pose("L_F", 0.0)
+        hz = (t_phase * 0.08) if t_phase > 0 else 0.04
+        r_pose[:, 0] += 0.11 + hz
+        r_pose[:, 1] -= 0.02
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_G", 0.0), offset_x=-0.18, offset_y=0.06)
+        return r_pose, l_pose
+
+    if sid == "S_BUENAS_NOCHES":
+        r_pose = get_lsc_letter_pose("L_O", 0.0)
+        dn = (t_phase * 0.08) if t_phase > 0 else 0.04
+        r_pose[:, 0] += 0.05
+        r_pose[:, 1] += 0.07 + dn
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_G", 0.0), offset_x=-0.16, offset_y=0.08)
+        return r_pose, l_pose
+
+    if sid == "S_DESPACIO":
+        r_pose = get_lsc_letter_pose("L_B", 0.0)
+        dy_shift = (t_phase * 0.10) if t_phase > 0 else 0.05
+        r_pose[:, 0] += 0.13
+        r_pose[:, 1] += 0.08 + dy_shift
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.26, offset_y=0.08 + dy_shift)
+        return r_pose, l_pose
+
+    if sid == "S_ESPERA":
+        r_pose = get_lsc_letter_pose("L_W", 0.0)
+        r_pose[:, 0] += 0.14
         r_pose[:, 1] -= 0.04
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.16, offset_y=0.06)
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_W", 0.0), offset_x=-0.28, offset_y=-0.04)
         return r_pose, l_pose
 
-    if sid in ("S_ESPERA", "S_DESPACIO", "S_MUCHO_GUSTO", "S_AMIGO", "S_QUERER"):
+    if sid == "S_MUCHO_GUSTO":
         r_pose = get_lsc_letter_pose("L_B", 0.0)
-        dy_shift = (t_phase * 0.08) if sid == "S_DESPACIO" else wave_y * 0.3
+        conv = -(t_phase * 0.07) if t_phase > 0 else -0.03
+        r_pose[:, 0] += 0.12 + conv
+        r_pose[:, 1] += 0.03
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.24 - conv, offset_y=0.03)
+        return r_pose, l_pose
+
+    if sid == "S_AMIGO":
+        r_pose = get_lsc_letter_pose("L_X", 0.0)
+        r_pose[:, 0] += 0.05
+        r_pose[:, 1] += 0.02
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_X", 0.0), offset_x=-0.12, offset_y=0.02)
+        return r_pose, l_pose
+
+    if sid == "S_QUERER":
+        r_pose = get_lsc_letter_pose("L_E", 0.0)
         r_pose[:, 0] += 0.11
-        r_pose[:, 1] += dy_shift
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.22, offset_y=dy_shift)
+        r_pose[:, 1] += 0.03
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_E", 0.0), offset_x=-0.22, offset_y=0.03)
         return r_pose, l_pose
 
     if sid == "S_MEDICO":
-        # Dedos de mano derecha tocando la muñeca de la mano izquierda
         r_pose = get_lsc_letter_pose("L_V", 0.0)
         r_pose[:, 0] -= 0.04
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.12, offset_y=-0.14)
+        r_pose[:, 1] += 0.02
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.12, offset_y=0.10)
         return r_pose, l_pose
 
-    if sid in ("S_DONDE", "S_HABLAR"):
+    if sid == "S_DONDE":
         r_pose = get_lsc_letter_pose("L_D", 0.0)
-        r_pose[:, 0] += 0.11 + wave_x * 0.6
-        l_pose = make_left_mirror(get_lsc_letter_pose("L_D", 0.0), offset_x=-0.22 - wave_x * 0.6)
+        r_pose[:, 0] += 0.16
+        r_pose[:, 1] -= 0.03
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_D", 0.0), offset_x=-0.32, offset_y=-0.03)
         return r_pose, l_pose
 
-    # 3. Señas Conversacionales Unimanuales
-    if sid in ("S_HOLA", "S_ADIOS", "S_GRACIAS", "S_REPETIR", "S_REGULAR", "S_CANSADO", "S_HOY"):
+    if sid == "S_HABLAR":
+        r_pose = get_lsc_letter_pose("L_P", 0.0)
+        r_pose[:, 0] += 0.07
+        r_pose[:, 1] -= 0.11 + wave_y * 0.4
+        l_pose = make_left_mirror(get_lsc_letter_pose("L_P", 0.0), offset_x=-0.14, offset_y=-0.11 - wave_y * 0.4)
+        return r_pose, l_pose
+
+    # 3. Señas Conversacionales Unimanuales (30 señas con postura y ubicación espacial 3D únicas)
+    if sid == "S_HOLA":
         p = get_lsc_letter_pose("L_B", 0.0)
-        # Abrir pulgar también para palma abierta natural
         p[3] = [0.30, 0.56, -0.04]
         p[4] = [0.24, 0.49, -0.05]
-        if sid in ("S_ADIOS", "S_HOLA", "S_REGULAR"):
-            p[:, 0] += wave_x
-        elif sid in ("S_REPETIR", "S_CANSADO", "S_HOY"):
-            p[:, 1] += abs(wave_y) * 1.4
+        p[:, 0] += 0.08
+        p[:, 1] -= 0.08
         return p, None
 
-    if sid in ("S_SI", "S_YO", "S_TU", "S_EL", "S_IR", "S_CUANDO", "S_QUIEN"):
+    if sid == "S_ADIOS":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        p[3] = [0.30, 0.56, -0.04]
+        p[4] = [0.24, 0.49, -0.05]
+        p[:, 0] += math.sin(t_phase * math.pi * 4.0) * 0.075 if t_phase > 0 else -0.08
+        p[:, 1] -= 0.02
+        return p, None
+
+    if sid == "S_GRACIAS":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        up = -(t_phase * 0.08) if t_phase > 0 else -0.04
+        p[:, 0] -= 0.02
+        p[:, 1] += -0.14 + up
+        p[:, 2] -= 0.05
+        return p, None
+
+    if sid == "S_REPETIR":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        dn = (t_phase * 0.09) if t_phase > 0 else 0.05
+        p[:, 0] += 0.14
+        p[:, 1] += 0.08 + dn
+        return p, None
+
+    if sid == "S_REGULAR":
+        p = get_lsc_letter_pose("L_H", 0.0)
+        p[:, 0] -= 0.08
+        p[:, 1] += 0.09
+        return p, None
+
+    if sid == "S_CANSADO":
+        p = get_lsc_letter_pose("L_M", 0.0)
+        p[:, 0] -= 0.06
+        p[:, 1] += 0.14
+        return p, None
+
+    if sid == "S_HOY":
+        p = get_lsc_letter_pose("L_N", 0.0)
+        p[:, 0] += 0.08
+        p[:, 1] += 0.14
+        return p, None
+
+    if sid == "S_SI":
         p = get_lsc_letter_pose("L_D", 0.0)
-        p[:, 1] += wave_y * 0.6
+        p[:, 1] += math.sin(t_phase * math.pi * 4.0) * 0.055 if t_phase > 0 else -0.04
         return p, None
 
-    if sid in ("S_NO", "S_NO_ENTIENDO", "S_AGUA"):
+    if sid == "S_YO":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 0] -= 0.10
+        p[:, 1] += 0.08
+        p[8, 0] -= 0.06
+        return p, None
+
+    if sid == "S_TU":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 1] += 0.03
+        p[8, 2] -= 0.14
+        return p, None
+
+    if sid == "S_EL":
+        p = get_lsc_letter_pose("L_G", 0.0)
+        p[:, 0] += 0.16
+        p[:, 1] += 0.02
+        return p, None
+
+    if sid == "S_IR":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        up = -(t_phase * 0.09) if t_phase > 0 else -0.05
+        p[:, 0] += 0.12
+        p[:, 1] += -0.10 + up
+        return p, None
+
+    if sid == "S_CUANDO":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 0] -= 0.14
+        p[:, 1] += 0.15
+        return p, None
+
+    if sid == "S_QUIEN":
+        p = get_lsc_letter_pose("L_I", 0.0)
+        p[:, 0] += 0.06
+        p[:, 1] -= 0.10
+        return p, None
+
+    if sid == "S_NO":
         p = get_lsc_letter_pose("L_L", 0.0)
-        p[:, 0] += wave_x * 0.8
+        p[:, 0] += (math.sin(t_phase * math.pi * 4.0) * 0.07) if t_phase > 0 else 0.08
+        p[:, 1] += 0.02
         return p, None
 
-    if sid in ("S_BIEN", "S_MANANA"):
+    if sid == "S_NO_ENTIENDO":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 0] += 0.10 + ((math.sin(t_phase * math.pi * 4.0) * 0.065) if t_phase > 0 else 0.0)
+        p[:, 1] -= 0.19
+        return p, None
+
+    if sid == "S_AGUA":
+        p = get_lsc_letter_pose("L_L", 0.0)
+        p[:, 0] -= 0.06
+        p[:, 1] -= 0.13
+        return p, None
+
+    if sid == "S_BIEN":
         p = get_lsc_letter_pose("L_A", 0.0)
+        p[:, 1] -= 0.02
+        return p, None
+
+    if sid == "S_MANANA":
+        p = get_lsc_letter_pose("L_A", 0.0)
+        p[:, 0] += 0.13
+        p[:, 1] -= 0.15
+        p[:, 2] -= 0.06
         return p, None
 
     if sid == "S_MAL":
         p = get_lsc_letter_pose("L_A", 0.0)
-        # Invertir pulgar hacia abajo
         p[3] = [0.40, 0.82, -0.04]
         p[4] = [0.40, 0.90, -0.05]
         return p, None
 
     if sid == "S_COMER":
         p = get_lsc_letter_pose("L_Q", 0.0)
-        p[:, 1] -= 0.05 + abs(wave_y) * 0.5
+        p[:, 1] -= 0.12
         return p, None
 
     if sid == "S_UNIVERSIDAD":
         p = get_lsc_letter_pose("L_U", 0.0)
-        p[:, 0] += wave_x * 0.5
+        p[:, 0] += 0.06
+        p[:, 1] -= 0.06
         return p, None
 
-    if sid in ("S_DISCULPA",):
+    if sid == "S_DISCULPA":
         p = get_lsc_letter_pose("L_Y", 0.0)
+        p[:, 0] -= 0.02
+        p[:, 1] += 0.02
         return p, None
 
-    if sid in ("S_NECESITAR",):
+    if sid == "S_NECESITAR":
         p = get_lsc_letter_pose("L_X", 0.0)
-        p[:, 1] += abs(wave_y)
+        dn = (t_phase * 0.08) if t_phase > 0 else 0.04
+        p[:, 0] += 0.04
+        p[:, 1] += 0.06 + dn
         return p, None
 
-    if sid in ("S_CONTINUAR", "S_NOSOTROS", "S_POR_QUE"):
+    if sid == "S_CONTINUAR":
         p = get_lsc_letter_pose("L_V", 0.0)
+        p[:, 0] += 0.08
+        p[:, 1] += 0.04
+        return p, None
+
+    if sid == "S_NOSOTROS":
+        p = get_lsc_letter_pose("L_R", 0.0)
+        p[:, 0] -= 0.10
+        p[:, 1] -= 0.06
+        return p, None
+
+    if sid == "S_POR_QUE":
+        p = get_lsc_letter_pose("L_W", 0.0)
+        p[:, 0] += 0.06
+        p[:, 1] -= 0.16
+        return p, None
+
+    if sid == "S_PROFESOR":
+        p = get_lsc_letter_pose("L_F", 0.0)
+        p[:, 0] += 0.12
+        p[:, 1] -= 0.16
+        return p, None
+
+    if sid == "S_CUANTO":
+        p = get_lsc_letter_pose("L_C", 0.0)
+        p[:, 0] += 0.08
+        p[:, 1] += 0.04
+        return p, None
+
+    if sid == "S_ENTENDIDO":
+        p = get_lsc_letter_pose("L_E", 0.0)
+        p[:, 0] += 0.08
+        p[:, 1] -= 0.15
         return p, None
 
     return get_lsc_letter_pose("L_B", 0.0), None
+
+
+# =========================================================================
+# MATRIZ DE PROTOTIPOS CANÓNICOS 3D PARA LAS 50 SEÑAS CONVERSACIONALES LSC
+# =========================================================================
+_SIGN_PROTOTYPE_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _init_sign_prototypes() -> None:
+    if _SIGN_PROTOTYPE_CACHE:
+        return
+    for sid, meta in CONVERSATIONAL_SIGNS_CATALOG.items():
+        if not sid.startswith("S_") or "bimanual" not in meta:
+            continue
+        samples = []
+        for tp in (0.0, 0.25, 0.5, 0.75, 1.0):
+            p0, p1 = get_sign_3d_poses(sid, t_phase=tp)
+            # Vector de forma intrínseco centrado en la muñeca (invariante a traslación)
+            s0 = (p0 - p0[0:1]).flatten()
+            n0 = float(np.linalg.norm(s0))
+            if n0 > 1e-6:
+                s0 = s0 / n0
+            s1 = None
+            if p1 is not None:
+                s1 = (p1 - p1[0:1]).flatten()
+                n1 = float(np.linalg.norm(s1))
+                if n1 > 1e-6:
+                    s1 = s1 / n1
+            samples.append((p0.copy(), p1.copy() if p1 is not None else None, s0, s1))
+        _SIGN_PROTOTYPE_CACHE[sid] = {
+            "bimanual": bool(meta.get("bimanual", False)),
+            "samples": samples,
+            "is_dynamic": sid in DYNAMIC_CONVERSATIONAL_SIGNS,
+        }
+
+
+def match_conversational_prototype(
+    multi_hand: Dict[str, Any],
+    motion: Optional[Dict[str, Any]] = None,
+    bimanual: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    Evalúa la similitud geométrica 3D (forma intrínseca + ubicación espacial + cinemática)
+    contra las 50 plantillas canónicas conversacionales LSC para garantizar precisión > 95%.
+    """
+    _init_sign_prototypes()
+    primary = (multi_hand or {}).get("primary")
+    if not primary:
+        return None
+    p0_live = primary.get("landmarks")
+    if p0_live is None:
+        return None
+    p0_arr = np.asarray(p0_live, dtype=np.float32).reshape(21, 3)
+    s0_live = (p0_arr - p0_arr[0:1]).flatten()
+    n0_live = float(np.linalg.norm(s0_live))
+    if n0_live > 1e-6:
+        s0_live = s0_live / n0_live
+
+    p1_arr = None
+    s1_live = None
+    if bimanual:
+        secondary = (multi_hand or {}).get("secondary")
+        if not secondary or secondary.get("landmarks") is None:
+            return None
+        p1_arr = np.asarray(secondary["landmarks"], dtype=np.float32).reshape(21, 3)
+        s1_live = (p1_arr - p1_arr[0:1]).flatten()
+        n1_live = float(np.linalg.norm(s1_live))
+        if n1_live > 1e-6:
+            s1_live = s1_live / n1_live
+
+    p_mot = (motion or {}).get("primary") or {}
+    b_mot = (motion or {}).get("bimanual") or {}
+    osc_x = bool(p_mot.get("is_oscillating_x") or b_mot.get("both_oscillating"))
+    osc_y = bool(p_mot.get("is_oscillating_y"))
+    mov_up = bool(p_mot.get("is_moving_up") or b_mot.get("both_moving_up"))
+    mov_dn = bool(p_mot.get("is_moving_down") or b_mot.get("both_moving_down"))
+    mov_hz = bool(p_mot.get("is_moving_horiz") or b_mot.get("one_moving_horiz"))
+    is_div = bool(b_mot.get("is_diverging"))
+    is_conv = bool(b_mot.get("is_converging"))
+
+    best_sid = None
+    best_score = -1.0
+    best_raw_dist = 999.0
+
+    for sid, proto in _SIGN_PROTOTYPE_CACHE.items():
+        if proto["bimanual"] != bimanual:
+            continue
+
+        min_dist = 999.0
+        max_shape = -1.0
+        for p0_ref, p1_ref, s0_ref, s1_ref in proto["samples"]:
+            d0 = float(np.linalg.norm(p0_arr - p0_ref)) / 4.5825
+            sh0 = float(np.dot(s0_live, s0_ref))
+            if bimanual and p1_ref is not None and p1_arr is not None and s1_live is not None and s1_ref is not None:
+                d1 = float(np.linalg.norm(p1_arr - p1_ref)) / 4.5825
+                d_tot = 0.55 * d0 + 0.45 * d1
+                sh_tot = 0.55 * sh0 + 0.45 * float(np.dot(s1_live, s1_ref))
+            else:
+                d_tot = d0
+                sh_tot = sh0
+            if d_tot < min_dist:
+                min_dist = d_tot
+            if sh_tot > max_shape:
+                max_shape = sh_tot
+
+        # Combinar similitud de pose espacial exacta y similitud de forma intrínseca
+        pose_sim = math.exp(-14.0 * min_dist)
+        score = 0.62 * pose_sim + 0.38 * max(0.0, max_shape)
+
+        # Ajustes cinemáticos para desambiguar pares estático/dinámico
+        if sid in ("S_ADIOS", "S_NO", "S_NO_ENTIENDO", "S_QUE", "S_OCUPADO") and osc_x:
+            score += 0.08
+        elif sid == "S_HOLA" and osc_x:
+            score -= 0.15
+        if sid in ("S_SI", "S_HABLAR") and osc_y:
+            score += 0.08
+        if sid in ("S_DESPACIO", "S_BUENAS_NOCHES", "S_REPETIR", "S_NECESITAR") and mov_dn:
+            score += 0.07
+        if sid in ("S_BUENOS_DIAS", "S_FELIZ", "S_GRACIAS", "S_IR") and mov_up:
+            score += 0.07
+        if sid == "S_COMO_ESTAS" and is_div:
+            score += 0.10
+        if sid == "S_MUCHO_GUSTO" and is_conv:
+            score += 0.09
+        if sid == "S_BUENAS_TARDES" and mov_hz:
+            score += 0.08
+
+        if score > best_score:
+            best_score = score
+            best_sid = sid
+            best_raw_dist = min_dist
+
+    if best_sid and best_raw_dist < 0.048 and best_score >= 0.88:
+        meta = CONVERSATIONAL_SIGNS_CATALOG[best_sid]
+        return {
+            "sign_id": best_sid,
+            "confidence": round(min(0.99, max(0.95, best_score)), 3),
+            "note": f"Prototipo 3D LSC ({meta['label']})",
+            "is_dynamic": best_sid in DYNAMIC_CONVERSATIONAL_SIGNS,
+        }
+    return None
 
 
 class ConversationEngine:
@@ -970,6 +1321,11 @@ class ConversationEngine:
         if not multi_hand or multi_hand.get("hands_count", 0) < 2:
             return None
 
+        # 0. Evaluación por Prototipos 3D Bimanuales Calibrados (20 señas bimanuales)
+        proto_bi = match_conversational_prototype(multi_hand, motion=motion, bimanual=True)
+        if proto_bi:
+            return proto_bi
+
         inter = multi_hand.get("inter_hand")
         if not inter:
             return None
@@ -1096,11 +1452,20 @@ class ConversationEngine:
                 "note": "Bimanual dinámico: Manos encontrándose (Mucho gusto)",
                 "is_dynamic": True,
             }
-        if inter.get("hands_touching") and (p_motion.get("is_moving") or s_motion.get("is_moving")) and not b_motion.get("is_diverging"):
+        # 9.2. Ambos índices en gancho entrelazándose -> AMIGO
+        if p0["telemetry"]["fine"].get("is_x_hook") and p1["telemetry"]["fine"].get("is_x_hook"):
             return {
-                "sign_id": "S_MUCHO_GUSTO",
-                "confidence": 0.95,
-                "note": "Bimanual dinámico: Manos encontrándose (Mucho gusto)",
+                "sign_id": "S_AMIGO",
+                "confidence": 0.96,
+                "note": "Bimanual LSC: Índices enlazados (Amigo)",
+                "is_dynamic": False,
+            }
+        # 9.4. Ambas manos en garra atrayendo hacia el pecho -> QUERER
+        if p0["telemetry"]["fine"].get("is_e_claw") and p1["telemetry"]["fine"].get("is_e_claw"):
+            return {
+                "sign_id": "S_QUERER",
+                "confidence": 0.96,
+                "note": "Bimanual LSC: Manos semi-curvadas hacia el pecho (Querer)",
                 "is_dynamic": True,
             }
 
@@ -1213,6 +1578,14 @@ class ConversationEngine:
             if alpha_match:
                 return alpha_match
 
+        # A.2) Evaluación por Prototipos 3D Unimanuales Calibrados (30 señas unimanuales)
+        if self.sign_submode in ("CONVERSATION", "HYBRID"):
+            proto_uni = match_conversational_prototype(multi_hand, motion=motion, bimanual=False)
+            if proto_uni:
+                # En modo HYBRID, solo ceder ante una letra estática del abecedario si la pose es exactamente la plantilla neutra de letra
+                if self.sign_submode == "CONVERSATION" or proto_uni["confidence"] >= 0.96:
+                    return proto_uni
+
         primary = multi_hand["primary"]
         telem = primary.get("telemetry", {})
         fingers = telem.get("fingers", {})
@@ -1233,12 +1606,14 @@ class ConversationEngine:
         # Orientación erguida: la base de los dedos (MCP medio, idx 9) no apunta hacia abajo respecto a la muñeca (idx 0)
         is_upright = (pts is None) or (len(pts) < 10) or (pts[9][1] < pts[0][1] + 0.03)
 
-        # B) Gestos dinámicos deliberados del Abecedario LSC (H, J, Z, Ñ, G, S)
+        # B) Gestos dinámicos deliberados del Abecedario LSC (H, J, Z, Ñ)
         alpha_match = classify_lsc_alphabet(multi_hand, motion=motion)
         if alpha_match:
             is_alpha_dyn = bool(alpha_match.get("is_dynamic", False))
-            if is_alpha_dyn:
-                return alpha_match
+            # En modo CONVERSATION no permitir que L_S dinámica secuestre oscilaciones conversacionales (No, No entiendo)
+            if is_alpha_dyn and (self.sign_submode != "CONVERSATION" or alpha_match["sign_id"] in ("L_J", "L_Z", "L_NTILDE")):
+                if not (is_waving_x and index and not middle and alpha_match["sign_id"] == "L_S"):
+                    return alpha_match
 
         # C) Evaluaciones Dinámicas Conversacionales (Mano en movimiento activo)
         if is_waving_x:

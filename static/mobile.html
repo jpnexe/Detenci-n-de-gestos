@@ -3319,7 +3319,16 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      if (window.location.host.includes('androidplatform.net') && (!serverHost || serverHost.includes('androidplatform.net'))) {
+        serverHost = '127.0.0.1:8000';
+      }
       connectMobileWS();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('autostart') === '1' && typeof toggleCamera === 'function') {
+        setTimeout(() => {
+          if (!stream) toggleCamera();
+        }, 500);
+      }
     });
   </script>
 </body>
