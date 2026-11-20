@@ -320,7 +320,7 @@ class SignBridgePipeline:
         for y in range(0, height, step):
             cv2.line(canvas, (0, y), (width, y), (26, 22, 18), 1)
 
-        cx, cy = width // 2, height // 2 + 20
+        cx, cy = width // 2, height // 2
         cv2.circle(canvas, (cx, cy), 175, (42, 34, 24), 1, cv2.LINE_AA)
         cv2.circle(canvas, (cx, cy), 110, (34, 28, 20), 1, cv2.LINE_AA)
         cv2.line(canvas, (cx - 195, cy), (cx + 195, cy), (38, 30, 22), 1, cv2.LINE_AA)
@@ -334,37 +334,10 @@ class SignBridgePipeline:
         target_secondary: Optional[np.ndarray] = None
 
         if anim_frame is not None:
+            # La info del paso/frase se muestra en el banner HTML dedicado (#handAnimationSubtitleBanner)
+            # fuera del área de la mano para no superponerse con los landmarks 3D.
             target_primary = anim_frame["primary_pose"]
             target_secondary = anim_frame.get("secondary_pose")
-            phrase_txt = anim_frame.get("phrase", "")
-            step_idx = anim_frame.get("step_index", 1)
-            total_steps = anim_frame.get("total_steps", 1)
-            label_txt = anim_frame.get("label", "")
-            desc_txt = anim_frame.get("description", "")
-
-            # Banner superior de traducción de frase en Modelo 3D de Manos
-            cv2.rectangle(canvas, (18, 48), (width - 18, 108), (24, 18, 14), -1)
-            cv2.rectangle(canvas, (18, 48), (width - 18, 108), (157, 255, 0), 1)
-            cv2.putText(
-                canvas,
-                f"INTÉRPRETE 3D DE MANOS LSC [{step_idx}/{total_steps}] :: \"{phrase_txt[:46]}\"",
-                (30, 72),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.52,
-                (157, 255, 0),
-                2,
-                cv2.LINE_AA,
-            )
-            cv2.putText(
-                canvas,
-                f"ACTIVO: [{anim_frame['sign_id']}] {label_txt} - {desc_txt[:62]}",
-                (30, 96),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.46,
-                (255, 240, 0),
-                1,
-                cv2.LINE_AA,
-            )
         else:
             gid = self.simulated_gesture
             t_phase = (t % 1.35) / 1.35
@@ -814,6 +787,9 @@ class SignBridgePipeline:
             if secondary_landmarks is not None
             else []
         )
+        self.latest_landmarks = landmarks_list
+        self.latest_secondary_landmarks = secondary_landmarks_list
+        self.latest_source = active_source
 
         return {
             "mode": self.mode,

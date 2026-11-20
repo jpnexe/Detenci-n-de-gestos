@@ -556,6 +556,27 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
 * Actualización de `stabilized["stabilized_id"]` y `stabilized["name"]` en [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py).
 * **Auditoría completa de las 77 señas (50 conversacionales + 27 letras LSC):** **77/77 reconocidas correctamente (0 fallos)**.
 
+---
+
+### [2026-11-13] — Modelo Secuencial Temporal DTW para Gestos en Movimiento y Bloqueo Estático de Letras Dinámicas
+
+#### 1. Diagnóstico del Problema Reportado
+* **Síntoma 1:** Letras que requieren movimiento (especialmente la `S`) se disparaban estando la mano quieta.
+  * **Causa:** El Bloque B estático (`sims` en [`backend/lsc_alphabet.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/lsc_alphabet.py)) mantenía `L_J`, `L_Z`, `L_NTILDE` y `L_S` como candidatas de similitud coseno de 1 solo frame, ganando sin necesidad de mover la mano.
+* **Síntoma 2:** Al hacer el movimiento real, un clasificador estático de 1 frame (63D) no distingue bien las formas de la trayectoria (`S` vs `Z` vs `J`) a distintas velocidades.
+
+#### 2. Modificaciones Implementadas
+1. **Nuevo Modelo Secuencial Temporal DTW ([`backend/dynamic_gesture_model.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/dynamic_gesture_model.py)):**
+   - Remuestrea la trayectoria 2D de los últimos 20 fotogramas a 16 puntos equidistantes normalizados en escala/posición y calcula la distancia **Dynamic Time Warping (DTW)** contra plantillas temporales de `L_S`, `L_Z` y `L_J` (y sus espejos).
+2. **Integración en [`backend/motion_analyzer.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/motion_analyzer.py):**
+   - `trace_j`, `trace_z` y `trace_s` ahora se evalúan con el clasificador DTW para distinguir curvas en `S`, zigzag en `Z` y gancho en `J` sin importar si se trazan rápido o lento.
+3. **Bloqueo Estático Estricto en [`backend/lsc_alphabet.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/lsc_alphabet.py):**
+   - Se excluyeron `L_J`, `L_Z`, `L_NTILDE` y `L_S` del bloque de similitud estática: ahora es **imposible** que se disparen si el usuario no ejecuta el movimiento.
+
+#### 3. Verificación
+* Prueba directa de trayectorias DTW (`L_S` dist=0.0321, `L_Z` dist=0.0): **OK**.
+* Verificación de bloqueo estático de `L_S` sin movimiento y `python test_pipeline.py`: **100% PASS** (`TODOS LOS TESTS PASARON EXITOSAMENTE`).
+
 #### 4. Archivos Modificados
 * [`backend/pipeline.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/pipeline.py): Secuencia compartida `latest_tts_seq` y `latest_tts_text`.
 * [`main.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/main.py): Emisión de `tts_to_speak` y `tts_seq` hacia `/ws/mobile`.
@@ -633,3 +654,16 @@ Se realizó una auditoría multidimensional en todo el código base (Frontend, B
    - En móvil (`mobile.html`), si `SpeechRecognition` falla, usa `MediaRecorder` → `/api/speech/transcribe` y envía `TRANSLATE_TO_HANDS`.
 
 
+
+## Validación Estricta de Orientación y Posición Canónica de la Mano (Abecedario LSC y Señas Conversacionales)
+- **Problema resuelto**: Letras con orientación obligatoria (como `L_N`, `L_M`, `L_NTILDE`, `L_P` hacia abajo, o `L_H`, `L_G` laterales) podían dispararse con la mano apuntando hacia arriba, y señas verticales (`L_B`, `S_HOLA`, `S_ADIOS`, `S_BIEN`, etc.) no validaban suficientemente la orientación de la mano respecto a la muñeca.
+- **Cambios en [`backend/lsc_alphabet.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/lsc_alphabet.py)**:
+  - `L_H` y `L_G` en el bloque dinámico ahora exigen `is_lateral` (`pointing_dir == "SIDE"` o componente horizontal dominante `abs(v_idx_x) > 1.15 * abs(v_idx_y)`), evitando que señas verticales como `V`/`R`/`D` disparen `H` o `G` al mover la mano lateralmente.
+  - Penalización estricta (`-0.45`) en `filtered_sims` según orientación canónica (`is_pointing_down = (pointing_dir == "DOWN") or (v_idx_y > 0.18)`):
+    - `down_only` (`L_M`, `L_N`, `L_NTILDE`, `L_P`): penalizadas si `not is_pointing_down`.
+    - `side_only` (`L_G`, `L_H`): penalizadas si `not is_pointing_side`.
+    - `up_only` (`L_B`, `L_D`, `L_F`, `L_I`, `L_K`, `L_L`, `L_R`, `L_U`, `L_V`, `L_W`, `L_Y`): penalizadas si `is_pointing_down`.
+- **Cambios en [`backend/conversation_engine.py`](file:///c:/Users/NOSE%20-%20PC/Documents/Python%20personal/Detencion%20de%20movimiento/backend/conversation_engine.py)**:
+  - Se añadió `is_upright = (pts is None) or (len(pts) < 10) or (pts[9][1] < pts[0][1] + 0.03)` para exigir que la mano no esté invertida hacia abajo en señas erguidas (`S_ADIOS`, `S_SI`, `S_REPETIR`, `S_GRACIAS`, `S_HOLA`, `L_B`).
+  - `S_BIEN` ahora exige además `thumb_above_wrist = pts[4][1] < (pts[0][1] - 0.03)` (pulgar claramente por encima de la muñeca), complementando a `S_MAL` (`thumb_y > wrist_y + 0.04`).
+- **Verificación**: `python test_pipeline.py` (`TODOS LOS TESTS PASARON EXITOSAMENTE`, 27/27 en Abecedario LSC) y pruebas negativas de orientación invertida (`L_U` erguida no da `L_N`/`L_H`, `L_N` invertida hacia arriba no da `L_N`/`L_M`/`L_P`/`L_H`/`L_G`, `L_B` invertida hacia abajo no da `L_B`, `S_BIEN` y `S_MAL` respetan posición del pulgar).

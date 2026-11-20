@@ -914,12 +914,12 @@ def classify_lsc_alphabet(
     is_h_dynamic = (trace_h or is_moving_horiz) and is_not_vertical_up
 
     if index and middle and not ring and not pinky and (spread < 0.32) and not is_crossed_r and not fingertips_down:
-        if is_lateral or is_h_dynamic:
+        if is_lateral:
             return _res("L_H", 0.98 if is_h_dynamic else 0.96, dyn=is_h_dynamic)
 
     # 4. Letra G (Solo índice horizontal con o sin deslizamiento lateral)
     if index and not middle and not ring and not pinky and not trace_s and not trace_z and not fingertips_down:
-        if is_lateral or (trace_h and not is_osc_x and is_not_vertical_up):
+        if is_lateral:
             return _res("L_G", 0.97 if is_h_dynamic else 0.96, dyn=is_h_dynamic)
 
     # 5. Letra Ñ (Configuración N apuntando hacia abajo con oscilación horizontal de virgulilla)
@@ -967,6 +967,29 @@ def classify_lsc_alphabet(
             if lid not in allowed:
                 filtered_sims[lid] -= 0.10
 
+        # Validación estricta de orientación canónica de la mano:
+        # Evita que letras hacia abajo (M, N, Ñ, P) se disparen apuntando hacia arriba,
+        # que letras laterales (G, H) se disparen en vertical, o que letras verticales
+        # se disparen con la mano apuntando hacia abajo.
+        is_pointing_down = (pointing_dir == "DOWN") or (v_idx_y > 0.18)
+        is_pointing_side = is_lateral
+        down_only = {"L_M", "L_N", "L_NTILDE", "L_P"}
+        side_only = {"L_G", "L_H"}
+        up_only = {"L_B", "L_D", "L_F", "L_I", "L_K", "L_L", "L_R", "L_U", "L_V", "L_W", "L_Y"}
+
+        for lid in list(filtered_sims.keys()):
+            if lid in down_only and not is_pointing_down:
+                filtered_sims[lid] -= 0.45
+            elif lid in side_only and not is_pointing_side:
+                filtered_sims[lid] -= 0.45
+            elif lid in up_only and is_pointing_down:
+                filtered_sims[lid] -= 0.45
+
+        # Bloqueo estático estricto: las letras que exigen movimiento obligatorio
+        # (J, Z, Ñ, S) NO pueden dispararse sin haber realizado su trazo/oscilación.
+        for dyn_only_lid in ("L_J", "L_Z", "L_NTILDE", "L_S"):
+            filtered_sims.pop(dyn_only_lid, None)
+
         sorted_sims = sorted(filtered_sims.items(), key=lambda x: x[1], reverse=True)
         best_lid, best_sim = sorted_sims[0]
         second_lid, second_sim = sorted_sims[1]
@@ -983,10 +1006,6 @@ def classify_lsc_alphabet(
 
         if cands == {"L_N", "L_V"} or (best_lid == "L_N" and not fingertips_down and v_idx_y < -0.1):
             chosen = "L_N" if (fingertips_down or v_idx_y > 0.20) else ("L_R" if is_crossed_r else "L_V")
-            return _res(chosen, conf=max(best_sim, 0.96))
-
-        if cands == {"L_A", "L_S"}:
-            chosen = "L_A" if (thumb or d_thumb_idx > 0.28) else "L_S"
             return _res(chosen, conf=max(best_sim, 0.96))
 
         if cands == {"L_E", "L_A"}:

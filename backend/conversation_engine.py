@@ -26,6 +26,7 @@ from backend.lsc_alphabet import (
     classify_lsc_alphabet,
 )
 from backend.custom_signs import custom_sign_store
+from backend.conversation_db import ConversationDB
 
 
 CONVERSATIONAL_SIGNS_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -861,19 +862,53 @@ class ConversationEngine:
         self.animation_total_steps: int = 0
         self.animation_current_index: int = 0
 
+        # Persistencia SQLite de conversaciones y mensajes
+        self.db = ConversationDB()
+        self.active_conversation_id: int = self.db.ensure_default_conversation()
+        self.active_conversation_title: str = "Conversación #1"
+
         self._init_chat()
 
     def _init_chat(self) -> None:
-        self.chat_history = [
-            {
-                "id": "msg_0",
-                "sender": "SYSTEM",
-                "sender_label": "SignBridge v4.0 LSC",
-                "text": "Traductor de Lengua de Señas Colombiana (LSC) Activo: Reconoce las 27 letras del Abecedario LSC (A–Z + Ñ), +45 señas conversacionales y traduce frases habladas o escritas mediante el Modelo 3D de Manos.",
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "sign_ids": [],
-            }
-        ]
+        conv = self.db.get_conversation(self.active_conversation_id)
+        if conv is None:
+            self.active_conversation_id = self.db.ensure_default_conversation()
+            conv = self.db.get_conversation(self.active_conversation_id)
+        if conv:
+            self.active_conversation_title = conv["title"]
+            self.chat_history = conv["messages"]
+        else:
+            self.chat_history = []
+
+    def reload_active_conversation(self) -> None:
+        """Recarga la conversación activa desde SQLite (o cambia a otra si fue eliminada)."""
+        conv = self.db.get_conversation(self.active_conversation_id)
+        if conv is None:
+            self.active_conversation_id = self.db.ensure_default_conversation()
+            conv = self.db.get_conversation(self.active_conversation_id)
+        if conv:
+            self.active_conversation_title = conv["title"]
+            self.chat_history = conv["messages"]
+
+    def start_new_conversation(self, title: Optional[str] = None) -> Dict[str, Any]:
+        """Crea una nueva conversación en SQLite y la establece como activa."""
+        conv = self.db.create_conversation(title=title)
+        self.active_conversation_id = int(conv["id"])
+        self.active_conversation_title = conv["title"]
+        self.chat_history = conv["messages"]
+        self.clear_tokens()
+        return conv
+
+    def switch_conversation(self, conv_id: int) -> Optional[Dict[str, Any]]:
+        """Cambia la conversación activa a otra existente en SQLite."""
+        conv = self.db.get_conversation(conv_id)
+        if conv is None:
+            return None
+        self.active_conversation_id = int(conv["id"])
+        self.active_conversation_title = conv["title"]
+        self.chat_history = conv["messages"]
+        self.clear_tokens()
+        return conv
 
     def set_submode(self, submode: str) -> str:
         sm = submode.upper().strip()
@@ -1195,6 +1230,8 @@ class ConversationEngine:
         is_waving_y = bool(p_motion.get("is_oscillating_y"))
         is_moving_down = bool(p_motion.get("is_moving_down"))
         is_moving_up = bool(p_motion.get("is_moving_up"))
+        # Orientación erguida: la base de los dedos (MCP medio, idx 9) no apunta hacia abajo respecto a la muñeca (idx 0)
+        is_upright = (pts is None) or (len(pts) < 10) or (pts[9][1] < pts[0][1] + 0.03)
 
         # B) Gestos dinámicos deliberados del Abecedario LSC (H, J, Z, Ñ, G, S)
         alpha_match = classify_lsc_alphabet(multi_hand, motion=motion)
@@ -1205,7 +1242,7 @@ class ConversationEngine:
 
         # C) Evaluaciones Dinámicas Conversacionales (Mano en movimiento activo)
         if is_waving_x:
-            if index and middle and ring and pinky:
+            if is_upright and index and middle and ring and pinky:
                 return {
                     "sign_id": "S_ADIOS",
                     "confidence": 0.98,
@@ -1234,7 +1271,7 @@ class ConversationEngine:
                     "is_dynamic": True,
                 }
 
-        if is_waving_y:
+        if is_waving_y and is_upright:
             if not index and not middle and not ring and not pinky:
                 return {
                     "sign_id": "S_SI",
@@ -1251,7 +1288,7 @@ class ConversationEngine:
                 }
 
         if is_moving_down:
-            if index and middle and ring and pinky:
+            if is_upright and index and middle and ring and pinky:
                 return {
                     "sign_id": "S_REPETIR",
                     "confidence": 0.96,
@@ -1267,7 +1304,7 @@ class ConversationEngine:
                 }
 
         if is_moving_up:
-            if index and middle and ring and pinky:
+            if is_upright and index and middle and ring and pinky:
                 return {
                     "sign_id": "S_GRACIAS",
                     "confidence": 0.96,
@@ -1298,7 +1335,8 @@ class ConversationEngine:
         # 1.5 Pulgar arriba (S_BIEN / Letra A)
         if thumb and not index and not middle and not ring and not pinky and pts is not None and len(pts) >= 5:
             d_thumb_idx = float(fine.get("d_thumb_idx", 0.35))
-            if d_thumb_idx > 0.30 and self.sign_submode != "ALPHABET_LSC":
+            thumb_above_wrist = pts[4][1] < (pts[0][1] - 0.03)
+            if d_thumb_idx > 0.30 and thumb_above_wrist and self.sign_submode != "ALPHABET_LSC":
                 return {
                     "sign_id": "S_BIEN",
                     "confidence": 0.97,
@@ -1314,7 +1352,7 @@ class ConversationEngine:
                 }
 
         # 2. Mano abierta estática: S_HOLA (palma extendida con pulgar abierto) vs L_B (4 dedos juntos, pulgar en palma)
-        if index and middle and ring and pinky:
+        if is_upright and index and middle and ring and pinky:
             spread = float(fine.get("idx_mid_spread", 0.5))
             if self.sign_submode == "CONVERSATION" or (thumb and spread >= 0.16 and self.sign_submode != "ALPHABET_LSC"):
                 return {
@@ -1816,17 +1854,29 @@ class ConversationEngine:
             return {"committed": False, "message": "Buffer vacío"}
 
         sign_ids = [t["sign_id"] for t in self.active_tokens]
-        msg_id = f"msg_{len(self.chat_history)}"
         ts = datetime.now().strftime("%H:%M:%S")
 
-        entry = {
-            "id": msg_id,
-            "sender": "DEAF",
-            "sender_label": "Persona Sorda (Señas LSC)",
-            "text": phrase,
-            "timestamp": ts,
-            "sign_ids": sign_ids,
-        }
+        entry = self.db.add_message(
+            conv_id=self.active_conversation_id,
+            sender="DEAF",
+            sender_label="Persona Sorda (Señas LSC)",
+            text=phrase,
+            timestamp=ts,
+            sign_ids=sign_ids,
+        )
+        if entry is None:
+            entry = {
+                "id": f"msg_{len(self.chat_history)}",
+                "sender": "DEAF",
+                "sender_label": "Persona Sorda (Señas LSC)",
+                "text": phrase,
+                "timestamp": ts,
+                "sign_ids": sign_ids,
+            }
+        else:
+            conv_meta = self.db.get_conversation(self.active_conversation_id)
+            if conv_meta:
+                self.active_conversation_title = conv_meta["title"]
         self.chat_history.append(entry)
         self.tts_queue.append(phrase)
 
@@ -1848,21 +1898,34 @@ class ConversationEngine:
         if not clean_text:
             return {"added": False}
 
-        msg_id = f"msg_{len(self.chat_history)}"
         ts = datetime.now().strftime("%H:%M:%S")
 
         anim_info = None
         if animate_hands:
             anim_info = self.translate_phrase_to_hand_sequence(clean_text)
 
-        entry = {
-            "id": msg_id,
-            "sender": "HEARING",
-            "sender_label": "Oyente (Voz -> Modelo 3D LSC)",
-            "text": clean_text,
-            "timestamp": ts,
-            "sign_ids": [s["sign_id"] for s in (anim_info.get("steps", []) if anim_info else [])],
-        }
+        sids = [s["sign_id"] for s in (anim_info.get("steps", []) if anim_info else [])]
+        entry = self.db.add_message(
+            conv_id=self.active_conversation_id,
+            sender="HEARING",
+            sender_label="Oyente (Voz -> Modelo 3D LSC)",
+            text=clean_text,
+            timestamp=ts,
+            sign_ids=sids,
+        )
+        if entry is None:
+            entry = {
+                "id": f"msg_{len(self.chat_history)}",
+                "sender": "HEARING",
+                "sender_label": "Oyente (Voz -> Modelo 3D LSC)",
+                "text": clean_text,
+                "timestamp": ts,
+                "sign_ids": sids,
+            }
+        else:
+            conv_meta = self.db.get_conversation(self.active_conversation_id)
+            if conv_meta:
+                self.active_conversation_title = conv_meta["title"]
         self.chat_history.append(entry)
         return {"added": True, "entry": entry, "animation": anim_info}
 
@@ -1916,7 +1979,9 @@ class ConversationEngine:
             "current_sentence": self.current_sentence,
             "raw_gloss_sentence": self.raw_gloss_sentence,
             "token_count": len(self.active_tokens),
-            "chat_history": self.chat_history[-15:],
+            "active_conversation_id": self.active_conversation_id,
+            "active_conversation_title": self.active_conversation_title,
+            "chat_history": self.chat_history[-50:],
             "catalog": CONVERSATIONAL_SIGNS_CATALOG,
             "alphabet_catalog": LSC_ALPHABET_CATALOG,
             "hand_animator": anim_payload,

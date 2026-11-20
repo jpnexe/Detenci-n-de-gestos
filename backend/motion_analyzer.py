@@ -18,6 +18,8 @@ from collections import deque
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
+from backend.dynamic_gesture_model import dynamic_trajectory_classifier
+
 
 class HandMotionHistory:
     """Almacena el historial de posiciones de una mano para análisis cinemático y de trazo."""
@@ -199,31 +201,46 @@ class HandMotionHistory:
                     self.j_latch_until = cur_time + 0.65  # Retención temporal de 650ms para confirmación
                     trace_j = True
 
+        # Refuerzo secuencial DTW para trazo de Letra 'J' con meñique
+        if not trace_j and n >= 7 and (speed_pinky >= 0.055 or speed >= 0.055):
+            dtw_j = dynamic_trajectory_classifier.classify_trajectory(
+                list(zip(pinky_xs, pinky_ys)), candidate_ids=("L_J",), min_span=0.042, max_dtw_dist=0.33
+            )
+            if dtw_j is not None:
+                self.j_latch_until = cur_time + 0.65
+                trace_j = True
+
         if not trace_j and is_j_latched:
             trace_j = True
 
-        # 4. DETECCIÓN DE TRAZO DE LA LETRA 'Z' (Índice trazando zigzag)
-        # Trazo Z: derecha -> diagonal abajo-izquierda -> derecha (mínimo 2 inversiones horizontales con descenso)
+        # 4 & 5. DETECCIÓN DE TRAZOS 'Z' Y 'S' MEDIANTE MODELO SECUENCIAL DTW + INVERSIÓN CINEMÁTICA
         trace_z = False
         is_z_latched = (cur_time < self.z_latch_until)
+        trace_s = False
+        is_s_latched = (cur_time < self.s_latch_until)
 
-        if n >= 7 and (speed_index >= 0.06):
+        if n >= 7 and (speed_index >= 0.055):
+            idx_traj = list(zip(ixs, iys))
+            dtw_zs = dynamic_trajectory_classifier.classify_trajectory(
+                idx_traj, candidate_ids=("L_Z", "L_S"), min_span=0.045, max_dtw_dist=0.35
+            )
             z_span_x = max(ixs) - min(ixs)
             z_span_y = max(iys) - min(iys)
-            if rev_x_index >= 2 and z_span_x >= 0.028 and z_span_y >= 0.028:
+
+            if dtw_zs is not None:
+                if dtw_zs["sign_id"] == "L_Z":
+                    self.z_latch_until = cur_time + 0.65
+                    trace_z = True
+                elif dtw_zs["sign_id"] == "L_S":
+                    self.s_latch_until = cur_time + 0.60
+                    trace_s = True
+            elif rev_x_index >= 2 and z_span_x >= 0.030 and z_span_y >= 0.030:
                 self.z_latch_until = cur_time + 0.65
                 trace_z = True
 
         if not trace_z and is_z_latched:
             trace_z = True
-
-        # 5. DETECCIÓN DE TRAZO DE LA LETRA 'S' (exige amplitud real en X e Y y velocidad activa)
-        trace_s = False
-        is_s_latched = (cur_time < self.s_latch_until)
-        if n >= 7 and rev_x_index >= 2 and amp_x_index >= 0.028 and (max(iys) - min(iys) >= 0.030) and speed_index >= 0.055:
-            self.s_latch_until = cur_time + 0.55
-            trace_s = True
-        elif is_s_latched:
+        if not trace_s and is_s_latched:
             trace_s = True
 
         # 6. DETECCIÓN DE DESLIZAMIENTO LATERAL (LETRA 'H' Y 'G')

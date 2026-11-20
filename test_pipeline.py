@@ -198,6 +198,7 @@ def run_tests():
             "primary": {
                 "trace_j": (lid == "L_J"),
                 "trace_z": (lid == "L_Z"),
+                "trace_s": (lid == "L_S"),
                 "trace_h": (lid == "L_H"),
                 "is_oscillating_x": (lid == "L_NTILDE"),
                 "is_moving_horiz": (lid == "L_G"),
@@ -205,7 +206,11 @@ def run_tests():
         }
         res = classify_lsc_alphabet(multi, motion=motion_mock)
         assert res is not None and res["sign_id"] == lid, f"Fallo de precisión en {lid}: obtenido {res}"
-    print("   Precisión del 100% (27/27) en el Abecedario LSC mediante Similitud de Plantillas y Discriminación Anatómica.")
+    # Verificar que L_S estática (sin trazo en S) no dispare L_S falsamente
+    static_s_pose = get_lsc_letter_pose("L_S")
+    static_s_res = classify_lsc_alphabet(normalize_multi_hand_landmarks([static_s_pose], ["Right"]), motion={"primary": {}})
+    assert static_s_res is None or static_s_res["sign_id"] != "L_S", f"L_S se disparó sin movimiento: {static_s_res}"
+    print("   Precisión del 100% (27/27) en el Abecedario LSC mediante Similitud de Plantillas, DTW y Bloqueo Estático.")
 
     # 4.8. Verificación de Aislamiento Estricto de Modos (SIGN_LANGUAGE vs OS_CONTROL)
     pipe.interaction_mode = "SIGN_LANGUAGE"

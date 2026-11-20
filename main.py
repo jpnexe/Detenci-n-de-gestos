@@ -57,6 +57,8 @@ app.add_middleware(
 
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+if os.path.isdir("avatares"):
+    app.mount("/avatares", StaticFiles(directory="avatares"), name="avatares")
 
 pipeline = SignBridgePipeline(model_dir="models")
 
@@ -370,6 +372,24 @@ class ImportSignImageRequest(BaseModel):
     instructions: str = ""
 
 
+class ConversationCreateRequest(BaseModel):
+    title: Optional[str] = None
+
+
+class ConversationRenameRequest(BaseModel):
+    title: str
+
+
+class ConversationMessageCreateRequest(BaseModel):
+    sender: str = "HEARING"  # "DEAF" | "HEARING" | "SYSTEM"
+    text: str
+    animate_hands: bool = False
+
+
+class MessageUpdateRequest(BaseModel):
+    text: str
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -680,6 +700,121 @@ async def api_conversation_clear():
     return pipeline.clear_conversation_tokens()
 
 
+# ==========================================
+# CRUD de Historial de Conversaciones (SQLite)
+# ==========================================
+
+@app.get("/api/conversations")
+async def api_list_conversations():
+    eng = pipeline.conversation_engine
+    return {
+        "conversations": eng.db.list_conversations(),
+        "active_conversation_id": eng.active_conversation_id,
+        "active_conversation_title": eng.active_conversation_title,
+    }
+
+
+@app.post("/api/conversations")
+async def api_create_conversation(payload: ConversationCreateRequest):
+    conv = pipeline.conversation_engine.start_new_conversation(title=payload.title)
+    return {"ok": True, "conversation": conv}
+
+
+@app.get("/api/conversations/{conv_id}")
+async def api_get_conversation(conv_id: int):
+    conv = pipeline.conversation_engine.db.get_conversation(conv_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    return conv
+
+
+@app.post("/api/conversations/{conv_id}/activate")
+async def api_activate_conversation(conv_id: int):
+    conv = pipeline.conversation_engine.switch_conversation(conv_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    return {"ok": True, "conversation": conv}
+
+
+@app.patch("/api/conversations/{conv_id}")
+async def api_rename_conversation(conv_id: int, payload: ConversationRenameRequest):
+    eng = pipeline.conversation_engine
+    conv = eng.db.rename_conversation(conv_id, payload.title)
+    if not conv:
+        raise HTTPException(status_code=400, detail="No se pudo renombrar la conversación")
+    if eng.active_conversation_id == conv_id:
+        eng.active_conversation_title = conv["title"]
+    return {"ok": True, "conversation": conv}
+
+
+@app.delete("/api/conversations/{conv_id}")
+async def api_delete_conversation(conv_id: int):
+    eng = pipeline.conversation_engine
+    deleted = eng.db.delete_conversation(conv_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    eng.reload_active_conversation()
+    return {
+        "ok": True,
+        "active_conversation_id": eng.active_conversation_id,
+        "active_conversation_title": eng.active_conversation_title,
+    }
+
+
+@app.post("/api/conversations/{conv_id}/clear")
+async def api_clear_conversation_messages(conv_id: int):
+    eng = pipeline.conversation_engine
+    ok = eng.db.clear_conversation_messages(conv_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    if eng.active_conversation_id == conv_id:
+        eng.reload_active_conversation()
+    return {"ok": True}
+
+
+@app.post("/api/conversations/{conv_id}/messages")
+async def api_add_message_to_conversation(conv_id: int, payload: ConversationMessageCreateRequest):
+    eng = pipeline.conversation_engine
+    sender = payload.sender.upper().strip()
+    if sender not in ("DEAF", "HEARING", "SYSTEM"):
+        raise HTTPException(status_code=400, detail="Sender inválido (DEAF, HEARING o SYSTEM)")
+    sender_label = (
+        "Persona Sorda (Señas LSC)" if sender == "DEAF"
+        else "Oyente (Voz -> Modelo 3D LSC)" if sender == "HEARING"
+        else "SignBridge v4.0 LSC"
+    )
+    msg = eng.db.add_message(conv_id=conv_id, sender=sender, sender_label=sender_label, text=payload.text)
+    if not msg:
+        raise HTTPException(status_code=400, detail="No se pudo agregar el mensaje")
+    if eng.active_conversation_id == conv_id:
+        eng.reload_active_conversation()
+        if payload.animate_hands and sender == "HEARING":
+            eng.translate_phrase_to_hand_sequence(payload.text)
+    return {"ok": True, "message": msg}
+
+
+@app.patch("/api/messages/{msg_id}")
+async def api_update_message(msg_id: int, payload: MessageUpdateRequest):
+    eng = pipeline.conversation_engine
+    msg = eng.db.update_message(msg_id, payload.text)
+    if not msg:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado o texto vacío")
+    if eng.active_conversation_id == msg["conversation_id"]:
+        eng.reload_active_conversation()
+    return {"ok": True, "message": msg}
+
+
+@app.delete("/api/messages/{msg_id}")
+async def api_delete_message(msg_id: int):
+    eng = pipeline.conversation_engine
+    conv_id = eng.db.delete_message(msg_id)
+    if conv_id is None:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado")
+    if eng.active_conversation_id == conv_id:
+        eng.reload_active_conversation()
+    return {"ok": True}
+
+
 @app.get("/api/qr")
 async def api_qr(request: Request):
     """Genera el código QR en Base64 para emparejar el teléfono móvil como cámara inalámbrica."""
@@ -954,16 +1089,25 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                     pipeline.add_manual_sign_token(payload.get("sign_id", ""))
 
             # Si el navegador del PC está cerrado o en segundo plano, el APK impulsa el pipeline
+            packet = None
             if (time.perf_counter() - pipeline._last_frame_ts) > 0.032:
                 local_frame = camera_worker.read() if camera_worker.available else None
-                await asyncio.to_thread(pipeline.process_step, local_frame)
+                packet = await asyncio.to_thread(pipeline.process_step, local_frame)
 
-            cur_gid = (
+            stab = (packet or {}).get("stabilized") or {}
+            cur_gid = stab.get("stabilized_id") or (
                 pipeline.stabilizer.buffer[-1]
                 if pipeline.stabilizer.buffer
                 else (pipeline.stabilizer.last_triggered_gesture or "G0")
             )
-            if cur_gid in GESTURE_CATALOG:
+            if stab:
+                meta_cur = {
+                    "short_label": stab.get("short_label", "DESCONOCIDO"),
+                    "sign_label": stab.get("sign_label", stab.get("short_label", "DESCONOCIDO")),
+                    "sign_message": stab.get("sign_message", ""),
+                    "action_label": stab.get("action_label", ""),
+                }
+            elif cur_gid in GESTURE_CATALOG:
                 meta_cur = GESTURE_CATALOG[cur_gid]
             elif cur_gid in CONVERSATIONAL_SIGNS_CATALOG:
                 s_meta = CONVERSATIONAL_SIGNS_CATALOG[cur_gid]
@@ -989,12 +1133,14 @@ async def ws_mobile_endpoint(websocket: WebSocket):
             if extra_tts:
                 pipeline.latest_tts_seq += 1
                 pipeline.latest_tts_text = extra_tts
+            step_tts = (packet or {}).get("tts_to_speak") or extra_tts
 
             await websocket.send_json({
                 "status": "streaming",
                 "mode": pipeline.mode,
                 "interaction_mode": pipeline.interaction_mode,
                 "video_source": pipeline.video_source,
+                "source": (packet or {}).get("source") or getattr(pipeline, "latest_source", "SIMULATOR_3D"),
                 "simulated_gesture": pipeline.simulated_gesture,
                 "mobile_cam_active": pipeline.video_source == "MOBILE",
                 "pointer_enabled": pipeline.hardware.pointer_enabled,
@@ -1007,23 +1153,25 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                 "sign_label": meta_cur.get("sign_label", meta_cur["short_label"]),
                 "sign_message": meta_cur.get("sign_message", ""),
                 "action_label": meta_cur["action_label"],
-                "ring_progress": (
+                "ring_progress": stab.get("ring_progress", (
                     sum(1 for x in pipeline.stabilizer.buffer if x == cur_gid)
                     / float(pipeline.stabilizer.buffer_size)
                     if pipeline.stabilizer.buffer and cur_gid != "G0"
                     else 0.0
-                ),
-                "confidence": round(
+                )),
+                "confidence": stab.get("confidence", round(
                     pipeline.stabilizer.conf_buffer[-1] if pipeline.stabilizer.conf_buffer else 0.0, 3
-                ),
+                )),
                 "events": pipeline.hardware.get_recent_events()[:6],
                 "sign_history": pipeline.sign_history[:6],
-                "conversation": pipeline.conversation_engine.get_state(),
-                "tts_to_speak": pipeline.latest_tts_text,
+                "conversation": (packet or {}).get("conversation") or pipeline.conversation_engine.get_state(),
+                "tts_to_speak": step_tts,
                 "tts_seq": pipeline.latest_tts_seq,
                 "bimanual": len(pipeline.multi_hand_landmarks) >= 2,
                 "hands_count": len(pipeline.multi_hand_landmarks),
-                "hud_frame_b64": pipeline.latest_rendered_b64,
+                "landmarks": (packet or {}).get("landmarks") if packet is not None else getattr(pipeline, "latest_landmarks", []),
+                "secondary_landmarks": (packet or {}).get("secondary_landmarks") if packet is not None else getattr(pipeline, "latest_secondary_landmarks", []),
+                "hud_frame_b64": (packet or {}).get("frame_b64") or pipeline.latest_rendered_b64,
             })
     except WebSocketDisconnect:
         pass
