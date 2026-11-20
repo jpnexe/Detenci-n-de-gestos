@@ -25,6 +25,7 @@ from backend.lsc_alphabet import (
     get_lsc_letter_pose,
     classify_lsc_alphabet,
 )
+from backend.normalizer import extract_biomech_signature
 from backend.custom_signs import custom_sign_store
 from backend.conversation_db import ConversationDB
 
@@ -557,6 +558,254 @@ CONVERSATIONAL_SIGNS_CATALOG: Dict[str, Dict[str, Any]] = {
         "description": "Dedos índice y medio extendidos (seña de paz / continuar).",
         "color": "#10B981",
     },
+
+    # =========================================================================
+    # 9. FAMILIA, COGNICIÓN Y CONVERSACIÓN INTERMEDIA LSC (+16 Señas)
+    # =========================================================================
+    "S_MAMA": {
+        "id": "S_MAMA",
+        "label": "Mamá",
+        "emoji": "👩",
+        "category": "Familia",
+        "bimanual": False,
+        "default_phrase": "Mi mamá.",
+        "description": "Mano abierta con dedos ligeramente curvados tocando suavemente la mejilla.",
+        "color": "#F472B6",
+    },
+    "S_PAPA": {
+        "id": "S_PAPA",
+        "label": "Papá",
+        "emoji": "👨",
+        "category": "Familia",
+        "bimanual": False,
+        "default_phrase": "Mi papá.",
+        "description": "Mano en L o pinza suave tocando la frente / sien en LSC.",
+        "color": "#60A5FA",
+    },
+    "S_HERMANO": {
+        "id": "S_HERMANO",
+        "label": "Hermano / Hermana",
+        "emoji": "🧑‍🤝‍🧑",
+        "category": "Familia",
+        "bimanual": True,
+        "default_phrase": "Mi hermano o hermana.",
+        "description": "Ambos dedos índices paralelos juntos proyectándose al frente.",
+        "color": "#A78BFA",
+    },
+    "S_FAMILIA": {
+        "id": "S_FAMILIA",
+        "label": "Familia",
+        "emoji": "👨‍👩‍👧‍👦",
+        "category": "Familia",
+        "bimanual": True,
+        "default_phrase": "Mi familia.",
+        "description": "Ambas manos en pinza F describiendo un círculo frente al pecho.",
+        "color": "#F472B6",
+    },
+    "S_PENSAR": {
+        "id": "S_PENSAR",
+        "label": "Pensar",
+        "emoji": "🤔",
+        "category": "Verbos",
+        "bimanual": False,
+        "default_phrase": "Estoy pensando en eso.",
+        "description": "Dedo índice apuntando suavemente hacia la frente.",
+        "color": "#38BDF8",
+    },
+    "S_SABER": {
+        "id": "S_SABER",
+        "label": "Saber / Conocer",
+        "emoji": "💡",
+        "category": "Verbos",
+        "bimanual": False,
+        "default_phrase": "Yo sé / conozco.",
+        "description": "Yemas de los dedos tocando la sien y proyectándose al frente.",
+        "color": "#FBBF24",
+    },
+    "S_APRENDER": {
+        "id": "S_APRENDER",
+        "label": "Aprender",
+        "emoji": "📖",
+        "category": "Verbos",
+        "bimanual": True,
+        "default_phrase": "Quiero aprender lengua de señas.",
+        "description": "Mano dominante recoge desde la palma pasiva hacia la frente.",
+        "color": "#34D399",
+    },
+    "S_ENSENAR": {
+        "id": "S_ENSENAR",
+        "label": "Enseñar / Explicar",
+        "emoji": "🧑‍🏫",
+        "category": "Verbos",
+        "bimanual": True,
+        "default_phrase": "Te puedo enseñar / explicar.",
+        "description": "Ambas manos planas proyectándose desde el frente hacia el interlocutor.",
+        "color": "#38BDF8",
+    },
+    "S_VIVIR": {
+        "id": "S_VIVIR",
+        "label": "Vivir",
+        "emoji": "🏡",
+        "category": "Verbos",
+        "bimanual": True,
+        "default_phrase": "Yo vivo aquí.",
+        "description": "Ambas manos en A subiendo paralelamente por delante del torso.",
+        "color": "#10B981",
+    },
+    "S_CONOCER": {
+        "id": "S_CONOCER",
+        "label": "Conocer",
+        "emoji": "🤝",
+        "category": "Verbos",
+        "bimanual": True,
+        "default_phrase": "Mucho gusto en conocerte.",
+        "description": "Mano plana girando frente a la otra mano abierta en ángulo.",
+        "color": "#06B6D4",
+    },
+    "S_COLOMBIA": {
+        "id": "S_COLOMBIA",
+        "label": "Colombia",
+        "emoji": "🇨🇴",
+        "category": "Tiempo/Lugar",
+        "bimanual": False,
+        "default_phrase": "Colombia.",
+        "description": "Mano en configuración C con movimiento circular suave junto a la mejilla.",
+        "color": "#FACC15",
+    },
+    "S_BOGOTA": {
+        "id": "S_BOGOTA",
+        "label": "Bogotá / Ciudad",
+        "emoji": "🏙️",
+        "category": "Tiempo/Lugar",
+        "bimanual": True,
+        "default_phrase": "En la ciudad / Bogotá.",
+        "description": "Ambas manos en B uniendo las puntas en ángulo frente al pecho.",
+        "color": "#60A5FA",
+    },
+    "S_ESCUELA": {
+        "id": "S_ESCUELA",
+        "label": "Colegio / Escuela",
+        "emoji": "🏫",
+        "category": "Tiempo/Lugar",
+        "bimanual": True,
+        "default_phrase": "En el colegio o escuela.",
+        "description": "Ambas palmas dando dos palmadas suaves frente al pecho.",
+        "color": "#38BDF8",
+    },
+    "S_DINERO": {
+        "id": "S_DINERO",
+        "label": "Dinero / Pagar",
+        "emoji": "💵",
+        "category": "Tiempo/Lugar",
+        "bimanual": False,
+        "default_phrase": "¿Cuánto cuesta / pagar?",
+        "description": "Pulgar deslizando suavemente sobre las yemas de índice y medio.",
+        "color": "#10B981",
+    },
+    "S_PERO": {
+        "id": "S_PERO",
+        "label": "Pero",
+        "emoji": "🔀",
+        "category": "Control",
+        "bimanual": True,
+        "default_phrase": "Pero...",
+        "description": "Ambos índices se cruzan brevemente y se separan hacia los lados.",
+        "color": "#F59E0B",
+    },
+    "S_TAMBIEN": {
+        "id": "S_TAMBIEN",
+        "label": "También",
+        "emoji": "➕",
+        "category": "Control",
+        "bimanual": True,
+        "default_phrase": "Yo también.",
+        "description": "Ambos dedos índices horizontales acercándose al centro.",
+        "color": "#22D3EE",
+    },
+
+    # =========================================================================
+    # 10. CONTEXTO REGIONAL: LA GUAJIRA Y CULTURA CARIBE / WAYUU (+8 Señas)
+    # =========================================================================
+    "S_GUAJIRA": {
+        "id": "S_GUAJIRA",
+        "label": "La Guajira",
+        "emoji": "🌵",
+        "category": "La Guajira",
+        "bimanual": False,
+        "default_phrase": "La Guajira.",
+        "description": "Mano en G describiendo suavemente el perfil peninsular en alto.",
+        "color": "#F59E0B",
+    },
+    "S_RIOHACHA": {
+        "id": "S_RIOHACHA",
+        "label": "Riohacha",
+        "emoji": "🏖️",
+        "category": "La Guajira",
+        "bimanual": True,
+        "default_phrase": "Riohacha, La Guajira.",
+        "description": "Mano en R junto a mano abierta simulando las olas del mar.",
+        "color": "#06B6D4",
+    },
+    "S_WAYUU": {
+        "id": "S_WAYUU",
+        "label": "Wayuu / Mochila",
+        "emoji": "🧶",
+        "category": "La Guajira",
+        "bimanual": True,
+        "default_phrase": "Cultura Wayuu / Mochila guajira.",
+        "description": "Manos tejiendo en pinza alternada frente al pecho y hombro.",
+        "color": "#EC4899",
+    },
+    "S_CALOR": {
+        "id": "S_CALOR",
+        "label": "Calor",
+        "emoji": "🥵",
+        "category": "La Guajira",
+        "bimanual": False,
+        "default_phrase": "¡Qué calor hace hoy!",
+        "description": "Mano abierta abanicando suavemente junto al rostro.",
+        "color": "#F97316",
+    },
+    "S_SOL": {
+        "id": "S_SOL",
+        "label": "Sol",
+        "emoji": "☀️",
+        "category": "La Guajira",
+        "bimanual": False,
+        "default_phrase": "Hace mucho sol.",
+        "description": "Mano cerrada en alto abriéndose como rayos de sol.",
+        "color": "#FACC15",
+    },
+    "S_MAR": {
+        "id": "S_MAR",
+        "label": "Mar / Playa",
+        "emoji": "🌊",
+        "category": "La Guajira",
+        "bimanual": True,
+        "default_phrase": "Vamos para el mar / la playa.",
+        "description": "Ambas palmas hacia abajo ondulando como olas del Caribe.",
+        "color": "#38BDF8",
+    },
+    "S_VIENTO": {
+        "id": "S_VIENTO",
+        "label": "Brisa / Viento",
+        "emoji": "💨",
+        "category": "La Guajira",
+        "bimanual": True,
+        "default_phrase": "Hace buena brisa.",
+        "description": "Ambas manos abiertas oscilando suavemente de lado a lado.",
+        "color": "#2DD4BF",
+    },
+    "S_COMPRAR": {
+        "id": "S_COMPRAR",
+        "label": "Comprar / Vender",
+        "emoji": "🛍️",
+        "category": "La Guajira",
+        "bimanual": True,
+        "default_phrase": "¿Cuánto vale? / A la orden.",
+        "description": "Mano dominante entregando/recibiendo sobre la palma pasiva.",
+        "color": "#10B981",
+    },
 }
 
 # Conjunto canónico de señas conversacionales dinámicas (que involucran cinemática activa)
@@ -566,6 +815,11 @@ DYNAMIC_CONVERSATIONAL_SIGNS = {
     "S_IR", "S_NO_ENTIENDO", "S_COMO_ESTAS", "S_QUE", "S_DONDE", "S_CUANDO",
     "S_QUIEN", "S_POR_QUE", "S_CUANTO", "S_SI", "S_NO", "S_REGULAR", "S_FELIZ",
     "S_CANSADO", "S_OCUPADO", "S_MANANA", "S_UNIVERSIDAD", "S_DESPACIO", "S_REPETIR",
+    "S_MAMA", "S_PAPA", "S_HERMANO", "S_FAMILIA", "S_PENSAR", "S_SABER",
+    "S_APRENDER", "S_ENSENAR", "S_VIVIR", "S_CONOCER", "S_COLOMBIA", "S_BOGOTA",
+    "S_ESCUELA", "S_DINERO", "S_PERO", "S_TAMBIEN",
+    "S_GUAJIRA", "S_RIOHACHA", "S_WAYUU", "S_CALOR",
+    "S_SOL", "S_MAR", "S_VIENTO", "S_COMPRAR",
 }
 
 # Normalizar alias de metadatos para compatibilidad total con HUD, API REST y Estabilizador Dinámico
@@ -631,14 +885,55 @@ SPANISH_WORD_TO_SIGN_ID: Dict[str, str] = {
     "despacio": "S_DESPACIO", "lento": "S_DESPACIO", "calma": "S_DESPACIO",
     "repite": "S_REPETIR", "repetir": "S_REPETIR", "otra": "S_REPETIR", "nuevamente": "S_REPETIR",
     "continuar": "S_CONTINUAR", "continua": "S_CONTINUAR", "sigue": "S_CONTINUAR", "adelante": "S_CONTINUAR",
+    # Familia, cognición y conversación intermedia LSC
+    "mama": "S_MAMA", "madre": "S_MAMA", "mami": "S_MAMA",
+    "papa": "S_PAPA", "padre": "S_PAPA", "papi": "S_PAPA",
+    "hermano": "S_HERMANO", "hermana": "S_HERMANO", "hermanos": "S_HERMANO",
+    "familia": "S_FAMILIA", "familiares": "S_FAMILIA", "hijos": "S_FAMILIA",
+    "pensar": "S_PENSAR", "pienso": "S_PENSAR", "piensas": "S_PENSAR", "idea": "S_PENSAR", "creo": "S_PENSAR",
+    "saber": "S_SABER", "se": "S_SABER", "sabes": "S_SABER", "sabe": "S_SABER",
+    "aprender": "S_APRENDER", "aprendo": "S_APRENDER", "aprendes": "S_APRENDER", "aprendiendo": "S_APRENDER",
+    "ensenar": "S_ENSENAR", "ensena": "S_ENSENAR", "explicar": "S_ENSENAR", "explica": "S_ENSENAR",
+    "vivir": "S_VIVIR", "vivo": "S_VIVIR", "vives": "S_VIVIR", "vive": "S_VIVIR", "vivimos": "S_VIVIR",
+    "conocer": "S_CONOCER", "conozco": "S_CONOCER", "conoces": "S_CONOCER",
+    "colombia": "S_COLOMBIA", "colombiano": "S_COLOMBIA", "colombiana": "S_COLOMBIA", "pais": "S_COLOMBIA",
+    "bogota": "S_BOGOTA", "ciudad": "S_BOGOTA", "medellin": "S_BOGOTA", "cali": "S_BOGOTA",
+    "colegio": "S_ESCUELA", "escuela": "S_ESCUELA", "salon": "S_ESCUELA",
+    "dinero": "S_DINERO", "plata": "S_DINERO", "pagar": "S_DINERO", "costo": "S_DINERO", "pesos": "S_DINERO",
+    "pero": "S_PERO", "aunque": "S_PERO", "embargo": "S_PERO",
+    "tambien": "S_TAMBIEN", "igual": "S_TAMBIEN", "asimismo": "S_TAMBIEN",
+    # Regionalismos y contexto La Guajira / Caribe / Wayuu
+    "guajira": "S_GUAJIRA", "guajiro": "S_GUAJIRA", "guajiraa": "S_GUAJIRA",
+    "riohacha": "S_RIOHACHA", "maicao": "S_RIOHACHA", "uribia": "S_RIOHACHA", "fonseca": "S_RIOHACHA",
+    "wayuu": "S_WAYUU", "mochila": "S_WAYUU", "artesania": "S_WAYUU", "rancheria": "S_WAYUU", "tejido": "S_WAYUU",
+    "calor": "S_CALOR", "caliente": "S_CALOR", "bochorno": "S_CALOR", "sofoco": "S_CALOR",
+    "sol": "S_SOL", "soleado": "S_SOL", "verano": "S_SOL",
+    "mar": "S_MAR", "playa": "S_MAR", "caribe": "S_MAR", "palomino": "S_MAR", "cabo": "S_MAR",
+    "brisa": "S_VIENTO", "viento": "S_VIENTO", "aire": "S_VIENTO", "fresco": "S_VIENTO",
+    "comprar": "S_COMPRAR", "vender": "S_COMPRAR", "compro": "S_COMPRAR", "vendo": "S_COMPRAR", "vale": "S_COMPRAR", "cuesta": "S_COMPRAR",
+    "aja": "S_HOLA", "eche": "S_QUE", "vaina": "S_QUE", "bacano": "S_BIEN", "chevere": "S_BIEN",
 }
 
 # Frases compuestas de múltiples palabras que mapean a una sola seña en LSC
 SPANISH_MULTIWORD_PHRASES: List[Tuple[str, str]] = [
+    ("la guajira", "S_GUAJIRA"),
+    ("cabo de la vela", "S_MAR"),
+    ("hace calor", "S_CALOR"),
+    ("que calor", "S_CALOR"),
+    ("buena brisa", "S_VIENTO"),
+    ("aja como anda", "S_COMO_ESTAS"),
+    ("como anda", "S_COMO_ESTAS"),
     ("como estas", "S_COMO_ESTAS"),
     ("como te va", "S_COMO_ESTAS"),
     ("como te encuentras", "S_COMO_ESTAS"),
     ("que tal", "S_COMO_ESTAS"),
+    ("todo bien", "S_BIEN"),
+    ("con mucho gusto", "S_MUCHO_GUSTO"),
+    ("a la orden", "S_POR_FAVOR"),
+    ("que pena", "S_DISCULPA"),
+    ("un momento", "S_ESPERA"),
+    ("nos vemos", "S_ADIOS"),
+    ("lengua de senas", "S_HABLAR"),
     ("buenos dias", "S_BUENOS_DIAS"),
     ("buen dia", "S_BUENOS_DIAS"),
     ("buenas tardes", "S_BUENAS_TARDES"),
@@ -658,8 +953,8 @@ SPANISH_MULTIWORD_PHRASES: List[Tuple[str, str]] = [
 # Conectores gramaticales en español que no requieren deletreo manual en LSC
 SPANISH_STOPWORDS = {
     "de", "la", "el", "en", "y", "a", "los", "se", "del", "las", "un", "por",
-    "con", "una", "su", "para", "es", "al", "lo", "le", "mas", "o", "pero",
-    "sus", "ha", "me", "sin", "sobre", "este", "tambien", "era", "muy", "son",
+    "con", "una", "su", "para", "es", "al", "lo", "le", "mas", "o",
+    "sus", "ha", "me", "sin", "sobre", "este", "era", "muy", "son",
     "estoy", "estas", "esta", "estamos", "estan", "soy", "eres", "somos", "te",
 }
 
@@ -1041,13 +1336,203 @@ def get_sign_3d_poses(
         p[:, 1] -= 0.15
         return p, None
 
+    # --- 16 NUEVAS SEÑAS LSC NIVEL INTERMEDIO (poses únicas 1 y 2 manos) ---
+    if sid == "S_MAMA":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        p[:, 0] -= 0.08
+        p[:, 1] -= 0.28
+        p[:, 2] -= 0.03
+        return p, None
+
+    if sid == "S_PAPA":
+        p = get_lsc_letter_pose("L_L", 0.0)
+        p[:, 0] -= 0.09
+        p[:, 1] -= 0.30
+        p[:, 2] -= 0.03
+        return p, None
+
+    if sid == "S_HERMANO":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 0] += 0.06
+        p[:, 1] -= 0.04
+        p2 = make_left_mirror(p, offset_x=-0.12)
+        return p, p2
+
+    if sid == "S_FAMILIA":
+        p = get_lsc_letter_pose("L_F", 0.0)
+        ang = t_phase * math.pi * 1.4
+        p[:, 0] += 0.12 - math.sin(ang) * 0.04
+        p2 = make_left_mirror(p, offset_x=-0.24 + math.sin(ang) * 0.08)
+        return p, p2
+
+    if sid == "S_PENSAR":
+        p = get_lsc_letter_pose("L_D", 0.0)
+        p[:, 0] -= 0.11
+        p[:, 1] -= 0.32
+        p[:, 2] -= 0.02
+        return p, None
+
+    if sid == "S_SABER":
+        p = get_lsc_letter_pose("L_U", 0.0)
+        p[:, 0] -= 0.10
+        p[:, 1] -= 0.28
+        p[:, 2] -= 0.03
+        return p, None
+
+    if sid == "S_APRENDER":
+        p = get_lsc_letter_pose("L_O", 0.0)
+        p[:, 0] += 0.04
+        p[:, 1] -= 0.22 * t_phase + 0.06
+        p2 = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.14, offset_y=0.04)
+        return p, p2
+
+    if sid == "S_ENSENAR":
+        p = get_lsc_letter_pose("L_H", 0.0)
+        p[:, 0] += 0.10
+        p[:, 2] -= 0.06 * t_phase
+        p2 = make_left_mirror(p, offset_x=-0.20)
+        return p, p2
+
+    if sid == "S_VIVIR":
+        p = get_lsc_letter_pose("L_A", 0.0)
+        up = 0.12 * t_phase
+        p[:, 0] += 0.11
+        p[:, 1] += 0.04 - up
+        p2 = make_left_mirror(p, offset_x=-0.22)
+        return p, p2
+
+    if sid == "S_CONOCER":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        p[:, 0] += 0.09
+        p2 = make_left_mirror(get_lsc_letter_pose("L_C", 0.0), offset_x=-0.18)
+        return p, p2
+
+    if sid == "S_COLOMBIA":
+        p = get_lsc_letter_pose("L_C", 0.0)
+        p[:, 0] -= 0.09
+        p[:, 1] -= 0.26
+        p[:, 2] -= 0.02
+        return p, None
+
+    if sid == "S_BOGOTA":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        p[:, 0] += 0.05
+        p[:, 1] -= 0.12
+        p2 = make_left_mirror(p, offset_x=-0.10)
+        return p, p2
+
+    if sid == "S_ESCUELA":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        tap = abs(math.sin(t_phase * math.pi * 2.0)) * 0.04
+        p[:, 0] += 0.04 + tap
+        p[:, 1] -= 0.05
+        p2 = make_left_mirror(p, offset_x=-0.08 - tap * 2)
+        return p, p2
+
+    if sid == "S_DINERO":
+        p = get_lsc_letter_pose("L_K", 0.0)
+        p[:, 0] += 0.09
+        p[:, 1] -= 0.05
+        p[:, 2] -= 0.04
+        return p, None
+
+    if sid == "S_PERO":
+        p = get_lsc_letter_pose("L_G", 0.0)
+        sep = 0.06 + 0.08 * t_phase
+        p[:, 0] += sep
+        p2 = make_left_mirror(p, offset_x=-sep * 2)
+        return p, p2
+
+    if sid == "S_TAMBIEN":
+        p = get_lsc_letter_pose("L_R", 0.0)
+        off = 0.06 - 0.03 * t_phase
+        p[:, 0] += off
+        p2 = make_left_mirror(p, offset_x=-off * 2)
+        return p, p2
+
+    # --- 8 NUEVAS SEÑAS REGIONALES: LA GUAJIRA Y CULTURA CARIBE / WAYUU ---
+    if sid == "S_GUAJIRA":
+        p = get_lsc_letter_pose("L_G", 0.0)
+        p[:, 0] -= 0.09
+        p[:, 1] -= 0.24
+        p[:, 2] -= 0.03
+        return p, None
+
+    if sid == "S_RIOHACHA":
+        p = get_lsc_letter_pose("L_R", 0.0)
+        p[:, 0] += 0.10
+        p[:, 1] -= 0.08
+        p2 = make_left_mirror(get_lsc_letter_pose("L_B", 0.0), offset_x=-0.18, offset_y=0.05)
+        return p, p2
+
+    if sid == "S_WAYUU":
+        p = get_lsc_letter_pose("L_F", 0.0)
+        p[:, 0] += 0.07
+        p[:, 1] -= 0.06 + 0.04 * math.sin(t_phase * math.pi * 2.0)
+        p2 = make_left_mirror(get_lsc_letter_pose("L_F", 0.0), offset_x=-0.14, offset_y=-0.06 - 0.04 * math.sin(t_phase * math.pi * 2.0))
+        return p, p2
+
+    if sid == "S_CALOR":
+        p = get_lsc_letter_pose("L_B", 0.0)
+        p[:, 0] -= 0.14
+        p[:, 1] -= 0.24
+        p[:, 2] -= 0.05 + 0.03 * math.sin(t_phase * math.pi * 3.0)
+        return p, None
+
+    if sid == "S_SOL":
+        p = get_lsc_letter_pose("L_O", 0.0) if t_phase < 0.4 else get_lsc_letter_pose("L_B", 0.0)
+        p[:, 0] += 0.14
+        p[:, 1] -= 0.27
+        p[:, 2] -= 0.02
+        return p, None
+
+    if sid == "S_MAR":
+        p = get_lsc_letter_pose("L_H", 0.0)
+        w = 0.05 * math.sin(t_phase * math.pi * 2.0)
+        p[:, 0] += 0.10
+        p[:, 1] += 0.04 + w
+        p2 = make_left_mirror(get_lsc_letter_pose("L_H", 0.0), offset_x=-0.20, offset_y=0.04 - w)
+        return p, p2
+
+    if sid == "S_VIENTO":
+        p = get_lsc_letter_pose("L_W", 0.0)
+        sw = 0.06 * math.sin(t_phase * math.pi * 2.0)
+        p[:, 0] += 0.12 + sw
+        p[:, 1] -= 0.10
+        p2 = make_left_mirror(get_lsc_letter_pose("L_W", 0.0), offset_x=-0.24 + sw, offset_y=-0.10)
+        return p, p2
+
+    if sid == "S_COMPRAR":
+        p = get_lsc_letter_pose("L_O", 0.0)
+        p[:, 0] += 0.08
+        p[:, 1] -= 0.04
+        p2 = make_left_mirror(get_lsc_letter_pose("L_A", 0.0), offset_x=-0.16, offset_y=0.04)
+        return p, p2
+
     return get_lsc_letter_pose("L_B", 0.0), None
 
 
 # =========================================================================
-# MATRIZ DE PROTOTIPOS CANÓNICOS 3D PARA LAS 50 SEÑAS CONVERSACIONALES LSC
+# MATRIZ DE PROTOTIPOS CANÓNICOS 3D Y CONTEXTO GRAMATICAL LSC (74 SEÑAS)
 # =========================================================================
 _SIGN_PROTOTYPE_CACHE: Dict[str, Dict[str, Any]] = {}
+_SIGN_PROTO_MATRICES: Dict[bool, Dict[str, Any]] = {}
+
+_LSC_CONTEXT_TRANSITIONS: Dict[str, Tuple[str, ...]] = {
+    "S_YO": ("S_VIVIR", "S_QUERER", "S_NECESITAR", "S_ESTUDIAR", "S_TRABAJAR", "S_PENSAR", "S_SABER", "S_APRENDER", "S_IR", "S_TAMBIEN"),
+    "S_TU": ("S_COMO_ESTAS", "S_QUERER", "S_SABER", "S_VIVIR", "S_ENSENAR", "S_AYUDA", "S_TAMBIEN"),
+    "S_HOLA": ("S_COMO_ESTAS", "S_AMIGO", "S_MUCHO_GUSTO", "S_BIEN", "S_GUAJIRA"),
+    "S_BUENOS_DIAS": ("S_COMO_ESTAS", "S_POR_FAVOR", "S_AMIGO", "S_PROFESOR"),
+    "S_VIVIR": ("S_COLOMBIA", "S_GUAJIRA", "S_RIOHACHA", "S_BOGOTA", "S_CASA", "S_FAMILIA"),
+    "S_IR": ("S_MAR", "S_UNIVERSIDAD", "S_ESCUELA", "S_CASA", "S_RIOHACHA", "S_GUAJIRA", "S_BOGOTA"),
+    "S_QUERER": ("S_APRENDER", "S_COMER", "S_AGUA", "S_COMPRAR", "S_IR", "S_HABLAR", "S_CONOCER"),
+    "S_NECESITAR": ("S_AYUDA", "S_MEDICO", "S_ESTUDIAR", "S_DINERO", "S_ESPERA", "S_REPETIR"),
+    "S_POR_FAVOR": ("S_ESPERA", "S_REPETIR", "S_DESPACIO", "S_AYUDA", "S_ENSENAR"),
+    "S_COLOMBIA": ("S_GUAJIRA", "S_RIOHACHA", "S_BOGOTA", "S_FAMILIA", "S_VIVIR"),
+    "S_GUAJIRA": ("S_RIOHACHA", "S_CALOR", "S_SOL", "S_MAR", "S_VIENTO", "S_WAYUU"),
+    "S_CUANTO": ("S_DINERO", "S_COMPRAR", "S_WAYUU"),
+    "S_NO_ENTIENDO": ("S_REPETIR", "S_DESPACIO", "S_POR_FAVOR", "S_ENSENAR"),
+}
 
 
 def _init_sign_prototypes() -> None:
@@ -1057,24 +1542,89 @@ def _init_sign_prototypes() -> None:
         if not sid.startswith("S_") or "bimanual" not in meta:
             continue
         samples = []
+        min_wy = 1.0
+        max_wy = 0.0
         for tp in (0.0, 0.25, 0.5, 0.75, 1.0):
             p0, p1 = get_sign_3d_poses(sid, t_phase=tp)
-            # Vector de forma intrínseco centrado en la muñeca (invariante a traslación)
+            wy = float(p0[0, 1])
+            min_wy = min(min_wy, wy)
+            max_wy = max(max_wy, wy)
+            # Vector de forma intrínseco centrado en la muñeca (invariante a traslación y distancia)
             s0 = (p0 - p0[0:1]).flatten()
             n0 = float(np.linalg.norm(s0))
             if n0 > 1e-6:
                 s0 = s0 / n0
+            b0 = extract_biomech_signature(p0)
+            wy = float(p0[0, 1])
+            palm_sz = max(1e-4, float(np.linalg.norm(p0[9, :2] - p0[0, :2])))
             s1 = None
+            b1 = None
+            rel_bi = None
             if p1 is not None:
                 s1 = (p1 - p1[0:1]).flatten()
                 n1 = float(np.linalg.norm(s1))
                 if n1 > 1e-6:
                     s1 = s1 / n1
-            samples.append((p0.copy(), p1.copy() if p1 is not None else None, s0, s1))
+                b1 = extract_biomech_signature(p1)
+                rel_bi = ((p1[0, :2] - p0[0, :2]) / palm_sz).astype(np.float32)
+            samples.append((p0.copy(), p1.copy() if p1 is not None else None, s0, s1, b0, b1, wy, rel_bi))
         _SIGN_PROTOTYPE_CACHE[sid] = {
             "bimanual": bool(meta.get("bimanual", False)),
             "samples": samples,
             "is_dynamic": sid in DYNAMIC_CONVERSATIONAL_SIGNS,
+            "is_high_face": (max_wy < 0.56),
+            "is_low_chest": (min_wy >= 0.70),
+        }
+
+    # Precompilar matrices vectorizadas por modo (unimanual vs bimanual) para inferencia < 0.08 ms
+    for is_bi in (False, True):
+        sids = [sid for sid, p in _SIGN_PROTOTYPE_CACHE.items() if p["bimanual"] == is_bi]
+        if not sids:
+            continue
+        k_signs = len(sids)
+        n_ph = 5
+        p0_all = np.zeros((k_signs, n_ph, 21, 3), dtype=np.float32)
+        s0_all = np.zeros((k_signs, n_ph, 63), dtype=np.float32)
+        b0_all = np.zeros((k_signs, n_ph, 16), dtype=np.float32)
+        wy_all = np.zeros((k_signs, n_ph), dtype=np.float32)
+        p1_all = np.zeros((k_signs, n_ph, 21, 3), dtype=np.float32) if is_bi else None
+        s1_all = np.zeros((k_signs, n_ph, 63), dtype=np.float32) if is_bi else None
+        b1_all = np.zeros((k_signs, n_ph, 16), dtype=np.float32) if is_bi else None
+        rel_all = np.zeros((k_signs, n_ph, 2), dtype=np.float32) if is_bi else None
+        high_face = np.zeros(k_signs, dtype=bool)
+        low_chest = np.zeros(k_signs, dtype=bool)
+
+        for i, sid in enumerate(sids):
+            proto = _SIGN_PROTOTYPE_CACHE[sid]
+            high_face[i] = proto["is_high_face"]
+            low_chest[i] = proto["is_low_chest"]
+            for j, (p0, p1, s0, s1, b0, b1, wy, rel_bi) in enumerate(proto["samples"]):
+                p0_all[i, j] = p0
+                s0_all[i, j] = s0
+                b0_all[i, j] = b0
+                wy_all[i, j] = wy
+                if is_bi and p1 is not None:
+                    p1_all[i, j] = p1
+                    s1_all[i, j] = s1
+                    b1_all[i, j] = b1
+                    if rel_bi is not None:
+                        rel_all[i, j] = rel_bi
+
+        _SIGN_PROTO_MATRICES[is_bi] = {
+            "sids": sids,
+            "sid_to_idx": {s: i for i, s in enumerate(sids)},
+            "p0": p0_all,
+            "s0_flat": s0_all.reshape(-1, 63),
+            "b0_flat": b0_all.reshape(-1, 16),
+            "wy": wy_all,
+            "p1": p1_all,
+            "s1_flat": s1_all.reshape(-1, 63) if is_bi else None,
+            "b1_flat": b1_all.reshape(-1, 16) if is_bi else None,
+            "rel_bi": rel_all,
+            "high_face": high_face,
+            "low_chest": low_chest,
+            "k": k_signs,
+            "n_ph": n_ph,
         }
 
 
@@ -1082,16 +1632,20 @@ def match_conversational_prototype(
     multi_hand: Dict[str, Any],
     motion: Optional[Dict[str, Any]] = None,
     bimanual: bool = False,
+    context_tokens: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Evalúa la similitud geométrica 3D (forma intrínseca + ubicación espacial + cinemática)
-    contra las 50 plantillas canónicas conversacionales LSC para garantizar precisión > 95%.
+    Evalúa similitud 3D vectorizada invariante a distancia/posición (forma 63D centrada + ángulos
+    biomecánicos 16D + zona vertical suave + cinemática + contexto gramatical LSC).
     """
     _init_sign_prototypes()
+    mat = _SIGN_PROTO_MATRICES.get(bool(bimanual))
+    if not mat:
+        return None
     primary = (multi_hand or {}).get("primary")
     if not primary:
         return None
-    p0_live = primary.get("landmarks")
+    p0_live = primary.get("iso") if primary.get("iso") is not None else primary.get("landmarks")
     if p0_live is None:
         return None
     p0_arr = np.asarray(p0_live, dtype=np.float32).reshape(21, 3)
@@ -1099,18 +1653,84 @@ def match_conversational_prototype(
     n0_live = float(np.linalg.norm(s0_live))
     if n0_live > 1e-6:
         s0_live = s0_live / n0_live
+    b0_live = primary.get("bio_16d")
+    if b0_live is None:
+        b0_live = extract_biomech_signature(p0_arr, finger_scores_dict=primary.get("finger_scores"))
+    else:
+        b0_live = np.asarray(b0_live, dtype=np.float32)
 
     p1_arr = None
     s1_live = None
+    b1_live = None
     if bimanual:
         secondary = (multi_hand or {}).get("secondary")
         if not secondary or secondary.get("landmarks") is None:
             return None
-        p1_arr = np.asarray(secondary["landmarks"], dtype=np.float32).reshape(21, 3)
+        p1_src = secondary.get("iso") if secondary.get("iso") is not None else secondary.get("landmarks")
+        p1_arr = np.asarray(p1_src, dtype=np.float32).reshape(21, 3)
         s1_live = (p1_arr - p1_arr[0:1]).flatten()
         n1_live = float(np.linalg.norm(s1_live))
         if n1_live > 1e-6:
             s1_live = s1_live / n1_live
+        b1_live = secondary.get("bio_16d")
+        if b1_live is None:
+            b1_live = extract_biomech_signature(p1_arr, finger_scores_dict=secondary.get("finger_scores"))
+        else:
+            b1_live = np.asarray(b1_live, dtype=np.float32)
+
+    k, n_ph = mat["k"], mat["n_ph"]
+    live_wy = float(p0_arr[0, 1])
+
+    sh0 = (mat["s0_flat"] @ s0_live).reshape(k, n_ph)
+    bi0 = (mat["b0_flat"] @ b0_live).reshape(k, n_ph)
+    d0 = np.linalg.norm(mat["p0"] - p0_arr[None, None, :, :], axis=(2, 3)) / 4.5825
+    yd = np.abs(mat["wy"] - live_wy)
+
+    if bimanual and p1_arr is not None and s1_live is not None and b1_live is not None:
+        sh1 = (mat["s1_flat"] @ s1_live).reshape(k, n_ph)
+        bi1 = (mat["b1_flat"] @ b1_live).reshape(k, n_ph)
+        d1 = np.linalg.norm(mat["p1"] - p1_arr[None, None, :, :], axis=(2, 3)) / 4.5825
+        sh_tot = 0.55 * sh0 + 0.45 * sh1
+        bi_tot = 0.55 * bi0 + 0.45 * bi1
+        d_tot = 0.55 * d0 + 0.45 * d1
+
+        live_palm_sz = max(1e-4, float(np.linalg.norm(p0_arr[9, :2] - p0_arr[0, :2])))
+        live_rel_bi = ((p1_arr[0, :2] - p0_arr[0, :2]) / live_palm_sz).astype(np.float32)
+        min_rel_bi = np.min(np.linalg.norm(mat["rel_bi"] - live_rel_bi[None, None, :], axis=2), axis=1)
+        rel_sim = np.exp(-0.75 * min_rel_bi)
+    else:
+        sh_tot = sh0
+        bi_tot = bi0
+        d_tot = d0
+        rel_sim = None
+
+    max_shape_arr = np.max(sh_tot, axis=1)
+    max_bio_arr = np.max(bi_tot, axis=1)
+    min_dist_arr = np.min(d_tot, axis=1)
+    min_ydiff_arr = np.min(yd, axis=1)
+
+    y_sim = np.exp(-7.0 * min_ydiff_arr)
+    pose_tie = np.exp(-4.0 * min_dist_arr)
+    if bimanual and rel_sim is not None:
+        scores = (
+            0.38 * np.maximum(0.0, max_shape_arr)
+            + 0.26 * np.maximum(0.0, max_bio_arr)
+            + 0.14 * y_sim
+            + 0.14 * rel_sim
+            + 0.08 * pose_tie
+        )
+    else:
+        scores = (
+            0.42 * np.maximum(0.0, max_shape_arr)
+            + 0.30 * np.maximum(0.0, max_bio_arr)
+            + 0.20 * y_sim
+            + 0.08 * pose_tie
+        )
+
+    if live_wy > 0.74:
+        scores[mat["high_face"]] -= 0.08
+    elif live_wy < 0.48:
+        scores[mat["low_chest"]] -= 0.08
 
     p_mot = (motion or {}).get("primary") or {}
     b_mot = (motion or {}).get("bimanual") or {}
@@ -1122,59 +1742,44 @@ def match_conversational_prototype(
     is_div = bool(b_mot.get("is_diverging"))
     is_conv = bool(b_mot.get("is_converging"))
 
-    best_sid = None
-    best_score = -1.0
-    best_raw_dist = 999.0
+    idx_map = mat["sid_to_idx"]
+    def _boost(sid_key: str, delta: float) -> None:
+        idx = idx_map.get(sid_key)
+        if idx is not None:
+            scores[idx] += delta
 
-    for sid, proto in _SIGN_PROTOTYPE_CACHE.items():
-        if proto["bimanual"] != bimanual:
-            continue
+    if osc_x:
+        for s_k in ("S_ADIOS", "S_NO", "S_NO_ENTIENDO", "S_QUE", "S_OCUPADO"):
+            _boost(s_k, 0.08)
+        _boost("S_HOLA", -0.15)
+    if osc_y:
+        for s_k in ("S_SI", "S_HABLAR"):
+            _boost(s_k, 0.08)
+    if mov_dn:
+        for s_k in ("S_DESPACIO", "S_BUENAS_NOCHES", "S_REPETIR", "S_NECESITAR"):
+            _boost(s_k, 0.07)
+    if mov_up:
+        for s_k in ("S_BUENOS_DIAS", "S_FELIZ", "S_GRACIAS", "S_IR"):
+            _boost(s_k, 0.07)
+    if is_div:
+        _boost("S_COMO_ESTAS", 0.10)
+    if is_conv:
+        _boost("S_MUCHO_GUSTO", 0.09)
+    if mov_hz:
+        _boost("S_BUENAS_TARDES", 0.08)
 
-        min_dist = 999.0
-        max_shape = -1.0
-        for p0_ref, p1_ref, s0_ref, s1_ref in proto["samples"]:
-            d0 = float(np.linalg.norm(p0_arr - p0_ref)) / 4.5825
-            sh0 = float(np.dot(s0_live, s0_ref))
-            if bimanual and p1_ref is not None and p1_arr is not None and s1_live is not None and s1_ref is not None:
-                d1 = float(np.linalg.norm(p1_arr - p1_ref)) / 4.5825
-                d_tot = 0.55 * d0 + 0.45 * d1
-                sh_tot = 0.55 * sh0 + 0.45 * float(np.dot(s1_live, s1_ref))
-            else:
-                d_tot = d0
-                sh_tot = sh0
-            if d_tot < min_dist:
-                min_dist = d_tot
-            if sh_tot > max_shape:
-                max_shape = sh_tot
+    if context_tokens:
+        last_ctx_id = str(context_tokens[-1].get("sign_id", "")).upper()
+        for follower in _LSC_CONTEXT_TRANSITIONS.get(last_ctx_id, ()):
+            _boost(follower, 0.025)
 
-        # Combinar similitud de pose espacial exacta y similitud de forma intrínseca
-        pose_sim = math.exp(-14.0 * min_dist)
-        score = 0.62 * pose_sim + 0.38 * max(0.0, max_shape)
+    best_idx = int(np.argmax(scores))
+    best_score = float(scores[best_idx])
+    best_shape = float(max_shape_arr[best_idx])
+    best_bio = float(max_bio_arr[best_idx])
+    best_sid = mat["sids"][best_idx]
 
-        # Ajustes cinemáticos para desambiguar pares estático/dinámico
-        if sid in ("S_ADIOS", "S_NO", "S_NO_ENTIENDO", "S_QUE", "S_OCUPADO") and osc_x:
-            score += 0.08
-        elif sid == "S_HOLA" and osc_x:
-            score -= 0.15
-        if sid in ("S_SI", "S_HABLAR") and osc_y:
-            score += 0.08
-        if sid in ("S_DESPACIO", "S_BUENAS_NOCHES", "S_REPETIR", "S_NECESITAR") and mov_dn:
-            score += 0.07
-        if sid in ("S_BUENOS_DIAS", "S_FELIZ", "S_GRACIAS", "S_IR") and mov_up:
-            score += 0.07
-        if sid == "S_COMO_ESTAS" and is_div:
-            score += 0.10
-        if sid == "S_MUCHO_GUSTO" and is_conv:
-            score += 0.09
-        if sid == "S_BUENAS_TARDES" and mov_hz:
-            score += 0.08
-
-        if score > best_score:
-            best_score = score
-            best_sid = sid
-            best_raw_dist = min_dist
-
-    if best_sid and best_raw_dist < 0.048 and best_score >= 0.88:
+    if max(best_shape, best_bio) >= 0.86 and best_score >= 0.82:
         meta = CONVERSATIONAL_SIGNS_CATALOG[best_sid]
         return {
             "sign_id": best_sid,
@@ -1212,6 +1817,10 @@ class ConversationEngine:
         self.animation_phrase_text: str = ""
         self.animation_total_steps: int = 0
         self.animation_current_index: int = 0
+        self.animation_paused: bool = False
+        self.animation_paused_elapsed: float = 0.0
+        self.animation_speed: float = 1.0
+        self.animation_steps_history: List[Dict[str, Any]] = []
 
         # Persistencia SQLite de conversaciones y mensajes
         self.db = ConversationDB()
@@ -1321,8 +1930,13 @@ class ConversationEngine:
         if not multi_hand or multi_hand.get("hands_count", 0) < 2:
             return None
 
-        # 0. Evaluación por Prototipos 3D Bimanuales Calibrados (20 señas bimanuales)
-        proto_bi = match_conversational_prototype(multi_hand, motion=motion, bimanual=True)
+        # 0. Evaluación por Prototipos 3D Bimanuales Calibrados
+        proto_bi = match_conversational_prototype(
+            multi_hand,
+            motion=motion,
+            bimanual=True,
+            context_tokens=self.active_tokens,
+        )
         if proto_bi:
             return proto_bi
 
@@ -1578,9 +2192,14 @@ class ConversationEngine:
             if alpha_match:
                 return alpha_match
 
-        # A.2) Evaluación por Prototipos 3D Unimanuales Calibrados (30 señas unimanuales)
+        # A.2) Evaluación por Prototipos 3D Unimanuales Calibrados
         if self.sign_submode in ("CONVERSATION", "HYBRID"):
-            proto_uni = match_conversational_prototype(multi_hand, motion=motion, bimanual=False)
+            proto_uni = match_conversational_prototype(
+                multi_hand,
+                motion=motion,
+                bimanual=False,
+                context_tokens=self.active_tokens,
+            )
             if proto_uni:
                 # En modo HYBRID, solo ceder ante una letra estática del abecedario si la pose es exactamente la plantilla neutra de letra
                 if self.sign_submode == "CONVERSATION" or proto_uni["confidence"] >= 0.96:
@@ -1816,33 +2435,47 @@ class ConversationEngine:
         motion: Optional[Dict[str, Any]] = None,
         is_online: bool = False,
         simulator_hint: Optional[str] = None,
+        precomputed_sign_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
-        Evalúa el fotograma actual para la traducción conversacional o dactilológica LSC:
-        - Si el modo es ONLINE (Gemini Multimodal Cloud) y hay una seña o letra reconocida por la nube,
-          se toma directamente con máxima prioridad diagnóstica (sin ser sobreescrita por el modelo local).
-        - En modo OFFLINE:
-          Prioridad 1: Señas bimanuales (si hay 2 manos y el modo no es exclusivo de deletreo)
-          Prioridad 2: Clasificador unimanual / Abecedario LSC (según sign_submode)
-          Prioridad 3: Seña directa si raw_gesture_id es una seña conversacional o letra LSC.
-        (Los comandos básicos G1..G5 de control OS están aislados y NO se mapean a señas).
+        Evalúa el fotograma actual para la traducción conversacional o dactilológica LSC,
+        manteniendo separación estricta entre Modo ONLINE (Gemini) y Modo OFFLINE (Local)
+        y reutilizando `precomputed_sign_id` para evitar clasificar dos veces por fotograma.
         """
         sign_id = None
         source_note = ""
 
-        # En modo Online con Gemini: la inferencia multimodal de la nube tiene prioridad absoluta
-        if is_online and (
-            raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG
-            or raw_gesture_id in LSC_ALPHABET_CATALOG
-            or raw_gesture_id in custom_sign_store.signs
+        # En modo Online con Gemini: la inferencia multimodal de la nube es totalmente separada y soberana
+        if is_online:
+            if (
+                raw_gesture_id in CONVERSATIONAL_SIGNS_CATALOG
+                or raw_gesture_id in LSC_ALPHABET_CATALOG
+                or raw_gesture_id in custom_sign_store.signs
+            ):
+                sign_id = raw_gesture_id
+                source_note = "Gemini Online Multimodal"
+        elif (
+            precomputed_sign_id
+            and (
+                precomputed_sign_id in CONVERSATIONAL_SIGNS_CATALOG
+                or precomputed_sign_id in LSC_ALPHABET_CATALOG
+                or precomputed_sign_id in custom_sign_store.signs
+            )
         ):
-            sign_id = raw_gesture_id
-            source_note = "Gemini Online Multimodal"
+            sign_id = precomputed_sign_id
+            source_note = "Motor Local Vectorizado"
         else:
             # Prioridad 0 Offline: Calibración con muestras reales del usuario / Señas importadas de imagen
-            primary_vec = (multi_hand.get("primary") or {}).get("vector_63d")
+            p0_entry = multi_hand.get("primary") or {}
+            primary_vec = p0_entry.get("vector_63d")
+            primary_bio = p0_entry.get("bio_16d")
             motion_p = (motion or {}).get("primary") or {}
-            custom_match = custom_sign_store.match_prototype(primary_vec, motion_p, min_sim=0.925)
+            custom_match = custom_sign_store.match_prototype(
+                primary_vec,
+                motion_p,
+                min_sim=0.905,
+                bio_sig=primary_bio,
+            )
             if custom_match:
                 cand_id = custom_match["sign_id"]
                 if self.sign_submode != "ALPHABET_LSC" or cand_id in LSC_ALPHABET_CATALOG:
@@ -2163,6 +2796,9 @@ class ConversationEngine:
         self.animation_current_index = 0
         self.current_animation_step = self.hand_animation_queue.pop(0) if self.hand_animation_queue else None
         self.animation_step_start_ts = time.perf_counter()
+        self.animation_paused = False
+        self.animation_paused_elapsed = 0.0
+        self.animation_steps_history.clear()
 
         return {
             "started": True,
@@ -2170,6 +2806,66 @@ class ConversationEngine:
             "total_steps": len(steps),
             "steps": steps,
         }
+
+    def pause_hand_animation(self) -> Dict[str, Any]:
+        """Pausa la reproducción actual de Manos 3D conservando el instante exacto del paso."""
+        if self.current_animation_step is not None and not self.animation_paused:
+            self.animation_paused_elapsed = max(0.0, (time.perf_counter() - self.animation_step_start_ts) * self.animation_speed)
+            self.animation_paused = True
+        return {"paused": self.animation_paused, "speed": round(self.animation_speed, 2)}
+
+    def resume_hand_animation(self) -> Dict[str, Any]:
+        """Reanuda la reproducción pausada de Manos 3D desde el instante guardado."""
+        if self.current_animation_step is not None and self.animation_paused:
+            self.animation_step_start_ts = time.perf_counter() - (self.animation_paused_elapsed / max(0.35, self.animation_speed))
+            self.animation_paused = False
+        return {"paused": self.animation_paused, "speed": round(self.animation_speed, 2)}
+
+    def stop_hand_animation(self) -> Dict[str, Any]:
+        """Detiene por completo la traducción animada de Manos 3D y limpia la cola."""
+        self.hand_animation_queue.clear()
+        self.animation_steps_history.clear()
+        self.current_animation_step = None
+        self.animation_paused = False
+        self.animation_paused_elapsed = 0.0
+        self.animation_total_steps = 0
+        self.animation_current_index = 0
+        self.animation_phrase_text = ""
+        return {"stopped": True}
+
+    def next_hand_animation_step(self) -> Dict[str, Any]:
+        """Adelanta al siguiente paso (seña o letra) en la cola de reproducción."""
+        if self.current_animation_step is not None and self.hand_animation_queue:
+            self.animation_steps_history.append(self.current_animation_step)
+            self.current_animation_step = self.hand_animation_queue.pop(0)
+            self.animation_current_index += 1
+            self.animation_step_start_ts = time.perf_counter()
+            self.animation_paused_elapsed = 0.0
+            return {"step_index": self.animation_current_index + 1}
+        return {"step_index": self.animation_current_index + 1 if self.current_animation_step else 0}
+
+    def prev_hand_animation_step(self) -> Dict[str, Any]:
+        """Retrocede al paso anterior en la reproducción actual."""
+        if self.animation_steps_history:
+            if self.current_animation_step is not None:
+                self.hand_animation_queue.insert(0, self.current_animation_step)
+            self.current_animation_step = self.animation_steps_history.pop()
+            self.animation_current_index = max(0, self.animation_current_index - 1)
+            self.animation_step_start_ts = time.perf_counter()
+            self.animation_paused_elapsed = 0.0
+            return {"step_index": self.animation_current_index + 1}
+        return {"step_index": self.animation_current_index + 1 if self.current_animation_step else 0}
+
+    def set_hand_animation_speed(self, speed: float) -> Dict[str, Any]:
+        """Ajusta la velocidad de reproducción (0.35x a 2.5x) sin saltos en el paso actual."""
+        new_speed = min(2.5, max(0.35, float(speed)))
+        if self.current_animation_step is not None and not self.animation_paused:
+            cur_virtual = max(0.0, (time.perf_counter() - self.animation_step_start_ts) * self.animation_speed)
+            self.animation_speed = new_speed
+            self.animation_step_start_ts = time.perf_counter() - (cur_virtual / new_speed)
+        else:
+            self.animation_speed = new_speed
+        return {"speed": round(self.animation_speed, 2), "paused": self.animation_paused}
 
     def get_active_hand_animation_frame(self) -> Optional[Dict[str, Any]]:
         """
@@ -2180,19 +2876,25 @@ class ConversationEngine:
             return None
 
         now = time.perf_counter()
-        elapsed = now - self.animation_step_start_ts
         duration = float(self.current_animation_step.get("duration_sec", 1.2))
 
-        if elapsed >= duration:
-            if self.hand_animation_queue:
-                self.current_animation_step = self.hand_animation_queue.pop(0)
-                self.animation_current_index += 1
-                self.animation_step_start_ts = now
-                elapsed = 0.0
-                duration = float(self.current_animation_step.get("duration_sec", 1.2))
-            else:
-                self.current_animation_step = None
-                return None
+        if self.animation_paused:
+            elapsed = self.animation_paused_elapsed
+        else:
+            elapsed = (now - self.animation_step_start_ts) * self.animation_speed
+            if elapsed >= duration:
+                if self.hand_animation_queue:
+                    self.animation_steps_history.append(self.current_animation_step)
+                    self.current_animation_step = self.hand_animation_queue.pop(0)
+                    self.animation_current_index += 1
+                    self.animation_step_start_ts = now
+                    elapsed = 0.0
+                    duration = float(self.current_animation_step.get("duration_sec", 1.2))
+                else:
+                    self.current_animation_step = None
+                    self.animation_paused = False
+                    self.animation_paused_elapsed = 0.0
+                    return None
 
         t_phase = min(1.0, max(0.0, elapsed / max(0.1, duration)))
         step = self.current_animation_step
@@ -2200,6 +2902,8 @@ class ConversationEngine:
 
         return {
             "active": True,
+            "paused": self.animation_paused,
+            "speed": round(self.animation_speed, 2),
             "phrase": self.animation_phrase_text,
             "step_index": self.animation_current_index + 1,
             "total_steps": self.animation_total_steps,
@@ -2335,6 +3039,8 @@ class ConversationEngine:
         cur_meta = self.get_sign_meta(cur_sid) if cur_sid else {}
         anim_payload = {
             "active": self.current_animation_step is not None,
+            "paused": self.animation_paused,
+            "speed": round(self.animation_speed, 2),
             "phrase": self.animation_phrase_text,
             "step_index": self.animation_current_index + 1 if self.current_animation_step else 0,
             "total_steps": self.animation_total_steps,

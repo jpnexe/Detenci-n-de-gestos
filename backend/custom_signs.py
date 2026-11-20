@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 
-from backend.normalizer import normalize_landmarks
+from backend.normalizer import normalize_landmarks, extract_biomech_signature
 
 
 DEFAULT_STORAGE_PATH = os.path.join("models", "custom_signs.json")
@@ -49,7 +49,37 @@ class CustomSignStore:
         self.storage_path = storage_path
         self._lock = threading.Lock()
         self.signs: Dict[str, Dict[str, Any]] = {}
+        self._compiled: Dict[str, Dict[str, Any]] = {}
         self.load()
+
+    def _rebuild_cache_locked(self) -> None:
+        """Precalcula matrices NumPy (63D, Bio16D y centroide) para inferencia < 0.01 ms."""
+        compiled: Dict[str, Dict[str, Any]] = {}
+        for sid, entry in self.signs.items():
+            protos = [
+                np.asarray(p, dtype=np.float32)
+                for p in (entry.get("prototypes_63d") or [])
+                if len(p) == 63
+            ]
+            if not protos:
+                continue
+            p_mat = np.stack(protos, axis=0)
+            p_norms = np.maximum(1e-8, np.linalg.norm(p_mat, axis=1, keepdims=True))
+            p_unit = (p_mat / p_norms).astype(np.float32)
+            bio_list = [extract_biomech_signature(p.reshape(21, 3)) for p in p_mat]
+            b_unit = np.stack(bio_list, axis=0).astype(np.float32)
+            centroid = np.mean(p_unit, axis=0)
+            c_norm = float(np.linalg.norm(centroid))
+            if c_norm > 1e-8:
+                centroid = (centroid / c_norm).astype(np.float32)
+            compiled[sid] = {
+                "p_unit": p_unit,
+                "b_unit": b_unit,
+                "centroid": centroid,
+                "motion_type": entry.get("motion_type", "STATIC"),
+                "entry": entry,
+            }
+        self._compiled = compiled
 
     def load(self) -> None:
         with self._lock:
@@ -63,10 +93,12 @@ class CustomSignStore:
                     self.signs = data
             except Exception:
                 self.signs = {}
+            self._rebuild_cache_locked()
 
     def save(self) -> None:
         os.makedirs(os.path.dirname(self.storage_path) or ".", exist_ok=True)
         with self._lock:
+            self._rebuild_cache_locked()
             with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump(self.signs, f, ensure_ascii=False, indent=2)
 
@@ -161,41 +193,61 @@ class CustomSignStore:
         self,
         vector_63d: List[float],
         motion_primary: Optional[Dict[str, Any]] = None,
-        min_sim: float = 0.925,
+        min_sim: float = 0.905,
+        bio_sig: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Busca si el vector 63D actual coincide con alguna seña/letra calibrada."""
+        """
+        Busca si el vector 63D actual coincide con alguna seña/letra calibrada combinando:
+        - Máxima similitud coseno contra muestras reales
+        - Promedio Top-K (hasta 3 muestras más cercanas) y centroide de clase
+        - Descriptor biomecánico 16D invariante a distancia y rotación leve
+        """
         if vector_63d is None or len(vector_63d) != 63:
             return None
+        with self._lock:
+            compiled = self._compiled
+            if not compiled:
+                return None
+            items = list(compiled.items())
+
         query = np.asarray(vector_63d, dtype=np.float32)
+        q_norm = float(np.linalg.norm(query))
+        if q_norm < 1e-8:
+            return None
+        query = query / q_norm
+        q_bio = (
+            np.asarray(bio_sig, dtype=np.float32)
+            if bio_sig is not None and len(bio_sig) == 16
+            else extract_biomech_signature(query.reshape(21, 3))
+        )
         motion_p = motion_primary or {}
 
         best_sid = None
         best_sim = 0.0
         best_entry = None
 
-        with self._lock:
-            items = list(self.signs.items())
-
-        for sid, entry in items:
-            protos = entry.get("prototypes_63d") or []
-            if not protos:
+        for sid, comp in items:
+            if not self._matches_motion(comp["motion_type"], motion_p):
                 continue
-            mt = entry.get("motion_type", "STATIC")
-            if not self._matches_motion(mt, motion_p):
-                continue
+            sims = comp["p_unit"] @ query
+            b_sims = comp["b_unit"] @ q_bio
+            max_p_sim = float(np.max(sims))
+            k = min(3, sims.shape[0])
+            top_k_sim = float(np.mean(np.partition(sims, -k)[-k:]))
+            centroid_sim = float(np.dot(comp["centroid"], query))
+            max_bio_sim = float(np.max(b_sims))
 
-            max_p_sim = 0.0
-            for p in protos:
-                if len(p) != 63:
-                    continue
-                sim = _cosine_similarity(query, np.asarray(p, dtype=np.float32))
-                if sim > max_p_sim:
-                    max_p_sim = sim
+            score = (
+                0.42 * max_p_sim
+                + 0.23 * top_k_sim
+                + 0.15 * centroid_sim
+                + 0.20 * max(0.0, max_bio_sim)
+            )
 
-            if max_p_sim >= min_sim and max_p_sim > best_sim:
-                best_sim = max_p_sim
+            if score >= min_sim and score > best_sim:
+                best_sim = score
                 best_sid = sid
-                best_entry = entry
+                best_entry = comp["entry"]
 
         if best_sid is None or best_entry is None:
             return None
@@ -206,7 +258,7 @@ class CustomSignStore:
             "default_phrase": best_entry.get("default_phrase", best_entry.get("label", best_sid)),
             "description": best_entry.get("description", ""),
             "confidence": round(min(0.99, best_sim), 3),
-            "engine": "Custom Calibrated Prototype (63D)",
+            "engine": "Custom Calibrated Multi-Sample (63D + Bio16D)",
             "is_dynamic": best_entry.get("motion_type", "STATIC") != "STATIC",
         }
 

@@ -53,6 +53,19 @@ Desde las versiones iniciales de control gestual, el proyecto evolucionó y se c
 8. **Suite de Pruebas Automatizadas Rigurosa (`test_pipeline.py`):**
    - Cobertura del 100% en 5 grupos de prueba: Normalización 3D y MLP, Estabilizador N=8 y rechazo activo, Pipeline Offline/Online/Simulador 3D, Cinemática dinámica (J, Z, H, bimanuales), 27/27 letras LSC, Aislamiento de modos y Conectividad Gemini API.
 
+9. **Avatar 3D VRM 1.0 / GLB con IK Analítica, Expresividad y Escenario de Aula (`static/avatar3d.js`):**
+   - Integración de **Haiku VRM** (`VRoid_avatares/Haiku.vrm`, VRM 1.0 con `@pixiv/three-vrm@2.1.2`) y **Student Hatsune 3D** (`avatares/Student Hatsune.glb`, escalado a `1.55 m` sobre `y = 0`).
+   - Cinemática inversa analítica de 2 huesos (Hombro → Codo → Muñeca) al frente del pecho, elevación natural de codo y límite biomecánico de muñeca para señas hacia abajo (`M`, `N`, `P`, `Q`), pronación sincronizada del antebrazo y flexión/apertura exacta de dedos y pulgar VRM 1.0.
+   - Seguimiento suave del cursor en reposo (`neck`, `head`, `spine`), gestos autónomos en inactividad (saludo a la cámara, *Te quiero / ILY*, *Gracias*, *Hola*), parpadeo cada 3–5 s, SpringBones, expresiones faciales suavizadas, articulación labial al deletrear/firmar y fondo de aula con desenfoque ligero (`static/models/classroom_bg.jpg`).
+
+10. **Conexión USB / ADB como Webcam en 3 Modos (`backend/usb_bridge.py` y `main.py`):**
+    - Soporte integrado para **Sin App** (`adb reverse`, puerto configurable `8000` vía `/mobile`), **App SignBridge** (`SignBridge_v3.apk`) y **DroidCam / DroidCam OBS** (`adb forward`, puerto configurable `4747` con lector nativo HTTP MJPEG `_run_http_mjpeg_loop`).
+
+11. **Prototipos Conversacionales LSC 50/50, Persistencia SQLite y Control Anti-Bucle TTS:**
+    - Caché de prototipos 3D (`_SIGN_PROTOTYPE_CACHE` y `match_conversational_prototype()`) en [`backend/conversation_engine.py`](backend/conversation_engine.py) con reconocimiento del 100% (50/50 señas) en modos `CONVERSATION` e `HYBRID` junto con las 27/27 letras LSC.
+    - Persistencia local en SQLite (`data/conversations.db`) mediante [`backend/conversation_db.py`](backend/conversation_db.py) con endpoints REST CRUD (`/api/conversations*`, `/api/messages*`).
+    - Layout del visor en 3 zonas flex sin solapamientos y guardia `lastSpokenTtsSeq` contra repetición de voz TTS.
+
 ---
 
 ## 1. Propósito del Proyecto y Flujo Conversacional Bidireccional
@@ -102,9 +115,9 @@ El sistema mantiene dos modos de interacción totalmente aislados e independient
 
 | Capa / Subsistema | Lenguajes | Tecnologías, Librerías y APIs | Propósito en el Proyecto |
 | :--- | :--- | :--- | :--- |
-| **Backend & Motor IA** | **Python 3.10+ / 3.11** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe Hand Landmarker (Tasks Vision)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai` | Servidor ASGI asíncrono, captura de video, tracking 3D de 2 manos (42 landmarks), análisis cinemático, motor de oraciones, APIs REST y WebSockets. |
+| **Backend & Motor IA** | **Python 3.10+ / 3.11** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe Hand Landmarker (Tasks Vision)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai`, `SQLite3`, `ADB` | Servidor ASGI asíncrono, captura de video (Webcam, USB/ADB, DroidCam HTTP MJPEG), tracking 3D de 2 manos (42 landmarks), prototipos 50/50, persistencia SQLite y APIs REST/WebSockets. |
 | **Control de Periféricos OS** | **Python + C ABI (Win32)** | `ctypes.windll.user32`, `PyAutoGUI`, `winsound` | Control del cursor de Windows a 120 Hz con Filtro 1€, estabilización de puntería y despacho de clics en hilos daemon. |
-| **Frontend Desktop & HUD** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API`, `KaTeX` | Interfaz líquida vidriada (Liquid Glassmorphism), HUD no invasivo con anillo SVG, glosario interactivo, timeline de chat y telemetría 3D colapsable. |
+| **Frontend Desktop & Avatar 3D** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Three.js`, `@pixiv/three-vrm`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API`, `KaTeX` | Interfaz líquida vidriada en 3 zonas, Avatar 3D VRM 1.0/GLB con IK de 2 huesos, expresividad, seguimiento al cursor y fondo de aula con blur, glosario interactivo y chat SQLite. |
 | **Aplicación Móvil Android** | **Java (Android SDK API 35), JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `MediaPipe Vision WASM`, `WebRTC`, `aapt2`, `d8`, `apksigner` | APK nativo (`SignBridge_v3.apk`) con modo independiente offline por WebGL, cámara inalámbrica WebRTC libre de errores de alternancia de lente, touchpad háptico, linterna/flash y TTS por altavoz. |
 
 ---
@@ -129,7 +142,9 @@ Detencion de movimiento/
 │   └── SignBridge_v2.apk           # Binario de compatibilidad
 │
 ├── backend/                        # Módulos del núcleo biomecánico, conversacional y de control
-│   ├── conversation_engine.py      # Motor de traducción LSC: 50 señas, buffer de tokens, chat, frases y TTS
+│   ├── conversation_engine.py      # Motor de traducción LSC: 50 señas (prototipos 50/50), buffer de tokens, chat, frases y TTS
+│   ├── conversation_db.py          # Persistencia SQLite (data/conversations.db) con CRUD de conversaciones y mensajes
+│   ├── usb_bridge.py               # Puente USB/ADB en 3 modos: Sin App (no_app), APK SignBridge y DroidCam HTTP MJPEG
 │   ├── lsc_alphabet.py             # Abecedario LSC Oficial (27 letras): plantillas 3D canónicas y clasificador coseno
 │   ├── motion_analyzer.py          # Analizador cinemático: trazo de J, Z, H, S, oscilaciones y divergencia bimanual
 │   ├── tracker.py                  # Seguimiento temporal articular con Filtro 1€ adaptativo anti-jitter
@@ -140,15 +155,27 @@ Detencion de movimiento/
 │   ├── hardware_controller.py      # Emulación de periféricos Win32 a 120 Hz con anclaje de puntería ortogonal
 │   └── pipeline.py                 # Orquestador maestro: captura, MediaPipe 2 manos, IA local/nube y HUD
 │
+├── VRoid_avatares/                 # Modelos VRM 1.0 de VRoid Studio
+│   └── Haiku.vrm                   # Avatar 3D principal (VRM 1.0 con expresiones faciales y SpringBones)
+│
+├── avatares/                       # Modelos GLB alternativos
+│   ├── Student Hatsune.glb         # Avatar 3D alternativo GLB escalado a 1.55 m
+│   └── student_hatsune_tex.png     # Textura de sombreado para Student Hatsune
+│
+├── data/                           # Almacenamiento persistente local
+│   └── conversations.db            # Base de datos SQLite del historial de conversaciones y mensajes
+│
 ├── models/                         # Modelos y pesos preentrenados
 │   ├── hand_landmarker.task        # Modelo MediaPipe Hand Landmarker oficial (21 landmarks 3D por mano)
 │   ├── gesture_mlp.keras           # Red neuronal MLP entrenada en Keras
 │   └── gesture_mlp_weights.npz     # Pesos matriciales NumPy para inferencia ultrarrápida sin sobrecarga
 │
 └── static/                         # Frontend Web y recursos empaquetados en el APK móvil
-    ├── index.html                  # HUD de escritorio Liquid Glassmorphic, diccionario 3D, chat y controles
+    ├── index.html                  # HUD de escritorio en 3 zonas, diccionario 3D, historial SQLite y controles USB
+    ├── avatar3d.js                 # Motor 3D Three.js + @pixiv/three-vrm: IK 2 huesos, dedos, expresiones y reposo activo
     ├── mobile.html                 # Interfaz móvil APK: cámara WebRTC, TTS en altavoz, háptica y modo autónomo
     ├── mini.html                   # Ventana flotante ultra-compacta (Picture-in-Picture)
+    ├── models/classroom_bg.jpg     # Fondo de aula con desenfoque ligero para el visor 3D
     ├── abecedario_lsc.jpg          # Lámina oficial de referencia LSC (INSOR / FENASCOL)
     ├── logo.png                    # Isotipo oficial Liquid Glassmorphic en alta resolución
     ├── favicon.ico                 # Icono del navegador

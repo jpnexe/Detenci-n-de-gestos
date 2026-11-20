@@ -15,12 +15,33 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
 
-  <!-- TailwindCSS CDN + Lucide Icons + Three.js + GLTFLoader (Avatar 3D) -->
+  <!-- TailwindCSS CDN + Lucide Icons + Three.js r160 Studio Pipeline (RoomEnvironment + PostProcessing + GLTFLoader) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="/static/avatar3d.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.min.js",
+        "kalidokit": "https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.es.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+    import * as Kalidokit from 'kalidokit';
+
+    window.THREE = Object.assign({}, THREE, {
+      GLTFLoader,
+    });
+    window.THREE_VRM = { VRMLoaderPlugin, VRMUtils };
+    window.Kalidokit = Kalidokit;
+    window.dispatchEvent(new CustomEvent('three-studio-ready'));
+  </script>
+  <script defer src="/static/avatar3d.js"></script>
 
   <script>
     tailwind.config = {
@@ -216,6 +237,56 @@
       display: inline-flex !important;
       opacity: 1 !important;
       pointer-events: auto !important;
+    }
+
+    /* Modo Pantalla Grande: Muñeca 3D + Chat de Traducción lado a lado */
+    body.theater-mode {
+      padding: 0.75rem !important;
+    }
+    body.theater-mode > header,
+    body.theater-mode .theater-hide,
+    body.theater-mode > nav {
+      display: none !important;
+    }
+    body.theater-mode #hudViewportCard {
+      max-width: none !important;
+      width: 100% !important;
+      max-height: none !important;
+    }
+    @media (min-width: 1024px) {
+      body.theater-mode {
+        height: 100vh;
+        overflow: hidden;
+      }
+      body.theater-mode > main {
+        height: calc(100vh - 1.5rem);
+        min-height: 0;
+        gap: 0.75rem;
+      }
+      body.theater-mode > main > section,
+      body.theater-mode > main > aside {
+        height: 100%;
+        min-height: 0;
+      }
+      body.theater-mode #hudViewportCard {
+        height: auto !important;
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+      }
+      body.theater-mode #signTranslatorPanelsContainer {
+        flex: 1 1 0%;
+        height: 100%;
+        min-height: 0;
+      }
+      body.theater-mode #theaterChatCard {
+        flex: 1 1 0%;
+        min-height: 0;
+      }
+      body.theater-mode #chatTimelineList {
+        flex: 1 1 0%;
+        max-height: none !important;
+        min-height: 0;
+      }
     }
 
     /* Modos de Opacidad Seleccionables por el Usuario */
@@ -415,7 +486,7 @@
                 <button
                   id="btnSubmodeHYBRID"
                   onclick="setSignSubmode('HYBRID')"
-                  title="Detecta tanto las 46 señas conversacionales como las 27 letras del Abecedario LSC"
+                  title="Detecta tanto las 74 señas conversacionales como las 27 letras del Abecedario LSC"
                   class="px-2.5 py-0.5 rounded-full font-bold bg-cyanLiquid/25 text-cyanLiquid border border-cyanLiquid/50 transition-all"
                 >
                   🔄 Híbrido
@@ -423,10 +494,10 @@
                 <button
                   id="btnSubmodeCONVERSATION"
                   onclick="setSignSubmode('CONVERSATION')"
-                  title="Prioriza las 46 señas conversacionales (1 y 2 manos)"
+                  title="Prioriza las 74 señas conversacionales (1 y 2 manos)"
                   class="px-2.5 py-0.5 rounded-full text-textSecondary hover:text-textPrimary transition-all"
                 >
-                  💬 Señas (46)
+                  💬 Señas (74)
                 </button>
                 <button
                   id="btnSubmodeALPHABET_LSC"
@@ -519,8 +590,8 @@
         </div>
       </div>
 
-      <!-- CAPA 1: Visualizador de Cámara (HUD Principal — Distribución en 3 Zonas Sin Superposición sobre Manos) -->
-      <div id="hudViewportCard" class="glass-layer-1 relative flex-1 min-h-[420px] md:min-h-[540px] overflow-hidden rounded-2xl border border-white/10 bg-void flex flex-col transition-all duration-300">
+      <!-- CAPA 1: Visualizador de Cámara (HUD Principal — ~800px responsivo en vista normal) -->
+      <div id="hudViewportCard" class="glass-layer-1 relative w-full max-w-[800px] h-[520px] sm:h-[640px] lg:h-[760px] max-h-[82vh] mx-auto overflow-hidden rounded-2xl border border-white/10 bg-void flex flex-col transition-all duration-300">
 
         <!-- Zona 1: Overlay Superior del Visor (Acoplado arriba, nunca tapa las manos) -->
         <div id="hudTopControls" class="hud-cam-overlay relative z-10 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-white/5 bg-void/60 backdrop-blur-md shrink-0 transition-all duration-200">
@@ -542,26 +613,26 @@
           </div>
 
           <!-- Selector de Fuente de Video + Botón PiP -->
-          <div class="glass-hud-pill p-1 rounded-full flex flex-wrap items-center gap-1 text-xs pointer-events-auto">
-            <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2.5 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Auto</button>
-            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" title="Modo Independiente en el PC (usa la webcam del PC sin depender del celular)" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+          <div class="glass-hud-pill p-1 rounded-2xl flex flex-wrap items-center gap-1 text-xs pointer-events-auto max-w-full">
+            <button onclick="setVideoSource('AUTO')" id="srcBtnAUTO" class="px-2 py-1 rounded-full font-semibold bg-white/10 text-textPrimary active:scale-95 transition-transform duration-150 text-[11px] whitespace-nowrap shrink-0">Auto</button>
+            <button onclick="setVideoSource('LOCAL')" id="srcBtnLOCAL" title="Modo Independiente en el PC (usa la webcam del PC sin depender del celular)" class="px-2 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0">
               <span>⚡ Independiente</span>
             </button>
-            <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+            <button onclick="setVideoSource('MOBILE')" id="srcBtnMOBILE" class="px-2 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0">
               <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emeraldLiquid"></i>
               <span>Cámara Móvil</span>
             </button>
-            <button onclick="openQRModal()" title="Conectar celular por cable USB (ADB), DroidCam o QR Wi-Fi" class="px-2.5 py-1 rounded-full font-semibold border border-emeraldLiquid/35 bg-emeraldLiquid/10 text-emeraldLiquid hover:bg-emeraldLiquid/20 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+            <button onclick="openQRModal()" title="Conectar celular por cable USB (ADB), DroidCam o QR Wi-Fi" class="px-2 py-1 rounded-full font-semibold border border-emeraldLiquid/35 bg-emeraldLiquid/10 text-emeraldLiquid hover:bg-emeraldLiquid/20 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0">
               <i data-lucide="usb" class="w-3.5 h-3.5"></i>
               <span>USB / DroidCam</span>
             </button>
-            <button onclick="openCustomSignModal()" title="Calibrar señas con tu mano real o convertir imágenes en señas" class="px-2.5 py-1 rounded-full font-semibold border border-amberLiquid/40 bg-amberLiquid/15 text-amberLiquid hover:bg-amberLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+            <button onclick="openCustomSignModal()" title="Calibrar señas con tu mano real o convertir imágenes en señas" class="px-2 py-1 rounded-full font-semibold border border-amberLiquid/40 bg-amberLiquid/15 text-amberLiquid hover:bg-amberLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               <span>Calibrar / Imagen</span>
             </button>
-            <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Cam Web</button>
-            <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2.5 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px]">Simulador 3D</button>
-            <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2.5 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px]">
+            <button onclick="toggleBrowserWebcam()" id="srcBtnBROWSER" class="px-2 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px] whitespace-nowrap shrink-0">Cam Web</button>
+            <button onclick="setVideoSource('SIMULATOR')" id="srcBtnSIMULATOR" class="px-2 py-1 rounded-full font-semibold text-textSecondary hover:text-textPrimary active:scale-95 transition-transform duration-150 text-[11px] whitespace-nowrap shrink-0">Simulador 3D</button>
+            <button onclick="toggleNativePiP()" title="Modo Picture-in-Picture (Ventana siempre visible sobre todas las apps)" class="px-2 py-1 rounded-full font-semibold border border-cyanLiquid/40 bg-cyanLiquid/15 text-cyanLiquid hover:bg-cyanLiquid/25 active:scale-95 transition-transform duration-150 flex items-center gap-1 text-[11px] whitespace-nowrap shrink-0">
               <i data-lucide="picture-in-picture-2" class="w-3.5 h-3.5"></i>
               <span>PiP</span>
             </button>
@@ -569,7 +640,7 @@
         </div>
 
         <!-- Zona 2: Escenario Central de Video / Manos 3D (100% Despejado) -->
-        <div id="hudVideoStage" class="relative flex-1 min-h-[280px] md:min-h-[360px] flex items-center justify-center bg-void/90 overflow-hidden">
+        <div id="hudVideoStage" class="relative flex-1 min-h-0 flex items-center justify-center bg-void/90 overflow-hidden">
           <img
             id="hudVideoStream"
             alt="SignBridge Live Vision Feed"
@@ -625,39 +696,82 @@
           </div>
         </div>
 
-        <!-- Zona 3A: Banner Dedicado de Traducción 3D Activa (Acoplado debajo del visor, NUNCA tapa las manos) -->
-        <div id="handAnimationSubtitleBanner" class="hidden relative z-20 mx-3 my-2 px-4 py-2.5 glass-layer-3 border border-emeraldLiquid/60 shadow-[0_0_25px_rgba(0,255,157,0.18)] rounded-2xl shrink-0">
-          <div class="flex items-center gap-3 min-w-0">
-            <span id="animBannerEmoji" class="text-2xl shrink-0">🖐️</span>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40 font-bold shrink-0">
-                  INTÉRPRETE MANOS 3D LSC
-                </span>
-                <span id="animBannerStepBadge" class="text-[10px] font-mono text-cyanLiquid font-bold shrink-0">
-                  Paso 1/1
-                </span>
-              </div>
-              <div id="animBannerLabel" class="font-display font-bold text-xs sm:text-sm text-textPrimary truncate mt-1">
-                SEÑA: HOLA
-              </div>
-              <div id="animBannerSubtitle" class="text-[11px] text-emeraldLiquid font-mono truncate">
-                "Hola, ¿cómo estás?"
+        <!-- Zona 3: Overlay Inferior del Visor (Acoplado en la base, nunca tapa ni achica el escenario 3D) -->
+        <div id="hudBottomControls" class="hud-cam-overlay relative z-10 px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 bg-void/60 backdrop-blur-md shrink-0 transition-all duration-200">
+
+          <!-- Banner Compacto de Traducción 3D Activa (ocupa el lugar del badge de gesto sin encoger el visor) -->
+          <div id="handAnimationSubtitleBanner" class="hidden glass-hud-pill px-3 py-1.5 border border-emeraldLiquid/60 shadow-[0_0_20px_rgba(0,255,157,0.18)] rounded-2xl pointer-events-auto min-w-0 flex-1 basis-[250px] max-w-full">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span id="animBannerEmoji" class="text-xl shrink-0">🖐️</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emeraldLiquid/20 text-emeraldLiquid border border-emeraldLiquid/40 font-bold shrink-0">
+                      MANOS 3D LSC
+                    </span>
+                    <span id="animBannerLabel" class="font-display font-bold text-xs text-textPrimary truncate">
+                      SEÑA: HOLA
+                    </span>
+                  </div>
+                  <span id="animBannerStepBadge" class="text-[10px] font-mono text-cyanLiquid font-bold shrink-0">
+                    Paso 1/1
+                  </span>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-2 mt-0.5">
+                  <div id="animBannerSubtitle" class="text-[11px] text-emeraldLiquid font-mono truncate min-w-[120px] flex-1">
+                    "Hola, ¿cómo estás?"
+                  </div>
+                  <!-- Controles de reproducción: Retroceder, Pausar/Reanudar, Detener, Adelantar y Velocidad -->
+                  <div class="flex flex-wrap items-center gap-1 shrink-0 max-w-full">
+                    <button
+                      onclick="prevHandAnimStep()"
+                      title="Paso anterior"
+                      class="px-1.5 py-0.5 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-textPrimary text-[10px] font-mono active:scale-95 transition-all"
+                    >
+                      ⏮️
+                    </button>
+                    <button
+                      id="btnAnimPauseResume"
+                      data-anim-pause-btn="1"
+                      onclick="toggleHandAnimPause()"
+                      title="Pausar o reanudar la traducción en curso"
+                      class="px-2 py-0.5 rounded-lg border border-amberLiquid/45 bg-amberLiquid/15 hover:bg-amberLiquid/25 text-amberLiquid text-[10px] font-mono font-semibold active:scale-95 transition-all"
+                    >
+                      ⏸️ Pausar
+                    </button>
+                    <button
+                      onclick="nextHandAnimStep()"
+                      title="Adelantar al siguiente paso"
+                      class="px-1.5 py-0.5 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-textPrimary text-[10px] font-mono active:scale-95 transition-all"
+                    >
+                      ⏭️
+                    </button>
+                    <button
+                      onclick="stopHandAnim()"
+                      title="Detener traducción"
+                      class="px-2 py-0.5 rounded-lg border border-roseLiquid/45 bg-roseLiquid/15 hover:bg-roseLiquid/25 text-roseLiquid text-[10px] font-mono font-semibold active:scale-95 transition-all"
+                    >
+                      ⏹️ Detener
+                    </button>
+                    <div class="flex items-center bg-void/70 rounded-lg border border-white/15 p-0.5 text-[9px] font-mono">
+                      <button onclick="setHandAnimSpeed(0.5)" data-anim-speed="0.5" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">0.5x</button>
+                      <button onclick="setHandAnimSpeed(1)" data-anim-speed="1" class="px-1.5 py-0.5 rounded bg-cyanLiquid/25 text-cyanLiquid font-bold transition-all">1x</button>
+                      <button onclick="setHandAnimSpeed(1.5)" data-anim-speed="1.5" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">1.5x</button>
+                      <button onclick="setHandAnimSpeed(2)" data-anim-speed="2" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">2x</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="w-full h-1 bg-void/80 rounded-full overflow-hidden mt-1 border border-white/10">
+                  <div id="animBannerProgressBar" class="h-full bg-gradient-to-r from-cyanLiquid to-emeraldLiquid transition-all duration-100" style="width: 50%"></div>
+                </div>
               </div>
             </div>
           </div>
-          <div class="w-full h-1 bg-void/80 rounded-full overflow-hidden mt-2 border border-white/10">
-            <div id="animBannerProgressBar" class="h-full bg-gradient-to-r from-cyanLiquid to-emeraldLiquid transition-all duration-100" style="width: 50%"></div>
-          </div>
-        </div>
-
-        <!-- Zona 3B: Overlay Inferior del Visor (Acoplado en la base, nunca tapa las manos) -->
-        <div id="hudBottomControls" class="hud-cam-overlay relative z-10 px-3 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 border-t border-white/5 bg-void/60 backdrop-blur-md shrink-0 transition-all duration-200">
 
           <!-- Anillo de Estabilidad Temporal + Etiqueta de Gesto Detectado (se oculta en traducción 3D para dar más limpieza) -->
-          <div id="gestureBadgeContainer" class="glass-hud-pill p-2 sm:px-3 sm:py-1.5 rounded-2xl flex items-center gap-2.5 transition-all duration-200 pointer-events-auto max-w-[calc(100%-110px)] sm:max-w-md shadow-lg">
-            <div class="relative w-10 h-10 shrink-0 flex items-center justify-center">
-              <svg class="w-10 h-10" viewBox="0 0 68 68">
+          <div id="gestureBadgeContainer" class="glass-hud-pill p-2 sm:px-3 sm:py-1.5 rounded-2xl flex items-center gap-2.5 transition-all duration-200 pointer-events-auto min-w-0 flex-1 basis-[230px] max-w-full shadow-lg">
+            <div class="relative w-12 h-12 shrink-0 flex items-center justify-center">
+              <svg class="w-12 h-12" viewBox="0 0 68 68">
                 <circle
                   cx="34" cy="34" r="28"
                   stroke="rgba(255, 255, 255, 0.12)"
@@ -676,9 +790,9 @@
                   stroke-dashoffset="175.93"
                 />
               </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span id="hudGestureId" class="tabular-nums-metric text-xs font-bold text-cyanLiquid leading-none">G0</span>
-                <span id="hudRingPercent" class="font-mono text-[9px] text-textSecondary leading-none mt-0.5">0%</span>
+              <div class="absolute inset-0 flex flex-col items-center justify-center px-1 overflow-hidden">
+                <span id="hudGestureId" class="tabular-nums-metric text-[11px] font-bold text-cyanLiquid leading-none max-w-[38px] truncate text-center">G0</span>
+                <span id="hudRingPercent" class="font-mono text-[8px] text-textSecondary leading-none mt-0.5">0%</span>
               </div>
             </div>
 
@@ -705,10 +819,10 @@
           </div>
 
           <!-- Dock Inferior Derecho: Botonera de Ajustes Visuales -->
-          <div class="flex items-center gap-1.5 pointer-events-auto shrink-0 ml-auto">
+          <div class="flex flex-wrap items-center gap-1.5 pointer-events-auto shrink-0 ml-auto max-w-full">
 
             <!-- Botones de Optimización Visual de Cámara -->
-            <div class="glass-hud-pill p-1 rounded-full flex items-center gap-1 text-xs shadow-lg">
+            <div class="glass-hud-pill p-1 rounded-2xl flex flex-wrap items-center gap-1 text-xs shadow-lg max-w-full">
               <!-- Toggle Telemetría 3D -->
               <button
                 id="btnToggleTelemetry"
@@ -769,6 +883,17 @@
                 <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
                 <span class="hidden sm:inline">Limpio (H)</span>
               </button>
+
+              <!-- Botón Pantalla Grande (Muñeca 3D + Chat de Traducción) -->
+              <button
+                id="btnTheaterMode"
+                onclick="toggleTheaterMode()"
+                title="Pantalla Grande: Avatar 3D + Chat de Traducción lado a lado"
+                class="px-2.5 py-1 rounded-full border border-amberLiquid/45 bg-amberLiquid/15 text-amberLiquid hover:bg-amberLiquid/25 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all"
+              >
+                <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Grande</span>
+              </button>
             </div>
 
           </div>
@@ -777,7 +902,7 @@
       </div>
 
       <!-- Barra Interactiva de Prueba de Gestos 3D y Abecedario LSC (Para probar el Pipeline en Vivo o en Simulador 3D) -->
-      <div class="glass-layer-2 p-3.5 flex flex-col gap-2.5">
+      <div class="glass-layer-2 p-3.5 flex flex-col gap-2.5 theater-hide">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <i data-lucide="hand" class="w-4 h-4 text-cyanLiquid"></i>
@@ -1027,7 +1152,7 @@
       <div id="signTranslatorPanelsContainer" class="hidden flex flex-col gap-4">
 
         <!-- Panel 1: Chat Conversacional Accesible (Persona Sorda ↔ Oyente) -->
-        <div class="glass-layer-2 p-4 flex flex-col gap-3">
+        <div id="theaterChatCard" class="glass-layer-2 p-4 flex flex-col gap-3">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
             <div class="flex items-center gap-2 min-w-0">
               <i data-lucide="message-square" class="w-4 h-4 text-cyanLiquid shrink-0"></i>
@@ -1086,13 +1211,13 @@
           </div>
 
           <!-- Input directo para Escribir Frase y Traducirla con el Modelo de Manos 3D -->
-          <div class="flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center gap-1.5">
             <input
               id="inputTranslateToHands"
               type="text"
               placeholder="Escribe frase o nombre (ej: Hola soy Carlos, estudio en la universidad)..."
               onkeydown="if(event.key==='Enter') triggerPhraseToHandsFromInput()"
-              class="flex-1 px-3 py-2 rounded-xl bg-void/90 border border-white/15 text-xs text-textPrimary focus:outline-none focus:border-cyanLiquid"
+              class="flex-1 min-w-[180px] px-3 py-2 rounded-xl bg-void/90 border border-white/15 text-xs text-textPrimary focus:outline-none focus:border-cyanLiquid"
             />
             <button
               onclick="triggerPhraseToHandsFromInput()"
@@ -1101,6 +1226,25 @@
             >
               <span>🖐️ Animar Manos 3D</span>
             </button>
+          </div>
+
+          <!-- Barra Permanente de Controles de Reproducción 3D (Pausar, Reanudar, Adelantar, Detener y Velocidad) -->
+          <div class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-void/70 border border-white/10">
+            <div class="flex flex-wrap items-center gap-1">
+              <button onclick="prevHandAnimStep()" title="Retroceder seña/letra anterior" class="px-2 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/15 text-textPrimary text-[11px] font-mono active:scale-95 transition-all">⏮️ Atrás</button>
+              <button data-anim-pause-btn="1" onclick="toggleHandAnimPause()" title="Pausar o reanudar traducción" class="px-2.5 py-1 rounded-lg border border-amberLiquid/45 bg-amberLiquid/15 hover:bg-amberLiquid/25 text-amberLiquid text-[11px] font-mono font-semibold active:scale-95 transition-all">⏸️ Pausar</button>
+              <button onclick="nextHandAnimStep()" title="Adelantar a la siguiente seña/letra" class="px-2 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/15 text-textPrimary text-[11px] font-mono active:scale-95 transition-all">⏭️ Adelantar</button>
+              <button onclick="stopHandAnim()" title="Detener reproducción 3D" class="px-2 py-1 rounded-lg border border-roseLiquid/45 bg-roseLiquid/15 hover:bg-roseLiquid/25 text-roseLiquid text-[11px] font-mono font-semibold active:scale-95 transition-all">⏹️ Detener</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono text-textSecondary">Velocidad:</span>
+              <div class="flex items-center bg-void/80 rounded-lg border border-white/15 p-0.5 text-[10px] font-mono">
+                <button onclick="setHandAnimSpeed(0.5)" data-anim-speed="0.5" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">0.5x</button>
+                <button onclick="setHandAnimSpeed(1)" data-anim-speed="1" class="px-1.5 py-0.5 rounded bg-cyanLiquid/25 text-cyanLiquid font-bold transition-all">1x</button>
+                <button onclick="setHandAnimSpeed(1.5)" data-anim-speed="1.5" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">1.5x</button>
+                <button onclick="setHandAnimSpeed(2)" data-anim-speed="2" class="px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all">2x</button>
+              </div>
+            </div>
           </div>
 
           <!-- Botón de Micrófono para el Oyente -->
@@ -1124,16 +1268,18 @@
             </div>
           </div>
 
-          <!-- Frases Conversacionales y Deletreo Rápido (Texto + Animación Manos 3D) -->
-          <div class="flex flex-col gap-1.5 pt-1 border-t border-white/10">
-            <div class="text-[10px] font-mono text-textSecondary uppercase">Frases de prueba (Texto + Modelo de Manos 3D LSC):</div>
+          <!-- Frases Conversacionales Nivel Intermedio LSC (Texto + Modelo de Manos 3D) -->
+          <div class="flex flex-col gap-1.5 pt-1 border-t border-white/10 theater-hide">
+            <div class="text-[10px] font-mono text-textSecondary uppercase">Frases Conversacionales LSC (Nivel Intermedio + Deletreo):</div>
             <div class="flex flex-wrap gap-1.5 text-xs">
-              <button onclick="sendHearingQuickText('Hola, ¿cómo estás?')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">👋 Hola, ¿cómo estás?</button>
-              <button onclick="sendHearingQuickText('Yo estudio en la universidad')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-cyanLiquid">🎓 Yo estudio en la universidad</button>
+              <button onclick="sendHearingQuickText('¡Ajá! ¿Cómo anda todo? Soy de La Guajira')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-amberLiquid">🌵 ¡Ajá! Soy de La Guajira</button>
+              <button onclick="sendHearingQuickText('Vivo en Riohacha y hoy hace mucho calor')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-cyanLiquid">🥵 Vivo en Riohacha, hace calor</button>
+              <button onclick="sendHearingQuickText('Vamos para el mar con buena brisa')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-emeraldLiquid">🌊 Vamos al mar con brisa</button>
+              <button onclick="sendHearingQuickText('Buenos días, a la orden, ¿cuánto vale esta mochila wayuu?')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">🧶 ¿Cuánto vale esta mochila wayuu?</button>
+              <button onclick="sendHearingQuickText('Yo quiero aprender lengua de señas pero necesito estudiar más')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-emeraldLiquid">📖 Quiero aprender pero necesito estudiar</button>
+              <button onclick="sendHearingQuickText('Mi mamá y mi papá trabajan en Colombia')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-cyanLiquid">👨‍👩‍👧‍👦 Mi mamá y papá trabajan aquí</button>
+              <button onclick="sendHearingQuickText('Por favor espera un momento, también voy contigo')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">⏱️ Espera un momento, también voy</button>
               <button onclick="sendHearingQuickText('Hola soy Ana')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-amberLiquid">🔤 Hola soy Ana (Deletreo)</button>
-              <button onclick="sendHearingQuickText('Mañana trabajo en casa')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-textSecondary hover:text-textPrimary">🏠 Mañana trabajo en casa</button>
-              <button onclick="sendHearingQuickText('Sí, entiendo perfectamente')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-emeraldLiquid">👍 Sí, entiendo</button>
-              <button onclick="sendHearingQuickText('Necesito ayuda urgente por favor')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-roseLiquid">🆘 Necesito ayuda por favor</button>
             </div>
           </div>
 
@@ -1143,7 +1289,7 @@
             class="w-full mt-1 min-h-[42px] px-3.5 py-2 rounded-xl border border-cyanLiquid/40 bg-cyanLiquid/10 hover:bg-cyanLiquid/20 text-cyanLiquid text-xs font-semibold flex items-center justify-center gap-2"
           >
             <i data-lucide="book-open" class="w-4 h-4"></i>
-            <span>Ver Abecedario LSC (27 Letras) + 46 Señas Conversacionales</span>
+            <span>Ver Abecedario LSC (27 Letras) + 74 Señas Conversacionales</span>
           </button>
         </div>
 
@@ -1193,12 +1339,9 @@
       <div>
         <div class="text-[11px] font-mono uppercase text-textSecondary mb-2">Personajes Preset</div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <button onclick="selectAvatarPreset('hasune_glb')" class="p-2.5 rounded-xl bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/60 text-cyanLiquid text-xs font-bold active:scale-95 transition-all">🌟 Hasune 3D (GLB)</button>
-          <button onclick="selectAvatarPreset('miku_hd')" class="p-2.5 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/60 text-emeraldLiquid text-xs font-bold active:scale-95 transition-all">✨ Miku HD (Imagen)</button>
-          <button onclick="selectAvatarPreset('cyber_miku')" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-textPrimary text-xs font-bold active:scale-95 transition-all">🎧 Cyber-3D</button>
-          <button onclick="selectAvatarPreset('sakura')" class="p-2.5 rounded-xl bg-roseLiquid/15 hover:bg-roseLiquid/25 border border-roseLiquid/40 text-roseLiquid text-xs font-bold active:scale-95 transition-all">🌸 Sakura</button>
-          <button onclick="selectAvatarPreset('kitsune')" class="p-2.5 rounded-xl bg-amberLiquid/15 hover:bg-amberLiquid/25 border border-amberLiquid/40 text-amberLiquid text-xs font-bold active:scale-95 transition-all">🦊 Kitsune</button>
-          <button onclick="selectAvatarPreset('shadow')" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-textPrimary text-xs font-bold active:scale-95 transition-all">🥷 Shadow</button>
+          <button onclick="selectAvatarPreset('haiku_vrm')" class="p-2.5 rounded-xl bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 border border-emeraldLiquid/60 text-emeraldLiquid text-xs font-bold active:scale-95 transition-all">🌸 Haiku VRM (VRoid)</button>
+          <button onclick="selectAvatarPreset('hasune_glb')" class="p-2.5 rounded-xl bg-cyanLiquid/20 hover:bg-cyanLiquid/30 border border-cyanLiquid/60 text-cyanLiquid text-xs font-bold active:scale-95 transition-all">🌟 Student Hatsune</button>
+          <button onclick="selectAvatarPreset('miku_hd')" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-textPrimary text-xs font-bold active:scale-95 transition-all">✨ Miku HD (Imagen)</button>
         </div>
       </div>
 
@@ -1621,7 +1764,7 @@
             Catálogo Lingüístico & Gestual SignBridge v3.0 — Lengua de Señas Colombiana (LSC)
           </h3>
           <p class="text-xs text-textSecondary">
-            Abecedario LSC Oficial (27 Letras A–Z + Ñ) · 46 Señas Conversacionales (1 & 2 Manos) · Modelo de Manos 3D Bidireccional
+            Abecedario LSC Oficial (27 Letras A–Z + Ñ) · 74 Señas Conversacionales (1 & 2 Manos) · Modelo de Manos 3D Bidireccional
           </p>
         </div>
       </div>
@@ -1663,7 +1806,7 @@
           onclick="switchCatalogTab('SIGNS')"
           class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-textSecondary hover:text-textPrimary border border-white/10"
         >
-          💬 46 Señas Conversacionales (7 Categorías)
+          💬 74 Señas Conversacionales (10 Categorías)
         </button>
         <button
           id="btnCatalogTabHci"
@@ -1711,11 +1854,11 @@
         </div>
       </div>
 
-      <!-- TAB 1: 46 SEÑAS CONVERSACIONALES -->
+      <!-- TAB 1: 74 SEÑAS CONVERSACIONALES -->
       <div id="catalogTabContentSigns" class="hidden space-y-4 text-xs">
-        <div class="p-3 rounded-xl bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid flex items-center justify-between">
-          <span>El traductor detecta <strong>46 señas conversacionales (1 o 2 manos)</strong> y las conjuga automáticamente en oraciones gramaticales en español. Haz clic en cualquier tarjeta para animarla en el <strong>Modelo 3D</strong>.</span>
-          <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">7 Categorías</span>
+        <div class="p-3 rounded-xl bg-cyanLiquid/10 border border-cyanLiquid/30 text-cyanLiquid flex flex-wrap items-center justify-between gap-2">
+          <span>El traductor detecta <strong>74 señas conversacionales (1 o 2 manos)</strong> (incluyendo nivel intermedio y contexto de La Guajira) y las conjuga automáticamente en oraciones gramaticales en español. Haz clic en cualquier tarjeta para animarla en el <strong>Modelo 3D</strong>.</span>
+          <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-void/60 text-emeraldLiquid">10 Categorías</span>
         </div>
         <div id="modalConversationalSignsContainer" class="space-y-4 max-h-[450px] overflow-y-auto pr-1">
           <!-- Renderizado dinámico JS de las 46 señas por categoría -->
@@ -2033,8 +2176,10 @@
         sosBanner.classList.add('hidden');
       }
 
-      document.getElementById('hudGestureId').textContent = gid;
-      document.getElementById('hudGestureId').style.color = activeColor;
+      const gidEl = document.getElementById('hudGestureId');
+      gidEl.textContent = gid;
+      gidEl.style.color = activeColor;
+      gidEl.style.fontSize = gid.length > 5 ? '8px' : (gid.length > 3 ? '9.5px' : '11px');
       document.getElementById('hudRingPercent').textContent = `${Math.round(progress * 100)}%`;
 
       const isSignMode = (data.interaction_mode === 'SIGN_LANGUAGE');
@@ -2505,6 +2650,26 @@
           document.getElementById('animBannerSubtitle').textContent = `"${anim.subtitle || conv.hand_animation_phrase || ''}"`;
           const pct = Math.round(((anim.step_index || 1) / Math.max(1, anim.total_steps || 1)) * 100);
           document.getElementById('animBannerProgressBar').style.width = `${pct}%`;
+
+          isHandAnimPaused = Boolean(anim.paused);
+          document.querySelectorAll('[data-anim-pause-btn]').forEach((pauseBtn) => {
+            if (isHandAnimPaused) {
+              pauseBtn.textContent = '▶️ Reanudar';
+              pauseBtn.className = 'px-2.5 py-0.5 rounded-lg border border-emeraldLiquid/50 bg-emeraldLiquid/20 hover:bg-emeraldLiquid/30 text-emeraldLiquid text-[10px] font-mono font-semibold active:scale-95 transition-all';
+            } else {
+              pauseBtn.textContent = '⏸️ Pausar';
+              pauseBtn.className = 'px-2.5 py-0.5 rounded-lg border border-amberLiquid/45 bg-amberLiquid/15 hover:bg-amberLiquid/25 text-amberLiquid text-[10px] font-mono font-semibold active:scale-95 transition-all';
+            }
+          });
+          const spd = Number(anim.speed || 1);
+          document.querySelectorAll('[data-anim-speed]').forEach((b) => {
+            const v = Number(b.getAttribute('data-anim-speed'));
+            if (Math.abs(v - spd) < 0.05) {
+              b.className = 'px-1.5 py-0.5 rounded bg-cyanLiquid/25 text-cyanLiquid font-bold transition-all';
+            } else {
+              b.className = 'px-1.5 py-0.5 rounded text-textSecondary hover:text-textPrimary transition-all';
+            }
+          });
         } else {
           animBanner.classList.add('hidden');
           if (gestureBadge) gestureBadge.classList.remove('hidden');
@@ -3829,6 +3994,33 @@
     let hudOpacityLevel = 1; // 0: low (30%), 1: mid (60%), 2: high (90%)
     let isVideoCover = false;
 
+    let isHandAnimPaused = false;
+    function toggleHandAnimPause() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: isHandAnimPaused ? 'HAND_ANIM_RESUME' : 'HAND_ANIM_PAUSE' }));
+      }
+    }
+    function stopHandAnim() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'HAND_ANIM_STOP' }));
+      }
+    }
+    function nextHandAnimStep() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'HAND_ANIM_NEXT' }));
+      }
+    }
+    function prevHandAnimStep() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'HAND_ANIM_PREV' }));
+      }
+    }
+    function setHandAnimSpeed(speed) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'HAND_ANIM_SPEED', speed: Number(speed || 1) }));
+      }
+    }
+
     function toggleCleanView() {
       const card = document.getElementById('hudViewportCard');
       const btn = document.getElementById('btnCleanView');
@@ -3848,6 +4040,40 @@
       }
       try { localStorage.setItem('sb_clean_view', isCleanView ? '1' : '0'); } catch(e){}
     }
+
+    let isTheaterMode = false;
+    function toggleTheaterMode(forceState) {
+      isTheaterMode = (typeof forceState === 'boolean') ? forceState : !isTheaterMode;
+      const btn = document.getElementById('btnTheaterMode');
+      if (isTheaterMode) {
+        if (interactionMode !== 'SIGN_LANGUAGE' && typeof switchInteractionMode === 'function') {
+          switchInteractionMode('SIGN_LANGUAGE');
+        }
+        document.body.classList.add('theater-mode');
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-full border border-emeraldLiquid/50 bg-emeraldLiquid/20 text-emeraldLiquid text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all';
+          btn.innerHTML = '<i data-lucide="minimize-2" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">Normal</span>';
+        }
+      } else {
+        document.body.classList.remove('theater-mode');
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-full border border-amberLiquid/45 bg-amberLiquid/15 text-amberLiquid hover:bg-amberLiquid/25 text-[11px] font-semibold flex items-center gap-1 active:scale-95 transition-all';
+          btn.innerHTML = '<i data-lucide="maximize-2" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">Grande</span>';
+        }
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      requestAnimationFrame(() => {
+        if (window.SignBridgeAvatar3D && typeof window.SignBridgeAvatar3D._resize === 'function') {
+          window.SignBridgeAvatar3D._resize();
+        }
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isTheaterMode) {
+        toggleTheaterMode(false);
+      }
+    });
 
     function toggleTelemetryBox() {
       const box = document.getElementById('hudTelemetryBox');

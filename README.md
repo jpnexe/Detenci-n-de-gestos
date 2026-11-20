@@ -50,9 +50,9 @@ El sistema mantiene dos modos de interacción totalmente desacoplados:
 
 | Capa / Subsistema | Lenguajes | Tecnologías, Librerías y APIs | Propósito en el Proyecto |
 | :--- | :--- | :--- | :--- |
-| **Backend & Motor IA** | **Python 3.11+** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe (Hand Landmarker)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai` | Servidor ASGI asíncrono, captura de video, detección de 1 o 2 manos (42 puntos 3D), motor conversacional, API REST y WebSocket. |
+| **Backend & Motor IA** | **Python 3.11+** | `FastAPI`, `Uvicorn`, `WebSockets`, `MediaPipe (Hand Landmarker)`, `NumPy`, `OpenCV`, `TensorFlow/Keras`, `google-genai`, `SQLite3`, `ADB` | Servidor ASGI asíncrono, captura de video (Webcam, USB/ADB/DroidCam), detección de 2 manos (42 puntos 3D), prototipos LSC 50/50, persistencia SQLite (`conversations.db`) y API REST/WebSocket. |
 | **Control de Periféricos OS** | **Python + C ABI (Win32)** | `ctypes.windll.user32`, `PyAutoGUI`, `winsound` | Movimiento de mouse a 120 Hz, anclaje de puntería ortogonal y ejecución de clics/scrolls en hilos daemon. |
-| **Frontend Desktop & HUD** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API` | Interfaz vidriada Liquid Glassmorphic, HUD bimanual con código de color dual, timeline de chat, diccionario 3D y catálogo exhaustivo de 50 señas y 27 letras del alfabeto LSC. |
+| **Frontend Desktop & Avatar 3D** | **HTML5, CSS3, JavaScript** | `TailwindCSS`, `Three.js`, `@pixiv/three-vrm`, `Lucide Icons`, `Canvas 2D`, `Web Speech API (STT & TTS)`, `WebSocket API` | Interfaz Liquid Glassmorphic en 3 zonas, **Avatar 3D VRM 1.0 (`Haiku.vrm`) y GLB (`Student Hatsune`)** con IK analítica de 2 huesos, expresividad facial/mouse, fondo de aula con blur, chat SQLite y catálogo LSC. |
 | **Aplicación Móvil APK** | **Java (Android SDK API 35), JS** | `Android WebView`, `WebChromeClient`, `JavascriptInterface`, `MediaPipe Vision WASM`, `aapt2`, `d8`, `apksigner` | Contenedor nativo Android (`SignBridge_v3.apk`) con streaming binario `toBlob`, audio TTS en tiempo real para señas/letras identificadas, selector frontal/trasera libre de errores, touchpad háptico y STT/TTS local. |
 
 ---
@@ -75,14 +75,23 @@ Detencion de movimiento/
 │   └── SignBridge_v2.apk           # Copia de compatibilidad
 │
 ├── backend/                        # Módulos del núcleo biomecánico y conversacional
-│   ├── conversation_engine.py      # Motor de traducción conversacional: 50 señas en 8 categorías, buffer de tokens, chat y TTS
+│   ├── conversation_engine.py      # Motor conversacional: 50 señas (caché de prototipos 50/50), buffer de tokens, chat y TTS
+│   ├── conversation_db.py          # Persistencia SQLite (data/conversations.db) y CRUD de conversaciones/mensajes
+│   ├── usb_bridge.py               # Puente USB/ADB en 3 modos: Sin App, APK SignBridge y DroidCam HTTP MJPEG
 │   ├── lsc_alphabet.py             # Ensamble de dactilología LSC: 27/27 letras canónicas (A-Z, Ñ) con similitud coseno y discriminación fina
 │   ├── normalizer.py               # Normalización 3D invariante (1 y 2 manos) y métricas inter-manuales
 │   ├── classifier_local.py         # Clasificador neuronal MLP local (TensorFlow/Keras y aceleración NumPy)
 │   ├── classifier_gemini.py        # Cliente multimodal asíncrono para Google Gemini 3.5 Flash Lite soberano (2-frame cloud stabilization)
 │   ├── stabilizer.py               # Buffer circular de estabilidad temporal N=8 y umbrales de rechazo
-│   ├── hardware_controller.py      # Controlador de mouse a 120 Hz con Filtro 1€ y llamadas Win32 SetCursorPos
+│   ├── hardware_controller.py      # Emulación de periféricos Win32 a 120 Hz con Filtro 1€ y llamadas Win32 SetCursorPos
 │   └── pipeline.py                 # Orquestador del flujo: cámara, detección de 2 manos, HUD, audio TTS móvil y conversación
+│
+├── VRoid_avatares/                 # Avatares VRM 1.0 de VRoid Studio
+│   └── Haiku.vrm                   # Avatar 3D principal (VRM 1.0 con expresiones faciales y SpringBones)
+│
+├── avatares/                       # Avatares GLB alternativos
+│   ├── Student Hatsune.glb         # Avatar 3D alternativo GLB escalado a 1.55 m
+│   └── student_hatsune_tex.png     # Textura de sombreado para el modelo GLB
 │
 ├── models/                         # Pesos y modelos preentrenados
 │   ├── hand_landmarker.task        # Modelo MediaPipe Hand Landmarker (21 landmarks 3D por mano)
@@ -90,9 +99,11 @@ Detencion de movimiento/
 │   └── gesture_mlp_weights.npz     # Pesos matriciales NumPy optimizados (< 0.4 ms de inferencia)
 │
 └── static/                         # Frontend Web y móvil empaquetado en el APK
-    ├── index.html                  # HUD de escritorio con constructor de frases, timeline de chat y catálogo
+    ├── index.html                  # HUD de escritorio en 3 zonas, constructor de frases, historial SQLite y controles USB
+    ├── avatar3d.js                 # Motor 3D Three.js + @pixiv/three-vrm: IK 2 huesos, dedos, expresiones y reposo activo
     ├── mobile.html                 # Interfaz móvil APK: 2 manos GPU, cámara libre de errores y traductor offline
     ├── mini.html                   # Ventana flotante compacta Picture-in-Picture
+    ├── models/classroom_bg.jpg     # Fondo de aula con desenfoque ligero para el visor 3D
     ├── logo.png                    # Logo oficial Liquid Glassmorphic en alta resolución
     ├── favicon.ico                 # Favicon multi-resolución
     ├── mlp_weights.json            # Pesos del MLP exportados en JSON para ejecución offline en JS/WASM
@@ -206,7 +217,25 @@ Durante esta versión se resolvieron los tres desafíos críticos reportados en 
 
 ---
 
-## 8. Cumplimiento con la Rúbrica Académica y Diferenciación Lingüística
+## 8. Avatar 3D Expresivo (VRM 1.0 / GLB), Conexión USB y Persistencia SQLite
+
+### 8.1. Motor de Avatar 3D (`static/avatar3d.js`)
+- **Avatares Soportados:** **Haiku VRM** ([`VRoid_avatares/Haiku.vrm`](VRoid_avatares/Haiku.vrm), VRM 1.0 con `@pixiv/three-vrm@2.1.2`), **Student Hatsune 3D** ([`avatares/Student Hatsune.glb`](avatares/Student%20Hatsune.glb), escalado a `1.55 m` sobre `y = 0`) y **Miku HD (2.5D)**.
+- **IK Analítica de 2 Huesos y Biomecánica de Muñeca/Dedos:** Posiciona las manos al frente del pecho, eleva el codo naturalmente y limita la flexión de muñeca en señas hacia abajo (`M`, `N`, `P`, `Q`), sincroniza el giro del antebrazo y aplica flexión/apertura exacta de dedos y pulgar VRM 1.0 sin hiperextensión trasera.
+- **Expresividad y Escenario:** Seguimiento del cursor en reposo (`neck`, `head`, `spine`), saludos y señas autónomas en inactividad (*wave*, *Te quiero / ILY*, *Gracias*, *Hola*), parpadeo cada 3–5 s, articulación labial (`aa`, `ih`, `ou`) al deletrear/firmar, gestos de cabeza alusivos por emoción y fondo de aula con desenfoque ligero ([`static/models/classroom_bg.jpg`](static/models/classroom_bg.jpg)).
+
+### 8.2. Conexión USB / ADB como Webcam (3 Modos en [`backend/usb_bridge.py`](backend/usb_bridge.py))
+- **Sin App (`no_app`):** Túnel `adb reverse` (puerto configurable, por defecto `8000`) usando directamente `/mobile` en el navegador del teléfono.
+- **App SignBridge (`apk`):** Enlace USB dedicado con [`apk_estractor/SignBridge_v3.apk`](apk_estractor/SignBridge_v3.apk).
+- **DroidCam (`droidcam`):** Túnel `adb forward` (puerto configurable, por defecto `4747`) con lectura nativa HTTP MJPEG en Python (`_run_http_mjpeg_loop` en [`main.py`](main.py)).
+
+### 8.3. Persistencia SQLite y Control Anti-Bucle TTS
+- [`backend/conversation_db.py`](backend/conversation_db.py) almacena conversaciones y mensajes en `data/conversations.db` con endpoints REST CRUD completos (`/api/conversations*`, `/api/messages*`).
+- Control de secuencia `lastSpokenTtsSeq` en el frontend y emisión única de eventos TTS en `/ws/hud` para evitar repeticiones de voz.
+
+---
+
+## 9. Cumplimiento con la Rúbrica Académica y Diferenciación Lingüística
 
 Para la presentación ante el docente universitario, el sistema documenta rigurosamente el cumplimiento de las directrices académicas:
 
@@ -227,7 +256,7 @@ Para la presentación ante el docente universitario, el sistema documenta riguro
 
 ---
 
-## 9. Guía de Ejecución y Compilación
+## 10. Guía de Ejecución y Compilación
 
 ### Iniciar el Servidor Principal en el PC
 ```powershell

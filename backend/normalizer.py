@@ -206,6 +206,54 @@ def _palm_size(pts_iso: np.ndarray) -> float:
     return max(1e-4, float(np.linalg.norm(pts_iso[WRIST, :2] - pts_iso[MIDDLE_MCP, :2])))
 
 
+def extract_biomech_signature(
+    pts3d: np.ndarray,
+    finger_scores_dict: Optional[Dict[str, float]] = None,
+) -> np.ndarray:
+    """
+    Extrae un descriptor biomecánico 16D invariante a distancia, escala y traslación en pantalla:
+    - 5 extensiones articulares continuas (World 3D o isótropas)
+    - 5 razones yema->muñeca normalizadas por tamaño de palma
+    - 4 razones interdigitales (pinza, apertura pulgar-meñique, cruce R/V, separación medio-anular)
+    - 2 componentes unitarias de orientación de palma/muñeca en XY
+    """
+    p = np.asarray(pts3d, dtype=np.float32).reshape(21, 3)
+    sc = finger_scores_dict if finger_scores_dict else finger_scores(p)
+    palm_sz = max(1e-4, float(np.linalg.norm(p[MIDDLE_MCP, :2] - p[WRIST, :2])))
+
+    def _d(i: int, j: int, scale: float) -> float:
+        return min(2.0, float(np.linalg.norm(p[i] - p[j])) / (palm_sz * scale))
+
+    dir_xy = p[MIDDLE_MCP, :2] - p[WRIST, :2]
+    n_dir = max(1e-5, float(np.linalg.norm(dir_xy)))
+
+    feats = np.array(
+        [
+            float(sc.get("thumb", 0.0)),
+            float(sc.get("index", 0.0)),
+            float(sc.get("middle", 0.0)),
+            float(sc.get("ring", 0.0)),
+            float(sc.get("pinky", 0.0)),
+            _d(THUMB_TIP, WRIST, 2.2),
+            _d(INDEX_TIP, WRIST, 2.2),
+            _d(MIDDLE_TIP, WRIST, 2.2),
+            _d(RING_TIP, WRIST, 2.2),
+            _d(PINKY_TIP, WRIST, 2.2),
+            _d(THUMB_TIP, INDEX_TIP, 1.5),
+            _d(THUMB_TIP, PINKY_MCP, 1.5),
+            _d(INDEX_TIP, MIDDLE_TIP, 1.5),
+            _d(MIDDLE_TIP, RING_TIP, 1.5),
+            float(dir_xy[0] / n_dir),
+            float(dir_xy[1] / n_dir),
+        ],
+        dtype=np.float32,
+    )
+    norm = float(np.linalg.norm(feats))
+    if norm > 1e-6:
+        feats /= norm
+    return feats
+
+
 def _build_hand_entry(
     pts: np.ndarray,
     label: str,
@@ -214,13 +262,30 @@ def _build_hand_entry(
 ) -> Dict[str, Any]:
     fingers = info.get("fingers") if info else None
     margins = info.get("finger_margins") if info else None
+    fscores = info.get("finger_scores") if info else None
     vec, telem = normalize_landmarks(pts, fingers, margins, aspect)
     iso = aspect_correct(pts, aspect)
     palm = info.get("palm") if (info and info.get("palm")) else palm_orientation(iso)
+
+    world_vec_63d = None
+    if info and info.get("world") is not None:
+        w = np.asarray(info["world"], dtype=np.float32).reshape(21, 3)
+        w_t = w - w[WRIST:WRIST + 1]
+        w_max = max(1e-6, float(np.max(np.linalg.norm(w_t, axis=1))))
+        world_vec_63d = (w_t / w_max).flatten().astype(np.float32)
+
+    bio_16d = extract_biomech_signature(iso, finger_scores_dict=fscores)
+    telem["bio_16d"] = [round(float(v), 4) for v in bio_16d]
+    if fscores:
+        telem["finger_scores"] = dict(fscores)
+
     return {
         "landmarks": pts,
         "iso": iso,
         "vector_63d": vec,
+        "world_vec_63d": world_vec_63d,
+        "bio_16d": bio_16d,
+        "finger_scores": dict(fscores) if fscores else finger_scores(iso),
         "telemetry": telem,
         "label": label,
         "palm": palm,

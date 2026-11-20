@@ -61,6 +61,7 @@ class SignBridgePipeline:
         self.hand_tracker = HandTracker(max_hands=2, grace_sec=0.15, match_dist=0.35)
         self.multi_hand_landmarks: List[np.ndarray] = []
         self.multi_handedness: List[str] = []
+        self._last_tracked_infos: List[Dict[str, Any]] = []
 
         self.local_classifier = LocalGestureClassifier(model_dir=model_dir)
         self.gemini_classifier = GeminiGestureClassifier(fallback_classifier=self.local_classifier)
@@ -82,6 +83,9 @@ class SignBridgePipeline:
         # Interpolación suave para el simulador 3D cuando no hay cámara física activa
         self._sim_current_pose = get_canonical_hand_pose("G1").copy()
         self._sim_secondary_pose: Optional[np.ndarray] = None
+        self.simulator_neutral: bool = True
+        self.simulator_hold_until: float = 0.0
+        self.simulator_max_until: float = 0.0
         self.latest_rendered_b64: str = ""
         self.latest_tts_seq: int = 0
         self.latest_tts_text: Optional[str] = None
@@ -130,6 +134,9 @@ class SignBridgePipeline:
         self.stabilizer.reset()
         self.motion_analyzer.reset()
         self.sign_history.clear()
+        self.simulator_neutral = True
+        self.simulator_hold_until = 0.0
+        self.simulator_max_until = 0.0
         return {
             "reset": True,
             "interaction_mode": self.interaction_mode,
@@ -142,6 +149,10 @@ class SignBridgePipeline:
             gid = CHAR_TO_LSC_ID[gid]
         if gid in GESTURE_CATALOG or gid in LSC_ALPHABET_CATALOG or gid in CONVERSATIONAL_SIGNS_CATALOG:
             self.simulated_gesture = gid
+            self.simulator_neutral = (gid == "G0")
+            self.simulator_hold_until = 0.0
+            self.simulator_max_until = 0.0 if self.simulator_neutral else (time.perf_counter() + 2.80)
+            self.stabilizer.reset()
             # Al seleccionar una pose del simulador, activar vista SIMULATOR y apagar puntero
             self.video_source = "SIMULATOR"
             self.hardware.pointer_enabled = False
@@ -282,17 +293,35 @@ class SignBridgePipeline:
                     raw_dets.append({"img": pts, "world": world_pts, "label": label})
 
                 tracked = self.hand_tracker.update(raw_dets, aspect=aspect, now=time.perf_counter())
+                self._last_tracked_infos = tracked
                 hands_list = [t["landmarks"] for t in tracked]
                 handedness_list = [t["label"] for t in tracked]
                 return hands_list, handedness_list
             else:
                 # Mantener periodo de gracia si la mano se perdió por 1 fotograma transitorio
                 tracked = self.hand_tracker.update([], aspect=aspect, now=time.perf_counter())
+                self._last_tracked_infos = tracked
                 if tracked:
                     return [t["landmarks"] for t in tracked], [t["label"] for t in tracked]
                 return [], []
         except Exception:
+            self._last_tracked_infos = []
             return [], []
+
+    def _detect_and_normalize_from_bgr(self, frame_bgr: np.ndarray) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
+        """Detecta hasta 2 manos y normaliza conservando world landmarks, hysteresis y relación de aspecto."""
+        hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
+        if not hands_list:
+            return None, normalize_multi_hand_landmarks([])
+        h, w = frame_bgr.shape[:2]
+        aspect = float(w) / max(1.0, float(h))
+        infos = self._last_tracked_infos if len(self._last_tracked_infos) == len(hands_list) else None
+        return hands_list[0], normalize_multi_hand_landmarks(
+            hands_list,
+            handedness_list,
+            hand_infos=infos,
+            aspect=aspect,
+        )
 
     def detect_landmarks_from_bgr(self, frame_bgr: np.ndarray) -> Optional[np.ndarray]:
         """Extrae los 21 puntos clave 3D de la mano primaria (con preservación de compatibilidad)."""
@@ -338,6 +367,19 @@ class SignBridgePipeline:
             # fuera del área de la mano para no superponerse con los landmarks 3D.
             target_primary = anim_frame["primary_pose"]
             target_secondary = anim_frame.get("secondary_pose")
+        elif self.simulator_neutral:
+            self._sim_secondary_pose = None
+            cv2.putText(
+                canvas,
+                "SIMULADOR 3D :: POSICION NEUTRA (ESPERANDO SENA)",
+                (24, height - 22),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.52,
+                (180, 210, 220),
+                1,
+                cv2.LINE_AA,
+            )
+            return canvas, None, None
         else:
             gid = self.simulated_gesture
             t_phase = (t % 1.35) / 1.35
@@ -522,18 +564,16 @@ class SignBridgePipeline:
             frame_bgr, landmarks, sec_sim = self.generate_simulator_bimanual_frame()
             active_source = "SIMULATOR_3D"
             self.hardware.pointer_enabled = False
-            if sec_sim is not None:
-                multi_hand_data = normalize_multi_hand_landmarks([landmarks, sec_sim], ["Right", "Left"])
-            else:
-                multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
+            if landmarks is not None:
+                if sec_sim is not None:
+                    multi_hand_data = normalize_multi_hand_landmarks([landmarks, sec_sim], ["Right", "Left"])
+                else:
+                    multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
         elif self.video_source == "MOBILE":
             if self.mobile_connected and self.mobile_frame_bgr is not None and (time.time() - self.last_mobile_frame_ts) <= 3.5:
                 frame_bgr = self.mobile_frame_bgr.copy()
                 active_source = "MOBILE_CAM"
-                hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
-                if hands_list:
-                    landmarks = hands_list[0]
-                    multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
+                landmarks, multi_hand_data = self._detect_and_normalize_from_bgr(frame_bgr)
             else:
                 frame_bgr, landmarks = self.generate_mobile_standby_frame()
                 active_source = "MOBILE_CTRL"
@@ -542,27 +582,22 @@ class SignBridgePipeline:
         elif self.video_source == "AUTO" and self.mobile_connected and self.mobile_frame_bgr is not None:
             frame_bgr = self.mobile_frame_bgr.copy()
             active_source = "MOBILE_CAM"
-            hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
-            if hands_list:
-                landmarks = hands_list[0]
-                multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
+            landmarks, multi_hand_data = self._detect_and_normalize_from_bgr(frame_bgr)
         elif self.video_source in ("LOCAL", "AUTO") and local_cam_bgr is not None:
             frame_bgr = cv2.flip(local_cam_bgr, 1)
             active_source = "LOCAL_CAM"
-            hands_list, handedness_list = self.detect_all_hands_from_bgr(frame_bgr)
-            if hands_list:
-                landmarks = hands_list[0]
-                multi_hand_data = normalize_multi_hand_landmarks(hands_list, handedness_list)
+            landmarks, multi_hand_data = self._detect_and_normalize_from_bgr(frame_bgr)
 
         # Fallback al Simulador 3D si no hay cámara disponible
         if frame_bgr is None:
             frame_bgr, landmarks, sec_sim = self.generate_simulator_bimanual_frame()
             active_source = "SIMULATOR_3D"
             self.hardware.pointer_enabled = False
-            if sec_sim is not None:
-                multi_hand_data = normalize_multi_hand_landmarks([landmarks, sec_sim], ["Right", "Left"])
-            else:
-                multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
+            if landmarks is not None:
+                if sec_sim is not None:
+                    multi_hand_data = normalize_multi_hand_landmarks([landmarks, sec_sim], ["Right", "Left"])
+                else:
+                    multi_hand_data = normalize_multi_hand_landmarks([landmarks], ["Right"])
 
         # Si hay cámara activa pero no se detecta una mano en escena
         hand_detected = landmarks is not None
@@ -602,8 +637,13 @@ class SignBridgePipeline:
             }
             stabilized = self.stabilizer.update(raw_pred)
         else:
-            # 1. Normalización de vectores primarios (63 floats)
-            vector_63d, telemetry = normalize_landmarks(landmarks)
+            # 1. Reutilizar vector 63D y telemetría enriquecida (world landmarks, aspecto e hysteresis)
+            primary_entry = multi_hand_data.get("primary")
+            if primary_entry and primary_entry.get("vector_63d") is not None:
+                vector_63d = primary_entry["vector_63d"]
+                telemetry = dict(primary_entry["telemetry"])
+            else:
+                vector_63d, telemetry = normalize_landmarks(landmarks)
             telemetry["motion"] = motion_data
 
             # Signing Space Gate: detectar si la mano está en reposo sobre el teclado/escritorio (borde inferior)
@@ -637,10 +677,12 @@ class SignBridgePipeline:
                         stabilize_aim=bool(telemetry.get("is_l_gesture", False)),
                     )
 
-                # 3. Inferencia según Switch [OFFLINE vs ONLINE] y Modo de Interacción
+                # 3. Inferencia separada: ONLINE (Gemini Cloud) vs OFFLINE (100% Local Vectorizado)
                 if self.mode == "ONLINE":
-                    ok_enc, buf_raw = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
-                    jpeg_bytes = buf_raw.tobytes() if ok_enc else None
+                    jpeg_bytes = None
+                    if self.gemini_classifier.should_sample_cloud():
+                        ok_enc, buf_raw = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 72])
+                        jpeg_bytes = buf_raw.tobytes() if ok_enc else None
                     raw_pred = self.gemini_classifier.predict(
                         jpeg_bytes, vector_63d, telemetry, interaction_mode=self.interaction_mode
                     )
@@ -650,51 +692,77 @@ class SignBridgePipeline:
                 else:
                     # MODO TRADUCTOR DE SEÑAS: Inferencia de Lengua de Señas LSC y Abecedario
                     # NUNCA se contamina con los comandos G1..G5 de control de mouse
-                    bimanual_match = self.conversation_engine.classify_bimanual_gesture(multi_hand_data, motion=motion_data)
-                    if bimanual_match:
-                        meta = self.conversation_engine.get_sign_meta(bimanual_match["sign_id"])
+                    from backend.custom_signs import custom_sign_store
+                    primary_entry = multi_hand_data.get("primary") or {}
+                    custom_match = custom_sign_store.match_prototype(
+                        vector_63d,
+                        motion_data.get("primary"),
+                        min_sim=0.905,
+                        bio_sig=primary_entry.get("bio_16d"),
+                    )
+                    if custom_match and (
+                        self.conversation_engine.sign_submode != "ALPHABET_LSC"
+                        or custom_match["sign_id"] in LSC_ALPHABET_CATALOG
+                    ):
+                        meta = self.conversation_engine.get_sign_meta(custom_match["sign_id"])
                         raw_pred = {
-                            "gesture_id": bimanual_match["sign_id"],
+                            "gesture_id": custom_match["sign_id"],
                             "name": meta["label"],
                             "short_label": meta["label"],
                             "sign_label": meta["label"],
                             "sign_message": meta["default_phrase"],
                             "action": "NONE",
-                            "action_label": "Traducción Bimanual",
-                            "confidence": bimanual_match["confidence"],
-                            "is_dynamic": bimanual_match.get("is_dynamic", False),
+                            "action_label": "Calibración Real",
+                            "confidence": custom_match["confidence"],
+                            "engine": custom_match["engine"],
+                            "is_dynamic": custom_match.get("is_dynamic", False),
                         }
                     else:
-                        unimanual_match = self.conversation_engine.classify_unimanual_gesture(multi_hand_data, motion=motion_data)
-                        if unimanual_match:
-                            meta = self.conversation_engine.get_sign_meta(unimanual_match["sign_id"])
+                        bimanual_match = self.conversation_engine.classify_bimanual_gesture(multi_hand_data, motion=motion_data)
+                        if bimanual_match:
+                            meta = self.conversation_engine.get_sign_meta(bimanual_match["sign_id"])
                             raw_pred = {
-                                "gesture_id": unimanual_match["sign_id"],
+                                "gesture_id": bimanual_match["sign_id"],
                                 "name": meta["label"],
                                 "short_label": meta["label"],
                                 "sign_label": meta["label"],
                                 "sign_message": meta["default_phrase"],
                                 "action": "NONE",
-                                "action_label": "Traducción Unimanual",
-                                "confidence": unimanual_match["confidence"],
-                                "is_dynamic": unimanual_match.get("is_dynamic", False),
+                                "action_label": "Traducción Bimanual",
+                                "confidence": bimanual_match["confidence"],
+                                "is_dynamic": bimanual_match.get("is_dynamic", False),
                             }
                         else:
-                            # En Modo Señas, si no coincide ninguna seña con alta certeza, es Rechazo Activo G0
-                            raw_pred = {
-                                "gesture_id": "G0",
-                                "name": GESTURE_CATALOG["G0"]["name"],
-                                "short_label": "DESCONOCIDO",
-                                "sign_label": "DESCONOCIDO",
-                                "sign_message": "Esperando seña intencional...",
-                                "action": "NONE",
-                                "action_label": "Esperando seña intencional",
-                                "confidence": 0.0,
-                                "probabilities": {k: 0.0 for k in GESTURE_CATALOG},
-                                "latency_ms": 1.2,
-                                "engine": "LSC Recognition Engine",
-                                "semantic_note": "Postura no reconocida como seña",
-                            }
+                            unimanual_match = self.conversation_engine.classify_unimanual_gesture(multi_hand_data, motion=motion_data)
+                            if unimanual_match:
+                                meta = self.conversation_engine.get_sign_meta(unimanual_match["sign_id"])
+                                raw_pred = {
+                                    "gesture_id": unimanual_match["sign_id"],
+                                    "name": meta["label"],
+                                    "short_label": meta["label"],
+                                    "sign_label": meta["label"],
+                                    "sign_message": meta["default_phrase"],
+                                    "action": "NONE",
+                                    "action_label": "Traducción Unimanual",
+                                    "confidence": unimanual_match["confidence"],
+                                    "is_dynamic": unimanual_match.get("is_dynamic", False),
+                                }
+                            else:
+                                # En Modo Señas, si no coincide ninguna seña con alta certeza, es Rechazo Activo G0
+                                raw_pred = {
+                                    "gesture_id": "G0",
+                                    "name": GESTURE_CATALOG["G0"]["name"],
+                                    "short_label": "DESCONOCIDO",
+                                    "sign_label": "DESCONOCIDO",
+                                    "sign_message": "Esperando seña intencional...",
+                                    "action": "NONE",
+                                    "action_label": "Esperando seña intencional",
+                                    "confidence": 0.0,
+                                    "probabilities": {k: 0.0 for k in GESTURE_CATALOG},
+                                    "latency_ms": 1.2,
+                                    "engine": "LSC Recognition Engine",
+                                    "semantic_note": "Postura no reconocida como seña",
+                                }
 
             # 4. Estabilización Temporal (Buffer N=8, Umbral >= 0.85 con soporte dinámico y Cloud)
             stabilized = self.stabilizer.update(raw_pred)
@@ -755,6 +823,7 @@ class SignBridgePipeline:
                     motion=motion_data,
                     is_online=(self.mode == "ONLINE"),
                     simulator_hint=(self.simulated_gesture if active_source == "SIMULATOR_3D" else None),
+                    precomputed_sign_id=(raw_pred.get("gesture_id") if self.mode == "OFFLINE" else None),
                 )
                 if conv_sign:
                     stabilized["stabilized_id"] = conv_sign["sign_id"]
@@ -768,12 +837,25 @@ class SignBridgePipeline:
                 self.latest_tts_seq += 1
                 self.latest_tts_text = tts_to_speak
 
+        # Retornar suavemente el simulador a posición neutra tras identificar y mostrar brevemente el gesto
+        if active_source == "SIMULATOR_3D" and anim_frame is None and not self.simulator_neutral:
+            now_sim = time.perf_counter()
+            if (stabilized.get("triggered") or tts_to_speak) and self.simulator_hold_until == 0.0:
+                self.simulator_hold_until = now_sim + 1.10
+            if (
+                (self.simulator_hold_until > 0.0 and now_sim >= self.simulator_hold_until)
+                or (self.simulator_max_until > 0.0 and now_sim >= self.simulator_max_until)
+            ):
+                self.simulator_neutral = True
+                self.simulator_hold_until = 0.0
+                self.simulator_max_until = 0.0
+
         # 7. Renderizado HUD bimanual sobre el frame y codificación JPEG
         secondary_landmarks = multi_hand_data["secondary"]["landmarks"] if multi_hand_data.get("is_bimanual") else None
         inter_hand = multi_hand_data.get("inter_hand")
         rendered_bgr = self.draw_hud_skeleton(frame_bgr, landmarks, stabilized, secondary_landmarks, inter_hand)
 
-        ok, jpeg_buf = cv2.imencode(".jpg", rendered_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        ok, jpeg_buf = cv2.imencode(".jpg", rendered_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
         frame_b64 = base64.b64encode(jpeg_buf.tobytes()).decode("ascii") if ok else ""
         self.latest_rendered_b64 = frame_b64
 
@@ -817,6 +899,7 @@ class SignBridgePipeline:
             "sign_history": self.sign_history[:8],
             "conversation": self.conversation_engine.get_state(),
             "tts_to_speak": tts_to_speak,
+            "tts_seq": self.latest_tts_seq,
             "mobile_connected": self.mobile_connected,
             "simulated_gesture": self.simulated_gesture,
             "frame_b64": frame_b64,

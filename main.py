@@ -59,6 +59,9 @@ os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 if os.path.isdir("avatares"):
     app.mount("/avatares", StaticFiles(directory="avatares"), name="avatares")
+if os.path.isdir("VRoid_avatares"):
+    app.mount("/VRoid_avatares", StaticFiles(directory="VRoid_avatares"), name="vroid_avatares")
+    app.mount("/Vroid_avatares", StaticFiles(directory="VRoid_avatares"), name="vroid_avatares_alt")
 
 pipeline = SignBridgePipeline(model_dir="models")
 
@@ -1018,6 +1021,18 @@ async def ws_hud_endpoint(websocket: WebSocket):
                         pipeline.set_sign_submode(data.get("submode", "HYBRID"))
                     elif cmd == "TRANSLATE_TO_HANDS":
                         pipeline.translate_phrase_to_hands(data.get("text", ""))
+                    elif cmd == "HAND_ANIM_PAUSE":
+                        pipeline.conversation_engine.pause_hand_animation()
+                    elif cmd == "HAND_ANIM_RESUME":
+                        pipeline.conversation_engine.resume_hand_animation()
+                    elif cmd == "HAND_ANIM_STOP":
+                        pipeline.conversation_engine.stop_hand_animation()
+                    elif cmd == "HAND_ANIM_NEXT":
+                        pipeline.conversation_engine.next_hand_animation_step()
+                    elif cmd == "HAND_ANIM_PREV":
+                        pipeline.conversation_engine.prev_hand_animation_step()
+                    elif cmd == "HAND_ANIM_SPEED":
+                        pipeline.conversation_engine.set_hand_animation_speed(float(data.get("speed", 1.0)))
                     elif cmd == "ADD_SIGN_TOKEN":
                         pipeline.add_manual_sign_token(data.get("sign_id", ""))
                     elif cmd == "CLIENT_FRAME":

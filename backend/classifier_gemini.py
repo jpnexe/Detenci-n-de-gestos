@@ -119,6 +119,10 @@ class GeminiGestureClassifier:
         self._active_model_resolved = self.model_name
         self._init_client()
 
+    def should_sample_cloud(self) -> bool:
+        """Indica si ya transcurrió el intervalo mínimo y no hay otra petición en vuelo."""
+        return (not self._in_flight) and ((time.perf_counter() - self._last_request_ts) >= self._min_interval_sec)
+
     def _init_client(self) -> None:
         if not self.api_key:
             self._client = None
