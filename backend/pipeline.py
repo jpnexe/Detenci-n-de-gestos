@@ -69,6 +69,8 @@ class SignBridgePipeline:
         self.hardware = HardwareController(enabled=True)
 
         self._landmarker = None
+        self._video_landmarker = None
+        self._last_mp_ts_ms: int = 0
         self._init_mediapipe()
 
         # Estado de FPS y frames móviles
@@ -110,8 +112,21 @@ class SignBridgePipeline:
                 min_tracking_confidence=0.48,
             )
             self._landmarker = mp_vision.HandLandmarker.create_from_options(options)
+
+            # Landmarker en modo VIDEO para tracking continuo en cámara USB/Móvil (3-5x más rápido)
+            v_base = mp_python.BaseOptions(model_asset_path=self.hand_task_path)
+            v_opts = mp_vision.HandLandmarkerOptions(
+                base_options=v_base,
+                running_mode=mp_vision.RunningMode.VIDEO,
+                num_hands=2,
+                min_hand_detection_confidence=0.48,
+                min_hand_presence_confidence=0.48,
+                min_tracking_confidence=0.48,
+            )
+            self._video_landmarker = mp_vision.HandLandmarker.create_from_options(v_opts)
         except Exception:
             self._landmarker = None
+            self._video_landmarker = None
 
     def set_mode(self, mode: str) -> str:
         mode_up = mode.upper().strip()
@@ -181,6 +196,10 @@ class SignBridgePipeline:
             arr = np.frombuffer(image_bytes, dtype=np.uint8)
             bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
             if bgr is not None:
+                bh, bw = bgr.shape[:2]
+                if bw > 640:
+                    nh = max(1, int(bh * (640.0 / bw)))
+                    bgr = cv2.resize(bgr, (640, nh), interpolation=cv2.INTER_LINEAR)
                 self.mobile_frame_bgr = bgr
                 self.last_mobile_frame_ts = time.time()
                 self.mobile_connected = True
@@ -269,17 +288,29 @@ class SignBridgePipeline:
         Extrae los 21 puntos clave 3D (x, y, z) de hasta 2 manos simultáneas junto con su lateralidad
         (Right / Left) y aplica el HandTracker con filtro 1€ vectorizado y persistencia temporal anti-jitter.
         """
-        if self._landmarker is None:
+        if self._landmarker is None and self._video_landmarker is None:
             return [], []
         try:
             import mediapipe as mp
-            rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            result = self._landmarker.detect(mp_image)
-            raw_dets: List[Dict[str, Any]] = []
-
             h, w = frame_bgr.shape[:2]
             aspect = float(w) / max(1.0, float(h))
+
+            # Redimensionar a <= 480px de ancho únicamente para acelerar la red MediaPipe
+            det_bgr = frame_bgr
+            if w > 480:
+                nh = max(1, int(h * (480.0 / w)))
+                det_bgr = cv2.resize(frame_bgr, (480, nh), interpolation=cv2.INTER_LINEAR)
+
+            rgb = cv2.cvtColor(det_bgr, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            if self._video_landmarker is not None:
+                now_ms = int(time.perf_counter() * 1000)
+                ts_ms = max(self._last_mp_ts_ms + 1, now_ms)
+                self._last_mp_ts_ms = ts_ms
+                result = self._video_landmarker.detect_for_video(mp_image, ts_ms)
+            else:
+                result = self._landmarker.detect(mp_image)
+            raw_dets: List[Dict[str, Any]] = []
 
             if result.hand_landmarks and len(result.hand_landmarks) > 0:
                 for idx, hand in enumerate(result.hand_landmarks):

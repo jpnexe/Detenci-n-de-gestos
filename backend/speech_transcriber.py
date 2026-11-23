@@ -71,10 +71,11 @@ def _transcribe_with_gemini(
     )
     clean_mime = (mime_type or "audio/webm").split(";")[0].strip()
 
-    models_to_try = [model_name]
-    for fb in ("gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"):
-        if fb not in models_to_try:
+    models_to_try = []
+    for fb in (model_name, "gemini-3.5-flash-lite", "gemini-3.5-flash"):
+        if fb and fb not in models_to_try:
             models_to_try.append(fb)
+    models_to_try = models_to_try[:2]
 
     for candidate_model in models_to_try:
         try:
@@ -201,7 +202,7 @@ class PcMicRecorder:
         self._thread.start()
         return {"ok": True, "recording": True, "message": "Escuchando micrófono del PC..."}
 
-    def stop_and_get_result(self, timeout: float = 12.0) -> Dict[str, Any]:
+    def stop_and_get_result(self, timeout: float = 25.0) -> Dict[str, Any]:
         with self._lock:
             self._stop_requested = True
         if self._thread is not None and self._thread.is_alive():
@@ -221,10 +222,13 @@ class PcMicRecorder:
     def _record_worker(self, gemini_classifier: Any, max_seconds: float) -> None:
         sample_rate = self._sample_rate
         block_size = 1600  # 100 ms por bloque
+        warmup_blocks = 3  # Ignorar los primeros 300 ms (transitorio/pop de apertura de Windows Audio)
         speech_detected = False
         silence_blocks = 0
-        max_silence_blocks = 12  # ~1.2 s de silencio después de hablar
+        max_silence_blocks = 14  # ~1.4 s de silencio continuo después de hablar
         max_rms = 0.0
+        noise_samples: list[float] = []
+        speech_threshold = 280.0
         start_time = time.time()
         captured: list[np.ndarray] = []
 
@@ -242,18 +246,27 @@ class PcMicRecorder:
             ):
                 processed_idx = 0
                 while True:
-                    time.sleep(0.1)
+                    time.sleep(0.08)
                     with self._lock:
                         stop_now = self._stop_requested
                     elapsed = time.time() - start_time
 
                     while processed_idx < len(captured):
                         blk = captured[processed_idx]
+                        idx = processed_idx
                         processed_idx += 1
+                        # Saltar el pop eléctrico inicial del micrófono al abrir el stream
+                        if idx < warmup_blocks:
+                            continue
                         rms = float(np.sqrt(np.mean(blk.astype(np.float32) ** 2)))
                         if rms > max_rms:
                             max_rms = rms
-                        if rms > 220.0:
+                        if idx < warmup_blocks + 4 and rms < 350.0:
+                            noise_samples.append(rms)
+                            if noise_samples:
+                                floor = sum(noise_samples) / len(noise_samples)
+                                speech_threshold = max(240.0, min(550.0, floor * 2.2))
+                        if rms > speech_threshold:
                             speech_detected = True
                             silence_blocks = 0
                         elif speech_detected:
@@ -261,15 +274,16 @@ class PcMicRecorder:
 
                     if stop_now or elapsed >= max_seconds:
                         break
-                    if speech_detected and silence_blocks >= max_silence_blocks and elapsed >= 1.2:
+                    if speech_detected and silence_blocks >= max_silence_blocks and elapsed >= 2.0:
                         break
 
-            if not captured:
+            valid_chunks = captured[warmup_blocks:] if len(captured) > warmup_blocks else captured
+            if not valid_chunks:
                 res = {"ok": False, "text": "", "error": "No se recibió audio del micrófono del PC."}
-            elif max_rms < 120.0:
+            elif max_rms < 75.0:
                 res = {"ok": False, "text": "", "error": "No se detectó voz. Habla más cerca del micrófono."}
             else:
-                pcm = np.concatenate(captured, axis=0)
+                pcm = np.concatenate(valid_chunks, axis=0)
                 wav_bytes = _pcm_int16_to_wav_bytes(pcm, sample_rate=sample_rate)
                 res = transcribe_audio_bytes(wav_bytes, "audio/wav", gemini_classifier)
         except Exception as exc:

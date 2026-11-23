@@ -182,29 +182,31 @@ class LocalCameraWorker:
                 self.last_error = None
                 buf = bytearray()
                 while self.running and not self._reconnect_event.is_set():
-                    chunk = stream.read(4096)
+                    chunk = stream.read(32768)
                     if not chunk:
                         break
                     buf.extend(chunk)
-                    while True:
-                        soi = buf.find(b"\xff\xd8")
-                        if soi < 0:
-                            if len(buf) > 65536:
-                                del buf[:-2]
-                            break
-                        eoi = buf.find(b"\xff\xd9", soi + 2)
-                        if eoi < 0:
-                            if soi > 0:
-                                del buf[:soi]
-                            break
-                        jpg_bytes = bytes(buf[soi : eoi + 2])
-                        del buf[: eoi + 2]
-                        arr = np.frombuffer(jpg_bytes, dtype=np.uint8)
-                        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-                        if frame is not None and frame.size > 0:
-                            with self._lock:
-                                self.latest_frame = frame
-                                self.available = True
+                    # Saltar fotogramas acumulados y decodificar únicamente el JPEG completo más reciente
+                    eoi = buf.rfind(b"\xff\xd9")
+                    if eoi >= 2:
+                        soi = buf.rfind(b"\xff\xd8", 0, eoi)
+                        if soi >= 0:
+                            jpg_bytes = bytes(buf[soi : eoi + 2])
+                            del buf[: eoi + 2]
+                            arr = np.frombuffer(jpg_bytes, dtype=np.uint8)
+                            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                            if frame is not None and frame.size > 0:
+                                fh, fw = frame.shape[:2]
+                                if fw > 640:
+                                    nh = max(1, int(fh * (640.0 / fw)))
+                                    frame = cv2.resize(frame, (640, nh), interpolation=cv2.INTER_LINEAR)
+                                with self._lock:
+                                    self.latest_frame = frame
+                                    self.available = True
+                        else:
+                            del buf[: eoi + 2]
+                    elif len(buf) > 262144:
+                        del buf[:-65536]
                 return True
         except Exception as exc:
             self.available = False
@@ -639,7 +641,7 @@ async def api_speech_pc_start():
 async def api_speech_pc_stop():
     """Detiene la captura del micrófono del PC, transcribe y anima en Manos 3D."""
     loop = asyncio.get_running_loop()
-    res = await loop.run_in_executor(None, pc_mic_recorder.stop_and_get_result, 12.0)
+    res = await loop.run_in_executor(None, pc_mic_recorder.stop_and_get_result, 25.0)
     if res.get("ok") and res.get("text"):
         pipeline.set_video_source("SIMULATOR")
         res["animation"] = pipeline.translate_phrase_to_hands(res["text"])
@@ -1081,7 +1083,7 @@ async def ws_mobile_endpoint(websocket: WebSocket):
         while True:
             message = await websocket.receive()
             if "bytes" in message and message["bytes"]:
-                pipeline.receive_mobile_frame(message["bytes"], auto_switch=True)
+                await asyncio.to_thread(pipeline.receive_mobile_frame, message["bytes"], True)
             elif "text" in message and message["text"]:
                 payload = json.loads(message["text"])
                 msg_type = payload.get("type")
@@ -1090,9 +1092,10 @@ async def ws_mobile_endpoint(websocket: WebSocket):
                     if "," in b64_data:
                         b64_data = b64_data.split(",", 1)[1]
                     if b64_data:
-                        pipeline.receive_mobile_frame(
+                        await asyncio.to_thread(
+                            pipeline.receive_mobile_frame,
                             base64.b64decode(b64_data),
-                            auto_switch=bool(payload.get("auto_switch", True)),
+                            bool(payload.get("auto_switch", True)),
                         )
                 elif msg_type == "ACTIVATE_MOBILE_CAM":
                     enabled = bool(payload.get("enabled", True))

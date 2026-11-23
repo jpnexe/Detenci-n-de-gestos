@@ -3016,7 +3016,7 @@
         return;
       }
 
-      // Priorizar el micrófono directo del PC en el backend (evita bloqueos/timeouts de Web Speech API en navegadores)
+      // Priorizar el micrófono directo del PC en el backend (funciona en cualquier navegador sin depender de Google Web Speech)
       const pcStarted = await startBackendPcMicRecording();
       if (pcStarted) {
         return;
@@ -3030,12 +3030,19 @@
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       const transBox = document.getElementById('hearingLiveTranscript');
       if (!SpeechRec) {
-        if (transBox) transBox.textContent = '⚠️ No se pudo acceder al micrófono del PC ni a Web Speech API.';
+        if (transBox) transBox.textContent = '⚠️ Web Speech API no disponible; intentando micrófono del PC...';
+        startBackendPcMicRecording();
         return;
       }
 
       hearingLastFinalText = '';
       let latestInterimText = '';
+      let switchedToPcMic = false;
+
+      // Activar el botón inmediatamente al pulsar para dar feedback visual claro
+      isHearingListening = true;
+      updateHearingMicUI(true, 'web');
+      if (transBox) transBox.textContent = '🎙️ Activando micrófono...';
 
       try {
         hearingRecognition = new SpeechRec();
@@ -3071,9 +3078,16 @@
           }
         };
 
-        hearingRecognition.onerror = (e) => {
+        hearingRecognition.onerror = async (e) => {
           const errCode = e && e.error ? e.error : 'unknown';
           isHearingListening = false;
+          // Si Web Speech API falla por red, permisos o servicio del navegador, cambiar automáticamente al micrófono del PC
+          if (!switchedToPcMic && (errCode === 'network' || errCode === 'service-not-allowed' || errCode === 'not-allowed' || errCode === 'audio-capture')) {
+            switchedToPcMic = true;
+            try { hearingRecognition.abort(); } catch (_) {}
+            const ok = await startBackendPcMicRecording();
+            if (ok) return;
+          }
           updateHearingMicUI(false);
           if (transBox && errCode !== 'aborted') {
             transBox.textContent = `⚠️ Error de micrófono navegador (${errCode}).`;
@@ -3082,7 +3096,9 @@
 
         hearingRecognition.onend = () => {
           isHearingListening = false;
-          updateHearingMicUI(false);
+          if (!switchedToPcMic) {
+            updateHearingMicUI(false);
+          }
           if (!hearingLastFinalText && latestInterimText) {
             sendHearingSpokenText(latestInterimText);
           }
@@ -3091,7 +3107,13 @@
         hearingRecognition.start();
       } catch (err) {
         isHearingListening = false;
-        updateHearingMicUI(false);
+        switchedToPcMic = true;
+        startBackendPcMicRecording().then((ok) => {
+          if (!ok) {
+            updateHearingMicUI(false);
+            if (transBox) transBox.textContent = '⚠️ No se pudo activar el micrófono.';
+          }
+        });
       }
     }
 
@@ -3124,9 +3146,7 @@
               isPcMicRecording = false;
               updateHearingMicUI(false);
               if (st.result && st.result.ok && st.result.text) {
-                currentSource = 'SIMULATOR';
-                highlightSourceButton('SIMULATOR');
-                if (transBox) transBox.textContent = `🖐️ Interpretando en Manos 3D LSC: "${st.result.text}"`;
+                await sendHearingSpokenText(st.result.text);
               } else if (st.result && st.result.error) {
                 if (transBox) transBox.textContent = `⚠️ ${st.result.error}`;
               }
@@ -3156,9 +3176,7 @@
         isPcMicRecording = false;
         updateHearingMicUI(false);
         if (data.ok && data.text) {
-          currentSource = 'SIMULATOR';
-          highlightSourceButton('SIMULATOR');
-          if (transBox) transBox.textContent = `🖐️ Interpretando en Manos 3D LSC: "${data.text}"`;
+          await sendHearingSpokenText(data.text);
         } else if (transBox) {
           transBox.textContent = `⚠️ ${data.error || 'No se detectó voz clara.'}`;
         }
