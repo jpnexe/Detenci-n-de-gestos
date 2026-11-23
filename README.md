@@ -143,39 +143,43 @@ En [`backend/pipeline.py`](backend/pipeline.py) (`draw_hud_skeleton`) y [`static
 
 ---
 
-## 5. Catálogo Conversacional y Dactilológico LSC (50 Señas + 27 Letras)
+## 5. Catálogo Conversacional y Dactilológico LSC (74 Señas + 27 Letras)
 
-El motor conversacional ([`backend/conversation_engine.py`](backend/conversation_engine.py)) y el motor dactilológico ([`backend/lsc_alphabet.py`](backend/lsc_alphabet.py)) integran un vocabulario estructurado para mantener diálogos funcionales completos:
+El motor conversacional ([`backend/conversation_engine.py`](backend/conversation_engine.py)) y el motor dactilológico ([`backend/lsc_alphabet.py`](backend/lsc_alphabet.py)) integran un vocabulario estructurado de **101 señas** para mantener diálogos funcionales de nivel intermedio y contexto regional colombiano:
 
-### 5.1. Resumen de las 8 Categorías Conversacionales (50 Señas)
-- **Pronombres (6):** `YO`, `TU`, `EL_ELLA`, `NOSOTROS`, `USTEDES`, `ELLOS`.
-- **Cortesía y Saludos (9):** `S_HOLA`, `S_BUENOS_DIAS`, `S_BUENAS_TARDES`, `S_ADIOS`, `S_GRACIAS`, `S_POR_FAVOR`, `S_DE_NADA`, `MUCHO_GUSTO`, `DISCULPA`.
-- **Verbos Clave (10):** `QUERER`, `PODER`, `SABER`, `NECESITAR`, `IR`, `VENIR`, `COMER`, `TOMAR`, `TRABAJAR`, `ESTUDIAR`.
-- **Preguntas (7):** `S_COMO_ESTAS`, `S_QUE`, `S_DONDE`, `S_REPETIR`, `QUIEN`, `CUANDO`, `POR_QUE`.
-- **Respuestas y Estados (8):** `S_BIEN`, `S_MAL`, `S_SI`, `S_NO`, `MAS_O_MENOS`, `ENTIENDO`, `NO_ENTIENDO`, `TAL_VEZ`.
-- **Tiempo y Lugar (4):** `HOY`, `MANANA`, `AQUI`, `ALLI`.
-- **Emergencia (2):** `S_AYUDA`, `S_MEDICO`.
-- **Control (4):** `S_PAUSA`, `ESPACIO`, `BORRAR`, `LIMPIAR`.
+### 5.1. Resumen de Categorías Conversacionales (74 Señas)
+- **Pronombres y Personas (6):** `S_YO`, `S_TU`, `S_EL`, `S_NOSOTROS`, `S_AMIGO`, `S_PROFESOR`.
+- **Cortesía y Saludos (9):** `S_HOLA`, `S_BUENOS_DIAS`, `S_BUENAS_TARDES`, `S_BUENAS_NOCHES`, `S_GRACIAS`, `S_POR_FAVOR`, `S_MUCHO_GUSTO`, `S_DISCULPA`, `S_ADIOS`.
+- **Verbos de Acción e Intermedio (17):** `S_QUERER`, `S_NECESITAR`, `S_COMER`, `S_AGUA`, `S_ESTUDIAR`, `S_TRABAJAR`, `S_HABLAR`, `S_IR`, `S_ENTENDIDO`, `S_NO_ENTIENDO`, `S_PENSAR`, `S_SABER`, `S_APRENDER`, `S_ENSENAR`, `S_VIVIR`, `S_CONOCER`, `S_COMPRAR`.
+- **Preguntas (7):** `S_COMO_ESTAS`, `S_QUE`, `S_DONDE`, `S_CUANDO`, `S_QUIEN`, `S_POR_QUE`, `S_CUANTO`.
+- **Respuestas y Estados (8):** `S_SI`, `S_NO`, `S_BIEN`, `S_MAL`, `S_REGULAR`, `S_FELIZ`, `S_CANSADO`, `S_OCUPADO`.
+- **Familia, Tiempo y Lugares (11):** `S_MAMA`, `S_PAPA`, `S_HERMANO`, `S_FAMILIA`, `S_HOY`, `S_MANANA`, `S_CASA`, `S_UNIVERSIDAD`, `S_COLOMBIA`, `S_BOGOTA`, `S_ESCUELA`, `S_DINERO`.
+- **Emergencia y Control (8):** `S_AYUDA`, `S_MEDICO`, `S_ESPERA`, `S_DESPACIO`, `S_REPETIR`, `S_CONTINUAR`, `S_PERO`, `S_TAMBIEN`.
+- **Contexto Regional La Guajira (8):** `S_GUAJIRA`, `S_RIOHACHA`, `S_WAYUU`, `S_CALOR`, `S_SOL`, `S_MAR`, `S_VIENTO`, `S_COMPRAR`.
 
-*(Para la tabla anatómica exhaustiva con descripciones y frases traducidas de cada una de las 50 señas y las 27 letras del alfabeto LSC A-Z y Ñ, consultar [DOCUMENTACION_PROYECTO.md](DOCUMENTACION_PROYECTO.md)).*
+*(Para la tabla anatómica exhaustiva y arquitectura de prototipos, consultar [DOCUMENTACION_PROYECTO.md](DOCUMENTACION_PROYECTO.md)).*
 
 ---
 
-## 6. Motor de Frases, Canal Bidireccional y Accesibilidad
+## 6. Motor de Frases, Modo Conversación (10 s) y Canal Bidireccional
 
-### 6.1. Buffer Acumulador y Sintetizador de Frases
+### 6.1. Buffer Acumulador y Modo Conversación por Ventana de Captura (100% Local)
 1. **Detección con Estabilidad Temporal:** Cuando una seña se sostiene durante el tiempo de estabilización ($N=8$ fotogramas en el PC o $0.65\text{ s}$ en el móvil), el token se inserta en el buffer `active_tokens`.
-2. **Construcción Gramatical:** El motor concatena las glosas y construye la oración fluida en español.
-3. **Controles Táctiles y Teclado:**
-   - **`🔊 Pronunciar Frase`:** Envía la oración al sintetizador vocal.
-   - **`💬 Enviar al Chat`:** Publica la frase en el historial conversacional y limpia el buffer.
-   - **`⌫ Borrar Palabra`:** Elimina el último token ingresado.
-   - **`🗑️ Limpiar Frase`:** Vacía la oración en curso.
+2. **Ventana de Captura (`⏱️ Capturar Idea (10s)`):**
+   - Activa temporalmente el submodo `CONVERSATION` (**solo palabras/señas conversacionales**, bloqueando letras sueltas del abecedario en [`backend/pipeline.py`](backend/pipeline.py) y [`backend/conversation_engine.py`](backend/conversation_engine.py)).
+   - Silencia el TTS palabra por palabra durante la captura, extiende `+2.4 s` si se detecta una seña al final del tiempo, y cierra automáticamente al cumplirse el temporizador o al bajar las manos durante `2.2 s`.
+3. **Poda de Ruido e Intención Local (`_prune_noise_tokens` + `_build_listener_intent_summary`):**
+   - Descarta poses intermedias fugaces, contradicciones contextuales y repeticiones redundantes.
+   - Reordena la sintaxis LSC (*Tiempo + Lugar + Sujeto + Verbo + Negación/Pregunta*) a español natural y genera la tarjeta **`💡 Para la Persona Oyente`** explicando qué quiso comunicar la persona sorda y qué ruido fue descartado.
+4. **Endpoints y Controles:**
+   - REST: `POST /api/conversation/capture/start` y `POST /api/conversation/capture/stop`.
+   - WebSocket: `CONVERSATION_CAPTURE_START` y `CONVERSATION_CAPTURE_STOP`.
+   - Controles rápidos: `⏱️ Capturar Idea (10s)`, `🔊 Pronunciar`, `💬 Interpretar a Chat`, `⌫`, `🗑️`.
 
 ### 6.2. Canal de Oyente: Reconocimiento de Voz (Speech-to-Text - STT)
-- Implementado con la API estándar **Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`)**.
-- Al presionar **`🎤 Oyente Habla`**, el sistema captura la voz del interlocutor oyente en tiempo real (`interimResults = true`, idioma `es-ES` / `es-CO`).
-- La transcripción final genera una burbuja verde esmeralda etiquetada como *"Oyente (Voz)"*, garantizando accesibilidad total para personas sordas mediante subtítulos grandes de alto contraste.
+- Captura directa desde el micrófono del PC mediante **`sounddevice`** ([`backend/speech_transcriber.py`](backend/speech_transcriber.py)) con filtrado del transitorio eléctrico inicial (`300 ms`), calibración adaptativa de piso de ruido y auto-corte tras `1.4 s` de silencio continuo.
+- Transcripción rápida en español (`gemini-3.5-flash-lite` / `gemini-3.5-flash`) con respaldo offline de Windows (`System.Speech.Recognition`) y respaldo Web Speech API en navegador.
+- Al transcribir, cambia automáticamente al Simulador 3D y anima la frase en el **Avatar 3D / Manos LSC**.
 
 ### 6.3. Canal de Sorda: Síntesis Vocal (Text-to-Speech - TTS)
 - Utiliza la API nativa **`window.speechSynthesis`** con voz en español (`es-ES`).

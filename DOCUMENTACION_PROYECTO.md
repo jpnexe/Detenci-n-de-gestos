@@ -61,10 +61,19 @@ Desde las versiones iniciales de control gestual, el proyecto evolucionó y se c
 10. **Conexión USB / ADB como Webcam en 3 Modos (`backend/usb_bridge.py` y `main.py`):**
     - Soporte integrado para **Sin App** (`adb reverse`, puerto configurable `8000` vía `/mobile`), **App SignBridge** (`SignBridge_v3.apk`) y **DroidCam / DroidCam OBS** (`adb forward`, puerto configurable `4747` con lector nativo HTTP MJPEG `_run_http_mjpeg_loop`).
 
-11. **Prototipos Conversacionales LSC 50/50, Persistencia SQLite y Control Anti-Bucle TTS:**
-    - Caché de prototipos 3D (`_SIGN_PROTOTYPE_CACHE` y `match_conversational_prototype()`) en [`backend/conversation_engine.py`](backend/conversation_engine.py) con reconocimiento del 100% (50/50 señas) en modos `CONVERSATION` e `HYBRID` junto con las 27/27 letras LSC.
+11. **Prototipos Conversacionales LSC (74 Señas + 27 Letras = 101 Señas), Persistencia SQLite y Control Anti-Bucle TTS:**
+    - Caché de prototipos 3D (`_SIGN_PROTOTYPE_CACHE` y `match_conversational_prototype()`) en [`backend/conversation_engine.py`](backend/conversation_engine.py) con **74 señas conversacionales** (incluyendo frases de nivel intermedio y contexto cultural de **La Guajira**) y las **27 letras del abecedario LSC**.
     - Persistencia local en SQLite (`data/conversations.db`) mediante [`backend/conversation_db.py`](backend/conversation_db.py) con endpoints REST CRUD (`/api/conversations*`, `/api/messages*`).
-    - Layout del visor en 3 zonas flex sin solapamientos y guardia `lastSpokenTtsSeq` contra repetición de voz TTS.
+    - Layout del visor en 3 zonas flex sin solapamientos, controles de reproducción 3D (atrás, pausar/reanudar, adelantar, detener y velocidad `0.5x–2x`) y guardia `lastSpokenTtsSeq` contra repetición de voz TTS.
+
+12. **Modo Conversación por Ventana de Captura (10 s) 100% Local (`Solo Palabras LSC`):**
+    - Al activar **`⏱️ Capturar Idea (10s)`** (`/api/conversation/capture/start` o `CONVERSATION_CAPTURE_START`), el sistema fuerza temporalmente el submodo `CONVERSATION` y bloquea letras del abecedario tanto en [`backend/pipeline.py`](backend/pipeline.py) como en [`backend/conversation_engine.py`](backend/conversation_engine.py) para capturar **únicamente palabras/señas completas**.
+    - Cierre automático al concluir el temporizador (con extensión suave `+2.4 s` si se detecta una seña al final) o al bajar las manos durante `2.2 s`.
+    - Motor local de poda de ruido (`_prune_noise_tokens`) y reconstrucción de intención (`_build_listener_intent_summary`): elimina poses intermedias fugaces, contradicciones y repeticiones redundantes, reordena la sintaxis LSC → Español y genera la tarjeta **`💡 Para la Persona Oyente`** indicando qué quiso comunicar la persona sorda y qué ruido fue filtrado.
+
+13. **Optimización de Cámara USB y Canal de Voz del Oyente (`backend/speech_transcriber.py`):**
+    - Landmarker dedicado en modo `RunningMode.VIDEO` (`_video_landmarker` en [`backend/pipeline.py`](backend/pipeline.py)) para tracking continuo en cámara USB/Móvil con menor latencia por frame.
+    - Grabador de micrófono del PC (`PcMicRecorder` con `sounddevice`) con descarte del pico eléctrico inicial (`300 ms`), calibración adaptativa de piso de ruido, corte tras `1.4 s` de silencio y transcripción vía `gemini-3.5-flash-lite` / `gemini-3.5-flash` con respaldo offline en Windows (`System.Speech.Recognition`).
 
 ---
 
@@ -358,9 +367,14 @@ El motor conversacional ([`backend/conversation_engine.py`](backend/conversation
 - **Botón `🔊 Voz: ON / OFF`:** Ubicado en la barra móvil, permite al usuario silenciar el altavoz cuando esté en entornos silenciosos o reactivarlo al instante.
 
 ### 7.3. Canal del Oyente: Reconocimiento de Voz (STT) y Traducción a Manos 3D
-- Captura la voz del oyente mediante **Web Speech API (`SpeechRecognition`)**.
+- Captura directa desde el micrófono del PC (`sounddevice` en [`backend/speech_transcriber.py`](backend/speech_transcriber.py)) con filtrado del transitorio de apertura (`300 ms`), VAD adaptativo (`1.4 s` de silencio) y transcripción con `gemini-3.5-flash-lite` / `gemini-3.5-flash` + respaldo offline de Windows (`System.Speech.Recognition`) y Web Speech API en navegador.
 - Los mensajes se proyectan como subtítulos accesibles de alto contraste en el chat.
-- Al ingresar texto o hablar, el **Modelo 3D de Manos LSC** articula visualmente la frase paso a paso en pantalla con barra de progreso.
+- Al ingresar texto o hablar, el **Modelo 3D de Manos LSC** y el **Avatar 3D** articulan visualmente la frase paso a paso en pantalla con barra de progreso y controles de velocidad (`0.5x` a `2x`).
+
+### 7.4. Modo Conversación por Ventana de Captura (10 s) y Poda Local de Ruido
+- Botón **`⏱️ Capturar Idea (10s)`** en [`static/index.html`](static/index.html) conectado a `/api/conversation/capture/start` y `/api/conversation/capture/stop` (y comandos WebSocket `CONVERSATION_CAPTURE_START` / `CONVERSATION_CAPTURE_STOP`).
+- Durante la ventana activa, `sign_submode` cambia temporalmente a `CONVERSATION` (solo palabras) y se bloquean letras del abecedario para evitar falsos tokens dactilológicos.
+- Al cerrarse la ventana (por temporizador o al bajar las manos `2.2 s`), `_prune_noise_tokens()` limpia el buffer de señas innecesarias, `_update_sentence_from_tokens()` reordena la sintaxis LSC → Español y `_build_listener_intent_summary()` muestra en el HUD y en el historial de chat qué quiso comunicar la persona sorda.
 
 ---
 
