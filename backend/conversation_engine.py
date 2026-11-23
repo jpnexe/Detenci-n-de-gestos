@@ -1810,6 +1810,18 @@ class ConversationEngine:
         self.max_tokens: int = 18
         self.tts_queue: List[str] = []
 
+        # Estado del Modo Conversación por Ventana de Captura (Buffer 10s + Poda de Ruido + Intención Local)
+        self.capture_mode_active: bool = False
+        self._pre_capture_submode: str = "HYBRID"
+        self.capture_start_ts: float = 0.0
+        self.capture_duration_sec: float = 10.0
+        self.capture_last_hand_ts: float = 0.0
+        self.capture_no_hand_timeout_sec: float = 2.2
+        self.filtered_noise_tokens: List[Dict[str, Any]] = []
+        self.listener_explanation: str = ""
+        self.intent_badge: str = ""
+        self.last_committed_summary: Optional[Dict[str, Any]] = None
+
         # Estado del Reproductor Visual de Manos 3D (Traducción de Frases -> Modelo de Manos)
         self.hand_animation_queue: List[Dict[str, Any]] = []
         self.current_animation_step: Optional[Dict[str, Any]] = None
@@ -2524,6 +2536,11 @@ class ConversationEngine:
             self.gesture_released = True
             return None
 
+        # En Modo Conversación (Ventana 10s) SOLO se aceptan palabras/señas conversacionales, nunca letras sueltas
+        if self.capture_mode_active and sign_id in LSC_ALPHABET_CATALOG:
+            self.gesture_released = True
+            return None
+
         if sign_id != self.last_added_sign_id:
             self.gesture_released = True
 
@@ -2546,6 +2563,8 @@ class ConversationEngine:
                 "emoji": sign_meta["emoji"],
                 "default_phrase": sign_meta["default_phrase"],
                 "is_letter": is_letter,
+                "confidence": round(float(confidence), 3),
+                "perf_ts": now,
                 "timestamp": datetime.now().strftime("%H:%M:%S"),
             }
             self.active_tokens.append(token_entry)
@@ -2553,10 +2572,17 @@ class ConversationEngine:
             if len(self.active_tokens) > self.max_tokens:
                 self.active_tokens = self.active_tokens[-self.max_tokens:]
 
+            # Si estamos en Modo Ventana de Captura y queda poco tiempo, dar margen suave (+2.2s) para no cortar la idea
+            if self.capture_mode_active:
+                elapsed_cap = now - self.capture_start_ts
+                if (self.capture_duration_sec - elapsed_cap) < 2.2:
+                    self.capture_duration_sec = min(18.0, elapsed_cap + 2.4)
+
             self._update_sentence_from_tokens()
 
-            # Pronunciar letra o palabra agregada
-            self.tts_queue.append(sign_meta["label"])
+            # En Ventana de Captura no interrumpimos cada seña con voz; pronunciamos la idea completa al cerrar el buffer
+            if not self.capture_mode_active:
+                self.tts_queue.append(sign_meta["label"])
 
         return {
             "sign_id": sign_id,
@@ -2584,13 +2610,17 @@ class ConversationEngine:
             "emoji": meta["emoji"],
             "default_phrase": meta["default_phrase"],
             "is_letter": sid in LSC_ALPHABET_CATALOG,
+            "confidence": 0.99,
+            "perf_ts": time.perf_counter(),
+            "manual": True,
             "timestamp": datetime.now().strftime("%H:%M:%S"),
         }
         self.active_tokens.append(token_entry)
         if len(self.active_tokens) > self.max_tokens:
             self.active_tokens = self.active_tokens[-self.max_tokens:]
         self._update_sentence_from_tokens()
-        self.tts_queue.append(meta["label"])
+        if not self.capture_mode_active:
+            self.tts_queue.append(meta["label"])
         return {
             "added": True,
             "token": token_entry,
@@ -2598,15 +2628,121 @@ class ConversationEngine:
             "current_sentence": self.current_sentence,
         }
 
+    def _prune_noise_tokens(self, tokens: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Filtra localmente contenido innecesario o señas parásitas de transición:
+        1. Letras aisladas huérfanas (1 sola letra) intercaladas entre señas conversacionales completas.
+        2. Poses intermedias fugaces de menor confianza cuando la mano transiciona rápido (< 1.35 s) hacia una seña principal.
+        3. Repeticiones redundantes (tartamudeo gestual) de la misma seña conversacional dentro de la misma idea.
+        4. Muletillas contradictorias (ej. S_BIEN / S_SI transicional antes de una emergencia S_AYUDA / S_MEDICO).
+        """
+        if not tokens:
+            return [], []
+
+        has_conversational = any(not t.get("is_letter", t["sign_id"] in LSC_ALPHABET_CATALOG) for t in tokens)
+        n = len(tokens)
+        stage1: List[Dict[str, Any]] = []
+        pruned: List[Dict[str, Any]] = []
+
+        # 1. Eliminar letras huérfanas de 1 solo carácter cuando la oración contiene señas conversacionales
+        i = 0
+        while i < n:
+            tok = tokens[i]
+            is_let = bool(tok.get("is_letter", tok["sign_id"] in LSC_ALPHABET_CATALOG))
+            if is_let and has_conversational:
+                j = i
+                while j < n and bool(tokens[j].get("is_letter", tokens[j]["sign_id"] in LSC_ALPHABET_CATALOG)):
+                    j += 1
+                run_len = j - i
+                # Si es 1 sola letra no insertada manualmente y hay señas conversacionales alrededor, es ruido de transición
+                if run_len == 1 and not tok.get("manual", False):
+                    noisy = dict(tok)
+                    noisy["prune_reason"] = "Letra aislada de transición"
+                    pruned.append(noisy)
+                else:
+                    for k in range(i, j):
+                        stage1.append(tokens[k])
+                i = j
+            else:
+                stage1.append(tok)
+                i += 1
+
+        if not stage1:
+            stage1 = list(tokens)
+            pruned.clear()
+
+        # 2. Poda de poses transicionales rápidas y contradicciones de emergencia/comprensión
+        all_sids = {t["sign_id"] for t in stage1}
+        has_emergency = bool(all_sids & {"S_AYUDA", "S_MEDICO", "S_MAL"})
+        has_not_understand = "S_NO_ENTIENDO" in all_sids
+        transient_fillers = {"S_BIEN", "S_SI", "S_CONTINUAR"}
+
+        stage2: List[Dict[str, Any]] = []
+        for idx, tok in enumerate(stage1):
+            sid = tok["sign_id"]
+            is_let = bool(tok.get("is_letter", sid in LSC_ALPHABET_CATALOG))
+            if not is_let and not tok.get("manual", False):
+                # Si la idea es una emergencia o dolor, descartar un pulgar/afirmación transicional ('Bien')
+                if has_emergency and sid == "S_BIEN" and len(stage1) > 1:
+                    noisy = dict(tok)
+                    noisy["prune_reason"] = "Contradicción con contexto de emergencia"
+                    pruned.append(noisy)
+                    continue
+                # Si la persona indica 'No entiendo', descartar un 'Entendido' previo accidental
+                if has_not_understand and sid == "S_ENTENDIDO" and len(stage1) > 1:
+                    noisy = dict(tok)
+                    noisy["prune_reason"] = "Corregido por «No entiendo»"
+                    pruned.append(noisy)
+                    continue
+                # Si es una pose genérica seguida rápidamente (< 1.3s) por una seña específica de mayor confianza
+                if idx + 1 < len(stage1) and sid in transient_fillers:
+                    nxt = stage1[idx + 1]
+                    t0 = float(tok.get("perf_ts") or 0.0)
+                    t1 = float(nxt.get("perf_ts") or 0.0)
+                    c0 = float(tok.get("confidence") or 0.85)
+                    c1 = float(nxt.get("confidence") or 0.85)
+                    if t0 > 0 and t1 > 0 and (t1 - t0) < 1.30 and (c1 >= c0 + 0.04) and nxt["sign_id"] not in transient_fillers:
+                        noisy = dict(tok)
+                        noisy["prune_reason"] = "Pose intermedia de transición"
+                        pruned.append(noisy)
+                        continue
+            stage2.append(tok)
+
+        # 3. Colapsar repeticiones redundantes de la misma seña conversacional dentro del mismo turno
+        clean_tokens: List[Dict[str, Any]] = []
+        seen_conv_sids: set[str] = set()
+        for tok in stage2:
+            sid = tok["sign_id"]
+            is_let = bool(tok.get("is_letter", sid in LSC_ALPHABET_CATALOG))
+            if not is_let:
+                if sid in seen_conv_sids:
+                    noisy = dict(tok)
+                    noisy["prune_reason"] = "Seña repetida en la misma idea"
+                    pruned.append(noisy)
+                    continue
+                seen_conv_sids.add(sid)
+            clean_tokens.append(tok)
+
+        return clean_tokens, pruned
+
     def _update_sentence_from_tokens(self) -> None:
         """
-        Construye una oración gramaticalmente fluida en español a partir de las glosas LSC
-        y fusiona automáticamente las letras consecutivas del abecedario dactilológico en palabras.
+        Motor Local de Poda de Ruido, Reconstrucción Gramatical LSC -> Español Natural
+        y Generación de Explicación de Intención para la Persona Oyente.
         """
         if not self.active_tokens:
             self.current_sentence = ""
             self.raw_gloss_sentence = ""
+            self.filtered_noise_tokens = []
+            self.listener_explanation = ""
+            self.intent_badge = ""
             return
+
+        # Paso 0: Filtrar contenido innecesario / señas parásitas de transición
+        clean_tokens, pruned_tokens = self._prune_noise_tokens(self.active_tokens)
+        self.filtered_noise_tokens = pruned_tokens
+        if not clean_tokens:
+            clean_tokens = list(self.active_tokens)
 
         # Paso 1: Agrupar letras consecutivas (ej. L_A + L_N + L_A -> "Ana")
         grouped_items: List[Tuple[str, str]] = []  # (sign_id_or_SPELLED, display_word)
@@ -2618,7 +2754,7 @@ class ConversationEngine:
                 grouped_items.append(("SPELLED_WORD", word))
                 letter_buf.clear()
 
-        for tok in self.active_tokens:
+        for tok in clean_tokens:
             sid = tok["sign_id"]
             if sid in LSC_ALPHABET_CATALOG:
                 letter_buf.append(LSC_ALPHABET_CATALOG[sid]["letter"])
@@ -2633,66 +2769,357 @@ class ConversationEngine:
         if len(grouped_items) == 1 and grouped_items[0][0] in CONVERSATIONAL_SIGNS_CATALOG:
             sid0 = grouped_items[0][0]
             self.current_sentence = CONVERSATIONAL_SIGNS_CATALOG[sid0]["default_phrase"]
+            self._build_listener_intent_summary(grouped_items, self.current_sentence)
             return
 
-        # Paso 3: Conjugación morfosintáctica LSC -> Español para secuencias de múltiples tokens
+        # Paso 3: Reordenamiento Sintáctico LSC -> Español + Conjugación Morfosintáctica
+        # En LSC es frecuente poner Tiempo al inicio y Pregunta o Negación al final (ej: MAÑANA + UNIVERSIDAD + YO + IR + NO)
+        sids_seq = [sid for sid, _ in grouped_items]
+        has_negation = "S_NO" in sids_seq and len(grouped_items) > 1
+        time_sids = {"S_HOY", "S_MANANA"}
+        question_map = {
+            "S_DONDE": "¿Dónde",
+            "S_CUANDO": "¿Cuándo",
+            "S_QUIEN": "¿Quién",
+            "S_POR_QUE": "¿Por qué",
+            "S_CUANTO": "¿Cuánto",
+            "S_QUE": "¿Qué",
+        }
+        greeting_sids = {"S_HOLA", "S_BUENOS_DIAS", "S_BUENAS_TARDES", "S_BUENAS_NOCHES", "S_MUCHO_GUSTO", "S_DISCULPA"}
+        closing_courtesy = {"S_POR_FAVOR", "S_GRACIAS", "S_ADIOS"}
+
+        # Separar saludo inicial, tiempo, pregunta principal y cortesía final para ordenar con naturalidad en español
+        greetings_part: List[str] = []
+        time_part: List[str] = []
+        question_lead: Optional[str] = None
+        has_como_estas = False
+        core_items: List[Tuple[str, str]] = []
+        tail_courtesy: List[str] = []
+
+        for sid, lbl in grouped_items:
+            if sid in greeting_sids:
+                greetings_part.append(lbl.split("/")[0].strip())
+            elif sid in time_sids:
+                time_part.append("hoy" if sid == "S_HOY" else "mañana")
+            elif sid == "S_COMO_ESTAS":
+                has_como_estas = True
+            elif sid in question_map and question_lead is None and len(grouped_items) > 1:
+                question_lead = question_map[sid]
+            elif sid == "S_NO" and has_negation:
+                # La negación se ubicará justo antes del verbo o predicado principal
+                continue
+            elif sid in closing_courtesy and len(grouped_items) > 1:
+                tail_courtesy.append(lbl.split("/")[0].strip().lower())
+            else:
+                core_items.append((sid, lbl))
+
+        # Determinar sujeto gramatical
         subj: Optional[str] = None  # "1S", "2S", "3S", "1P"
+        for sid, _ in core_items:
+            if sid == "S_YO":
+                subj = "1S"
+                break
+            elif sid == "S_TU":
+                subj = "2S"
+                break
+            elif sid in ("S_EL", "S_MAMA", "S_PAPA", "S_HERMANO", "S_AMIGO", "S_PROFESOR", "S_FAMILIA"):
+                subj = "3S"
+                break
+            elif sid == "S_NOSOTROS":
+                subj = "1P"
+                break
+        if subj is None and question_lead is not None:
+            subj = "2S"
+
         verb_conjugations = {
             "S_QUERER": {"1S": "quiero", "2S": "quieres", "3S": "quiere", "1P": "queremos", "DEF": "quiero"},
             "S_NECESITAR": {"1S": "necesito", "2S": "necesitas", "3S": "necesita", "1P": "necesitamos", "DEF": "necesito"},
-            "S_COMER": {"1S": "quiero comer", "2S": "quieres comer", "3S": "quiere comer", "1P": "queremos comer", "DEF": "comer"},
-            "S_AGUA": {"1S": "quiero agua", "2S": "quieres agua", "3S": "quiere agua", "1P": "queremos agua", "DEF": "agua"},
-            "S_ESTUDIAR": {"1S": "estudio", "2S": "estudias", "3S": "estudia", "1P": "estudiamos", "DEF": "estudiar"},
-            "S_TRABAJAR": {"1S": "trabajo", "2S": "trabajas", "3S": "trabaja", "1P": "trabajamos", "DEF": "trabajar"},
+            "S_COMER": {"1S": "quiero comer", "2S": "quieres comer", "3S": "quiere comer", "1P": "queremos comer", "DEF": "quiero comer"},
+            "S_AGUA": {"1S": "quiero agua", "2S": "quieres agua", "3S": "quiere agua", "1P": "queremos agua", "DEF": "quiero agua"},
+            "S_ESTUDIAR": {"1S": "estudio", "2S": "estudias", "3S": "estudia", "1P": "estudiamos", "DEF": "estudio"},
+            "S_TRABAJAR": {"1S": "trabajo", "2S": "trabajas", "3S": "trabaja", "1P": "trabajamos", "DEF": "trabajo"},
             "S_HABLAR": {"1S": "hablo", "2S": "hablas", "3S": "habla", "1P": "hablamos", "DEF": "hablar"},
-            "S_IR": {"1S": "voy a", "2S": "vas a", "3S": "va a", "1P": "vamos a", "DEF": "ir a"},
-            "S_ENTENDIDO": {"1S": "entiendo", "2S": "entiendes", "3S": "entiende", "1P": "entendemos", "DEF": "entendido"},
+            "S_IR": {"1S": "voy a", "2S": "vas a", "3S": "va a", "1P": "vamos a", "DEF": "voy a"},
+            "S_ENTENDIDO": {"1S": "entiendo", "2S": "entiendes", "3S": "entiende", "1P": "entendemos", "DEF": "entiendo"},
             "S_NO_ENTIENDO": {"1S": "no entiendo", "2S": "no entiendes", "3S": "no entiende", "1P": "no entendemos", "DEF": "no entiendo"},
+            "S_PENSAR": {"1S": "pienso", "2S": "piensas", "3S": "piensa", "1P": "pensamos", "DEF": "pienso"},
+            "S_SABER": {"1S": "sé", "2S": "sabes", "3S": "sabe", "1P": "sabemos", "DEF": "sé"},
+            "S_APRENDER": {"1S": "aprendo", "2S": "aprendes", "3S": "aprende", "1P": "aprendemos", "DEF": "aprender"},
+            "S_ENSENAR": {"1S": "enseño", "2S": "enseñas", "3S": "enseña", "1P": "enseñamos", "DEF": "enseñar"},
+            "S_VIVIR": {"1S": "vivo", "2S": "vives", "3S": "vive", "1P": "vivimos", "DEF": "vivir"},
+            "S_CONOCER": {"1S": "conozco", "2S": "conoces", "3S": "conoce", "1P": "conocemos", "DEF": "conocer"},
+            "S_COMPRAR": {"1S": "quiero comprar", "2S": "quieres comprar", "3S": "quiere comprar", "1P": "queremos comprar", "DEF": "comprar"},
         }
 
+        # Si en LSC pusieron el lugar antes del verbo IR (ej. UNIVERSIDAD + YO + IR), mover el verbo IR antes del destino
+        core_sids = [s for s, _ in core_items]
+        place_sids = {"S_CASA", "S_UNIVERSIDAD", "S_ESCUELA", "S_BOGOTA", "S_COLOMBIA", "S_GUAJIRA", "S_RIOHACHA", "S_MAR"}
+        if "S_IR" in core_sids:
+            ir_idx = core_sids.index("S_IR")
+            for p_idx, (psid, plbl) in enumerate(list(core_items)):
+                if psid in place_sids and p_idx < ir_idx:
+                    # Reubicar el lugar justo después de S_IR
+                    place_item = core_items.pop(p_idx)
+                    new_ir_idx = [s for s, _ in core_items].index("S_IR")
+                    core_items.insert(new_ir_idx + 1, place_item)
+                    break
+
         words_out: List[str] = []
-        for idx, (sid, lbl) in enumerate(grouped_items):
+        if time_part:
+            words_out.append(" ".join(time_part))
+
+        negation_inserted = False
+        has_verb_in_core = any(s in verb_conjugations for s, _ in core_items)
+
+        # Si es una pregunta tipo "¿Dónde + Médico/Casa/Universidad?" sin verbo explícito, agregar verbo copulativo "está/queda"
+        if question_lead and not has_verb_in_core and core_items:
+            if question_lead == "¿Dónde":
+                words_out.append("¿dónde está")
+                question_lead = None
+            elif question_lead == "¿Cuánto":
+                words_out.append("¿cuánto cuesta")
+                question_lead = None
+
+        if question_lead:
+            words_out.append(question_lead.lower())
+
+        for idx, (sid, lbl) in enumerate(core_items):
+            prev_sid = core_items[idx - 1][0] if idx > 0 else ""
             if sid == "S_YO":
-                subj = "1S"
-                words_out.append("Yo")
+                words_out.append("yo" if words_out else "Yo")
             elif sid == "S_TU":
-                subj = "2S"
                 words_out.append("tú")
             elif sid == "S_EL":
-                subj = "3S"
                 words_out.append("él")
             elif sid == "S_NOSOTROS":
-                subj = "1P"
                 words_out.append("nosotros")
+            elif sid in ("S_MAMA", "S_PAPA", "S_HERMANO", "S_AMIGO", "S_PROFESOR", "S_FAMILIA"):
+                noun = lbl.split("/")[0].strip().lower()
+                prefix = "mi " if sid in ("S_MAMA", "S_PAPA", "S_HERMANO", "S_AMIGO", "S_FAMILIA") else "el "
+                words_out.append(prefix + noun)
             elif sid in verb_conjugations:
-                conj = verb_conjugations[sid].get(subj or "DEF", lbl.lower())
+                if has_negation and not negation_inserted and sid != "S_NO_ENTIENDO":
+                    words_out.append("no")
+                    negation_inserted = True
+                conj = verb_conjugations[sid].get(subj or "DEF", lbl.split("/")[0].strip().lower())
                 words_out.append(conj)
             elif sid == "S_CASA":
-                prev_sid = grouped_items[idx - 1][0] if idx > 0 else ""
                 words_out.append("casa" if prev_sid == "S_IR" else "en casa")
             elif sid == "S_UNIVERSIDAD":
-                prev_sid = grouped_items[idx - 1][0] if idx > 0 else ""
                 words_out.append("la universidad" if prev_sid == "S_IR" else "en la universidad")
-            elif sid in ("S_BIEN", "S_MAL", "S_FELIZ", "S_CANSADO", "S_OCUPADO"):
+            elif sid == "S_ESCUELA":
+                words_out.append("el colegio" if prev_sid == "S_IR" else "en el colegio")
+            elif sid in ("S_GUAJIRA", "S_RIOHACHA", "S_BOGOTA", "S_COLOMBIA"):
+                place_name = lbl.split("/")[0].strip()
+                if prev_sid == "S_IR":
+                    words_out.append(place_name)
+                elif prev_sid in ("S_VIVIR", "S_TRABAJAR", "S_ESTUDIAR"):
+                    words_out.append(f"en {place_name}")
+                else:
+                    words_out.append(place_name)
+            elif sid == "S_MAR":
+                words_out.append("el mar" if prev_sid in ("S_IR", "S_CONOCER") else "en la playa")
+            elif sid == "S_WAYUU":
+                words_out.append("una mochila Wayuu" if prev_sid in ("S_COMPRAR", "S_QUERER") else "la cultura Wayuu")
+            elif sid == "S_CALOR":
+                words_out.append("hace mucho calor" if not has_verb_in_core else "calor")
+            elif sid == "S_MEDICO":
+                if prev_sid in ("S_NECESITAR", "S_QUERER", "S_IR"):
+                    words_out.append("al médico")
+                else:
+                    words_out.append("el médico")
+            elif sid == "S_AYUDA":
+                if prev_sid in ("S_NECESITAR", "S_QUERER"):
+                    words_out.append("ayuda")
+                else:
+                    words_out.append("necesito ayuda")
+            elif sid in ("S_BIEN", "S_MAL", "S_REGULAR", "S_FELIZ", "S_CANSADO", "S_OCUPADO"):
                 state_word = lbl.split("/")[0].strip().lower()
-                if subj == "1S":
+                if has_negation and not negation_inserted:
+                    words_out.append("no")
+                    negation_inserted = True
+                if subj == "1S" or subj is None:
                     words_out.append(f"estoy {state_word}")
                 elif subj == "2S":
                     words_out.append(f"estás {state_word}")
                 else:
-                    words_out.append(state_word)
+                    words_out.append(f"está {state_word}")
             elif sid == "SPELLED_WORD":
-                words_out.append(lbl)
+                if prev_sid == "S_YO" and not has_verb_in_core:
+                    words_out.append(f"soy {lbl}")
+                else:
+                    words_out.append(lbl)
             else:
                 clean_lbl = lbl.split("/")[0].strip()
-                words_out.append(clean_lbl.lower() if idx > 0 and not clean_lbl.startswith("¿") else clean_lbl)
+                words_out.append(clean_lbl.lower() if (words_out and not clean_lbl.startswith("¿")) else clean_lbl)
 
-        sentence = " ".join(words_out).strip()
+        if has_negation and not negation_inserted:
+            words_out.insert(0, "No")
+
+        core_clause = " ".join(words_out).strip()
+        if (question_lead or core_clause.startswith("¿")) and core_clause:
+            if not core_clause.startswith("¿"):
+                core_clause = "¿" + core_clause[0].upper() + core_clause[1:]
+            else:
+                core_clause = "¿" + core_clause[1:2].upper() + core_clause[2:]
+            if not core_clause.endswith("?"):
+                core_clause += "?"
+
+        parts_final: List[str] = []
+        if greetings_part:
+            g_str = ", ".join(greetings_part)
+            parts_final.append(g_str[0].upper() + g_str[1:])
+        if has_como_estas:
+            parts_final.append("¿cómo estás?" if greetings_part else "¿Cómo estás?")
+        if core_clause:
+            c_str = core_clause[0].upper() + core_clause[1:]
+            parts_final.append(c_str)
+        if tail_courtesy:
+            parts_final.append(", ".join(tail_courtesy))
+
+        sentence = ". ".join(
+            p.strip() for p in [
+                ", ".join(parts_final[:2]) if (greetings_part and has_como_estas) else (parts_final[0] if parts_final else ""),
+                *parts_final[(2 if (greetings_part and has_como_estas) else 1):]
+            ] if p and p.strip()
+        ).strip()
+
         if sentence:
+            sentence = re.sub(r"\?\.\s*", "? ", sentence)
+            sentence = re.sub(r"\s+", " ", sentence).strip()
             sentence = sentence[0].upper() + sentence[1:]
             if not sentence.endswith((".", "?", "!")):
-                sentence += "."
+                sentence += "?" if ("¿" in sentence) else "."
         self.current_sentence = sentence
+        self._build_listener_intent_summary(grouped_items, self.current_sentence)
+
+    def _build_listener_intent_summary(self, grouped_items: List[Tuple[str, str]], natural_sentence: str) -> None:
+        """
+        Genera en local la explicación ejecutiva para la persona oyente (no sorda),
+        indicándole cuál es la intención real de la persona sorda y qué ruido fue filtrado.
+        """
+        sids = {sid for sid, _ in grouped_items}
+        noise_count = len(self.filtered_noise_tokens)
+        noise_note = ""
+        if noise_count > 0:
+            dropped_labels = ", ".join(t.get("label", t.get("sign_id", "")) for t in self.filtered_noise_tokens[:3])
+            noise_note = f" (Se filtró ruido innecesario: {dropped_labels})."
+
+        if sids & {"S_AYUDA", "S_MEDICO"}:
+            self.intent_badge = "🚨 Prioridad / Asistencia"
+            self.listener_explanation = (
+                f"La persona sorda solicita ayuda o atención médica: «{natural_sentence}»{noise_note}"
+            )
+        elif sids & {"S_NO_ENTIENDO", "S_REPETIR", "S_DESPACIO", "S_ESPERA"}:
+            self.intent_badge = "🔁 Ajuste de Conversación"
+            self.listener_explanation = (
+                f"La persona sorda te pide hablar más despacio, esperar o repetir la explicación: «{natural_sentence}»{noise_note}"
+            )
+        elif sids & {"S_DONDE", "S_CUANDO", "S_QUIEN", "S_POR_QUE", "S_CUANTO", "S_QUE", "S_COMO_ESTAS"}:
+            self.intent_badge = "❓ Consulta al Oyente"
+            self.listener_explanation = (
+                f"La persona sorda te está haciendo una pregunta y espera tu respuesta: «{natural_sentence}»{noise_note}"
+            )
+        elif sids & {"S_GUAJIRA", "S_RIOHACHA", "S_WAYUU", "S_CALOR", "S_SOL", "S_MAR", "S_VIENTO", "S_COMPRAR"}:
+            self.intent_badge = "🌵 Contexto La Guajira"
+            self.listener_explanation = (
+                f"La persona sorda conversa sobre lugares, cultura Wayuu o clima de La Guajira: «{natural_sentence}»{noise_note}"
+            )
+        elif sids & {"S_UNIVERSIDAD", "S_ESCUELA", "S_ESTUDIAR", "S_TRABAJAR", "S_PROFESOR", "S_APRENDER", "S_ENSENAR"}:
+            self.intent_badge = "🎓 Estudio / Trabajo"
+            self.listener_explanation = (
+                f"La persona sorda te comunica una acción académica o laboral: «{natural_sentence}»{noise_note}"
+            )
+        elif sids & {"S_QUERER", "S_NECESITAR", "S_COMER", "S_AGUA", "S_IR", "S_CASA", "S_FAMILIA", "S_MAMA", "S_PAPA"}:
+            self.intent_badge = "💬 Intención / Necesidad"
+            self.listener_explanation = (
+                f"La persona sorda expresa una necesidad, desplazamiento o actividad: «{natural_sentence}»{noise_note}"
+            )
+        elif "SPELLED_WORD" in sids:
+            self.intent_badge = "🔤 Nombre / Deletreo LSC"
+            self.listener_explanation = (
+                f"La persona sorda deletreó un nombre propio o término específico: «{natural_sentence}»{noise_note}"
+            )
+        else:
+            self.intent_badge = "👋 Saludo / Respuesta"
+            self.listener_explanation = (
+                f"La persona sorda quiere comunicarte: «{natural_sentence}»{noise_note}"
+            )
+
+    def start_capture_window(self, duration_sec: float = 10.0, clear_existing: bool = True) -> Dict[str, Any]:
+        """
+        Activa el Modo Conversación por Ventana de Captura (ej. 10 segundos).
+        Fuerza temporalmente el submodo CONVERSATION (solo palabras, sin letras del abecedario),
+        acumula señas estables y al finalizar poda ruido innecesario e interpreta la intención.
+        """
+        now = time.perf_counter()
+        if clear_existing:
+            self.clear_tokens()
+        if not self.capture_mode_active:
+            self._pre_capture_submode = self.sign_submode
+        self.sign_submode = "CONVERSATION"
+        self.capture_mode_active = True
+        self.capture_start_ts = now
+        self.capture_duration_sec = max(4.0, min(30.0, float(duration_sec or 10.0)))
+        self.capture_last_hand_ts = now
+        self.gesture_released = True
+        return {
+            "ok": True,
+            "capture_mode_active": True,
+            "sign_submode": self.sign_submode,
+            "duration_sec": self.capture_duration_sec,
+            "remaining_sec": self.capture_duration_sec,
+        }
+
+    def stop_capture_window(self, auto_commit: bool = True, reason: str = "manual") -> Dict[str, Any]:
+        """
+        Detiene la ventana de captura, restaura el submodo previo, ejecuta el filtrado final
+        de ruido e intención local y registra el mensaje interpretado en el chat + voz TTS.
+        """
+        was_active = self.capture_mode_active
+        self.capture_mode_active = False
+        if was_active and getattr(self, "_pre_capture_submode", None) in ("CONVERSATION", "ALPHABET_LSC", "HYBRID"):
+            self.sign_submode = self._pre_capture_submode
+        self._update_sentence_from_tokens()
+
+        committed_res = None
+        if auto_commit and self.active_tokens and self.current_sentence:
+            committed_res = self.commit_sentence(capture_close_reason=reason)
+
+        return {
+            "ok": True,
+            "was_active": was_active,
+            "capture_mode_active": False,
+            "reason": reason,
+            "committed": bool(committed_res and committed_res.get("committed")),
+            "result": committed_res,
+            "last_summary": self.last_committed_summary,
+        }
+
+    def tick_capture_window(self, hand_detected: bool) -> Optional[Dict[str, Any]]:
+        """
+        Actualiza el temporizador de la ventana de captura en cada frame del pipeline.
+        Cierra e interpreta automáticamente cuando:
+        1. Se cumple el tiempo de la ventana (ej. 10.0 s), o
+        2. El usuario ya hizo al menos 1 seña y baja las manos durante >= 2.2 s.
+        """
+        if not self.capture_mode_active:
+            return None
+
+        now = time.perf_counter()
+        if hand_detected:
+            self.capture_last_hand_ts = now
+
+        elapsed = now - self.capture_start_ts
+        no_hand_elapsed = now - self.capture_last_hand_ts
+
+        if elapsed >= self.capture_duration_sec:
+            return self.stop_capture_window(auto_commit=True, reason="timer_completed")
+
+        if len(self.active_tokens) >= 1 and elapsed >= 2.5 and no_hand_elapsed >= self.capture_no_hand_timeout_sec:
+            return self.stop_capture_window(auto_commit=True, reason="hands_lowered")
+
+        return None
 
     def translate_phrase_to_hand_sequence(self, text: str) -> Dict[str, Any]:
         """
@@ -2919,20 +3346,30 @@ class ConversationEngine:
             "secondary_pose": s_pose,
         }
 
-    def commit_sentence(self, custom_phrase: Optional[str] = None) -> Dict[str, Any]:
+    def commit_sentence(
+        self,
+        custom_phrase: Optional[str] = None,
+        capture_close_reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Finaliza la oración en construcción generada por la persona sorda,
-        la agrega al historial conversacional de chat y solicita reproducción TTS.
+        podando el ruido innecesario, agregando la explicación de intención para el oyente
+        al historial conversacional y solicitando reproducción TTS.
         """
-        phrase = custom_phrase or self.current_sentence
-        if not phrase and self.active_tokens:
+        self.capture_mode_active = False
+        if self.active_tokens and not custom_phrase:
             self._update_sentence_from_tokens()
-            phrase = self.current_sentence
 
+        phrase = custom_phrase or self.current_sentence
         if not phrase:
             return {"committed": False, "message": "Buffer vacío"}
 
-        sign_ids = [t["sign_id"] for t in self.active_tokens]
+        clean_tokens, pruned_tokens = self._prune_noise_tokens(self.active_tokens)
+        sign_ids = [t["sign_id"] for t in (clean_tokens or self.active_tokens)]
+        pruned_labels = [t.get("label", t.get("sign_id", "")) for t in pruned_tokens]
+        listener_note = self.listener_explanation or f"La persona sorda quiere comunicarte: «{phrase}»"
+        intent_badge = self.intent_badge or "💬 Intención LSC"
+        raw_gloss = self.raw_gloss_sentence
         ts = datetime.now().strftime("%H:%M:%S")
 
         entry = self.db.add_message(
@@ -2956,16 +3393,35 @@ class ConversationEngine:
             conv_meta = self.db.get_conversation(self.active_conversation_id)
             if conv_meta:
                 self.active_conversation_title = conv_meta["title"]
+
+        entry["listener_explanation"] = listener_note
+        entry["intent_badge"] = intent_badge
+        entry["raw_gloss"] = raw_gloss
+        entry["filtered_noise"] = pruned_labels
+
+        self.last_committed_summary = {
+            "phrase": phrase,
+            "raw_gloss": raw_gloss,
+            "listener_explanation": listener_note,
+            "intent_badge": intent_badge,
+            "filtered_noise": pruned_labels,
+            "timestamp": ts,
+            "close_reason": capture_close_reason or "manual",
+        }
+
         self.chat_history.append(entry)
         self.tts_queue.append(phrase)
 
         self.active_tokens.clear()
+        self.filtered_noise_tokens.clear()
         self.current_sentence = ""
         self.raw_gloss_sentence = ""
+        self.listener_explanation = ""
+        self.intent_badge = ""
         self.last_added_sign_id = None
         self.gesture_released = True
 
-        return {"committed": True, "entry": entry}
+        return {"committed": True, "entry": entry, "summary": self.last_committed_summary}
 
     def add_hearing_message(self, text: str, animate_hands: bool = True) -> Dict[str, Any]:
         """
@@ -3021,8 +3477,11 @@ class ConversationEngine:
     def clear_tokens(self) -> None:
         """Limpia el buffer de construcción de oraciones."""
         self.active_tokens.clear()
+        self.filtered_noise_tokens.clear()
         self.current_sentence = ""
         self.raw_gloss_sentence = ""
+        self.listener_explanation = ""
+        self.intent_badge = ""
         self.last_added_sign_id = None
         self.gesture_released = True
 
@@ -3034,6 +3493,12 @@ class ConversationEngine:
 
     def get_state(self) -> Dict[str, Any]:
         """Retorna el estado completo del motor conversacional y del animador de manos 3D."""
+        now = time.perf_counter()
+        cap_elapsed = (now - self.capture_start_ts) if self.capture_mode_active else 0.0
+        cap_remaining = max(0.0, self.capture_duration_sec - cap_elapsed) if self.capture_mode_active else 0.0
+        cap_progress = min(1.0, cap_elapsed / max(1.0, self.capture_duration_sec)) if self.capture_mode_active else 0.0
+        no_hand_sec = (now - self.capture_last_hand_ts) if self.capture_mode_active else 0.0
+
         cur_step = self.current_animation_step or {}
         cur_sid = cur_step.get("sign_id", "")
         cur_meta = self.get_sign_meta(cur_sid) if cur_sid else {}
@@ -3057,8 +3522,19 @@ class ConversationEngine:
         return {
             "sign_submode": self.sign_submode,
             "active_tokens": self.active_tokens,
+            "filtered_noise_tokens": self.filtered_noise_tokens,
             "current_sentence": self.current_sentence,
             "raw_gloss_sentence": self.raw_gloss_sentence,
+            "listener_explanation": self.listener_explanation,
+            "intent_badge": self.intent_badge,
+            "last_committed_summary": self.last_committed_summary,
+            "capture_window": {
+                "active": self.capture_mode_active,
+                "duration_sec": round(self.capture_duration_sec, 1),
+                "remaining_sec": round(cap_remaining, 1),
+                "progress": round(cap_progress, 3),
+                "no_hand_sec": round(no_hand_sec, 1),
+            },
             "token_count": len(self.active_tokens),
             "active_conversation_id": self.active_conversation_id,
             "active_conversation_title": self.active_conversation_title,

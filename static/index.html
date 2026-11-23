@@ -548,6 +548,22 @@
             </div>
           </div>
 
+          <!-- Fila 2.8: Banner de Ventana de Captura (Modo Conversación 10s) -->
+          <div id="captureWindowBanner" class="hidden px-3 py-2 rounded-xl bg-amberLiquid/15 border border-amberLiquid/50 flex flex-col gap-1.5">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-2 font-semibold text-amberLiquid">
+                <span class="inline-block w-2 h-2 rounded-full bg-roseLiquid animate-ping"></span>
+                <span id="captureWindowStatusText">⏱️ Modo Conversación (Solo Palabras LSC): Haz tus señas con calma (o baja las manos 2s al terminar)</span>
+              </div>
+              <span id="captureWindowTimerBadge" class="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-void/80 border border-amberLiquid/50 text-amberLiquid">
+                10.0s
+              </span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-void/80 overflow-hidden">
+              <div id="captureWindowProgressBar" class="h-full bg-gradient-to-r from-emeraldLiquid via-cyanLiquid to-amberLiquid transition-all duration-150" style="width: 0%;"></div>
+            </div>
+          </div>
+
           <!-- Fila 3: Frase Ensamblada en Español + Acciones Rápidas -->
           <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/10">
             <div class="flex-1 min-w-[200px] flex items-center gap-2 truncate">
@@ -556,7 +572,15 @@
                 (Oración vacía)
               </span>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
+            <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+              <button
+                id="btnCaptureWindow"
+                onclick="toggleCaptureWindow(10)"
+                title="Modo Conversación por Ventana (10s): Captura tu secuencia de señas, elimina el ruido intermedio e interpreta qué quisiste decir para el oyente"
+                class="min-h-[32px] px-2.5 py-1 rounded-lg border border-amberLiquid/50 bg-amberLiquid/20 text-amberLiquid font-semibold text-xs flex items-center gap-1 hover:bg-amberLiquid/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(255,184,0,0.2)]"
+              >
+                <span id="btnCaptureWindowLabel">⏱️ Capturar Idea (10s)</span>
+              </button>
               <button
                 onclick="speakCurrentSentence()"
                 title="Pronunciar oración completa en voz alta por los altavoces"
@@ -566,10 +590,10 @@
               </button>
               <button
                 onclick="commitSentenceToChat()"
-                title="Enviar oración al historial de chat conversacional"
+                title="Interpretar intención, limpiar ruido y enviar al historial de chat"
                 class="min-h-[32px] px-2.5 py-1 rounded-lg border border-cyanLiquid/50 bg-cyanLiquid/20 text-cyanLiquid font-semibold text-xs flex items-center gap-1 hover:bg-cyanLiquid/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(0,240,255,0.2)]"
               >
-                <span>💬 Chat</span>
+                <span>💬 Interpretar a Chat</span>
               </button>
               <button
                 onclick="backspaceSentenceToken()"
@@ -585,6 +609,25 @@
               >
                 <span>🗑️</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Fila 4: Tarjeta Local de Intención para la Persona Oyente + Filtro de Ruido -->
+          <div id="listenerExplanationBar" class="px-3 py-2 rounded-xl bg-void/85 border border-cyanLiquid/30 flex flex-col gap-1">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-cyanLiquid font-bold">💡 Para la Persona Oyente (Interpretación Local):</span>
+                <span id="listenerIntentBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyanLiquid/15 border border-cyanLiquid/40 text-cyanLiquid font-semibold">
+                  Esperando señas...
+                </span>
+              </div>
+              <div id="filteredNoiseBadgeContainer" class="hidden items-center gap-1 text-[10px] font-mono text-amberLiquid">
+                <span>🧹 Ruido filtrado:</span>
+                <span id="filteredNoiseListText" class="line-through text-textSecondary"></span>
+              </div>
+            </div>
+            <div id="listenerExplanationText" class="text-xs text-textPrimary font-medium leading-snug">
+              Activa «⏱️ Capturar Idea (10s)» o haz señas frente a la cámara: el motor local eliminará gestos de transición innecesarios y explicará aquí qué quiere comunicar la persona sorda.
             </div>
           </div>
         </div>
@@ -2716,6 +2759,64 @@
         }
       }
 
+      // 2.5. Estado de la Ventana de Captura (10s) y Explicación Local para la Persona Oyente
+      const capWin = conv.capture_window || { active: false, remaining_sec: 0, duration_sec: 10, progress: 0 };
+      isCaptureWindowActive = Boolean(capWin.active);
+      const capBanner = document.getElementById('captureWindowBanner');
+      const capBtn = document.getElementById('btnCaptureWindow');
+      const capBtnLbl = document.getElementById('btnCaptureWindowLabel');
+      const capTimerBadge = document.getElementById('captureWindowTimerBadge');
+      const capProgBar = document.getElementById('captureWindowProgressBar');
+
+      if (capBanner && capBtn && capBtnLbl) {
+        if (isCaptureWindowActive) {
+          capBanner.classList.remove('hidden');
+          capBtn.className = 'min-h-[32px] px-2.5 py-1 rounded-lg border-2 border-roseLiquid bg-roseLiquid/25 text-roseLiquid font-bold text-xs flex items-center gap-1 hover:bg-roseLiquid/35 active:scale-95 transition-all animate-pulse shadow-[0_0_14px_rgba(255,51,102,0.4)]';
+          capBtnLbl.textContent = `⏹️ Finalizar e Interpretar (${Number(capWin.remaining_sec || 0).toFixed(1)}s)`;
+          if (capTimerBadge) capTimerBadge.textContent = `${Number(capWin.remaining_sec || 0).toFixed(1)}s / ${Number(capWin.duration_sec || 10).toFixed(0)}s`;
+          if (capProgBar) capProgBar.style.width = `${Math.round(Number(capWin.progress || 0) * 100)}%`;
+        } else {
+          capBanner.classList.add('hidden');
+          capBtn.className = 'min-h-[32px] px-2.5 py-1 rounded-lg border border-amberLiquid/50 bg-amberLiquid/20 text-amberLiquid font-semibold text-xs flex items-center gap-1 hover:bg-amberLiquid/30 active:scale-95 transition-all shadow-[0_0_10px_rgba(255,184,0,0.2)]';
+          capBtnLbl.textContent = '⏱️ Capturar Idea (10s)';
+        }
+      }
+
+      const listenerExpEl = document.getElementById('listenerExplanationText');
+      const listenerBadgeEl = document.getElementById('listenerIntentBadge');
+      const noiseContainerEl = document.getElementById('filteredNoiseBadgeContainer');
+      const noiseListTextEl = document.getElementById('filteredNoiseListText');
+
+      const liveExplanation = conv.listener_explanation || (conv.last_committed_summary && conv.last_committed_summary.listener_explanation) || '';
+      const liveBadge = conv.intent_badge || (conv.last_committed_summary && conv.last_committed_summary.intent_badge) || 'Esperando señas...';
+      const liveNoiseList = (conv.filtered_noise_tokens && conv.filtered_noise_tokens.length > 0)
+        ? conv.filtered_noise_tokens.map(n => n.label || n.sign_id)
+        : ((conv.last_committed_summary && conv.last_committed_summary.filtered_noise) || []);
+
+      if (listenerBadgeEl) {
+        listenerBadgeEl.textContent = liveBadge;
+      }
+      if (listenerExpEl) {
+        if (liveExplanation) {
+          listenerExpEl.textContent = liveExplanation;
+          listenerExpEl.className = 'text-xs text-emeraldLiquid font-semibold leading-snug';
+        } else {
+          listenerExpEl.textContent = 'Activa «⏱️ Capturar Idea (10s)» o haz señas frente a la cámara: el motor local eliminará gestos de transición innecesarios y explicará aquí qué quiere comunicar la persona sorda.';
+          listenerExpEl.className = 'text-xs text-textSecondary italic leading-snug';
+        }
+      }
+      if (noiseContainerEl && noiseListTextEl) {
+        if (liveNoiseList && liveNoiseList.length > 0) {
+          noiseContainerEl.classList.remove('hidden');
+          noiseContainerEl.classList.add('flex');
+          noiseListTextEl.textContent = liveNoiseList.join(', ');
+        } else {
+          noiseContainerEl.classList.add('hidden');
+          noiseContainerEl.classList.remove('flex');
+          noiseListTextEl.textContent = '';
+        }
+      }
+
       // 3. Historial de Chat Conversacional Bidireccional (SQLite)
       if (conv.active_conversation_id) {
         activeConversationId = conv.active_conversation_id;
@@ -2740,14 +2841,27 @@
 
           if (msg.sender === 'DEAF') {
             const escaped = (msg.text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const listenerHint = msg.listener_explanation ? `
+              <div class="mt-1.5 pt-1.5 border-t border-cyanLiquid/25 text-[11px] text-emeraldLiquid font-normal">
+                <span class="font-mono font-bold text-[10px] uppercase px-1.5 py-0.5 rounded bg-emeraldLiquid/15 border border-emeraldLiquid/30 mr-1">${escapeHtml(msg.intent_badge || '💡 Para el oyente')}</span>
+                <span>${escapeHtml(msg.listener_explanation)}</span>
+              </div>
+            ` : '';
+            const noiseHint = (msg.filtered_noise && msg.filtered_noise.length > 0) ? `
+              <div class="mt-1 text-[10px] font-mono text-amberLiquid">
+                🧹 Señas innecesarias descartadas: <span class="line-through text-textSecondary">${escapeHtml(msg.filtered_noise.join(', '))}</span>
+              </div>
+            ` : '';
             return `
-              <div class="flex flex-col items-start gap-1 max-w-[90%]">
+              <div class="flex flex-col items-start gap-1 max-w-[92%]">
                 <div class="flex items-center gap-1.5 text-[10px] font-mono text-cyanLiquid">
                   <span>🖐️ Persona Sorda</span>
                   <span class="text-textSecondary">• ${msg.timestamp || ''}</span>
                 </div>
                 <div class="p-3 rounded-2xl rounded-tl-sm bg-cyanLiquid/15 border border-cyanLiquid/40 text-textPrimary text-xs md:text-sm font-medium leading-relaxed">
-                  ${safeText}
+                  <div>${safeText}</div>
+                  ${listenerHint}
+                  ${noiseHint}
                 </div>
                 <div class="flex items-center gap-2.5">
                   <button onclick="speakSignMessage('${escaped}')" class="text-[10px] text-cyanLiquid hover:underline flex items-center gap-1">
@@ -2956,6 +3070,34 @@
       const text = sentEl ? sentEl.textContent.replace(/^"|"$/g, '').trim() : '';
       if (text && !text.includes('vacía')) {
         speakSignMessage(text);
+      }
+    }
+
+    let isCaptureWindowActive = false;
+
+    async function toggleCaptureWindow(durationSec = 10.0) {
+      if (isCaptureWindowActive) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'CONVERSATION_CAPTURE_STOP', auto_commit: true }));
+        } else {
+          await fetch('/api/conversation/capture/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto_commit: true })
+          });
+          await refreshConversationStateNow();
+        }
+      } else {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'CONVERSATION_CAPTURE_START', duration_sec: durationSec, clear_existing: true }));
+        } else {
+          await fetch('/api/conversation/capture/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration_sec: durationSec, clear_existing: true })
+          });
+          await refreshConversationStateNow();
+        }
       }
     }
 

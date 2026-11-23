@@ -795,6 +795,27 @@ class SignBridgePipeline:
                                     "semantic_note": "Postura no reconocida como seña",
                                 }
 
+            # En Ventana de Captura Conversacional (10s) bloquear cualquier letra del abecedario para reconocer SOLO palabras
+            if (
+                self.interaction_mode == "SIGN_LANGUAGE"
+                and self.conversation_engine.capture_mode_active
+                and raw_pred.get("gesture_id") in LSC_ALPHABET_CATALOG
+            ):
+                raw_pred = {
+                    "gesture_id": "G0",
+                    "name": GESTURE_CATALOG["G0"]["name"],
+                    "short_label": "SOLO PALABRAS",
+                    "sign_label": "Modo Conversación (Solo Palabras)",
+                    "sign_message": "Esperando seña de palabra LSC...",
+                    "action": "NONE",
+                    "action_label": "Filtro Solo Palabras",
+                    "confidence": 0.0,
+                    "probabilities": {k: 0.0 for k in GESTURE_CATALOG},
+                    "latency_ms": raw_pred.get("latency_ms", 1.0),
+                    "engine": raw_pred.get("engine", "LSC Filter"),
+                    "semantic_note": "Letra ignorada en Ventana de Conversación (solo palabras)",
+                }
+
             # 4. Estabilización Temporal (Buffer N=8, Umbral >= 0.85 con soporte dinámico y Cloud)
             stabilized = self.stabilizer.update(raw_pred)
             if self.mode == "ONLINE" and raw_pred.get("cloud_verified"):
@@ -863,6 +884,8 @@ class SignBridgePipeline:
                     stabilized["sign_message"] = conv_sign["default_phrase"]
                     stabilized["sign_emoji"] = conv_sign["emoji"]
                     stabilized["sign_category"] = conv_sign["category"]
+                # Actualizar temporizador del Modo Conversación por Ventana de Captura (auto-cierre a los 10s o al bajar manos)
+                self.conversation_engine.tick_capture_window(hand_detected=bool(hand_detected and active_source != "SIMULATOR_3D" or not self.simulator_neutral))
             tts_to_speak = self.conversation_engine.pop_tts_queue()
             if tts_to_speak:
                 self.latest_tts_seq += 1
@@ -957,4 +980,11 @@ class SignBridgePipeline:
     def clear_conversation_tokens(self) -> Dict[str, Any]:
         self.conversation_engine.clear_tokens()
         return {"cleared": True}
+
+    def start_conversation_capture(self, duration_sec: float = 10.0, clear_existing: bool = True) -> Dict[str, Any]:
+        self.interaction_mode = "SIGN_LANGUAGE"
+        return self.conversation_engine.start_capture_window(duration_sec=duration_sec, clear_existing=clear_existing)
+
+    def stop_conversation_capture(self, auto_commit: bool = True) -> Dict[str, Any]:
+        return self.conversation_engine.stop_capture_window(auto_commit=auto_commit, reason="manual")
 

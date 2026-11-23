@@ -441,6 +441,15 @@ class MessageUpdateRequest(BaseModel):
     text: str
 
 
+class CaptureWindowStartRequest(BaseModel):
+    duration_sec: float = 10.0
+    clear_existing: bool = True
+
+
+class CaptureWindowStopRequest(BaseModel):
+    auto_commit: bool = True
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_hud():
     with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
@@ -760,6 +769,21 @@ async def api_conversation_clear():
     return pipeline.clear_conversation_tokens()
 
 
+@app.post("/api/conversation/capture/start")
+async def api_conversation_capture_start(payload: CaptureWindowStartRequest):
+    """Inicia la ventana de captura conversacional (ej. 10s) con filtrado local de ruido e intención."""
+    return pipeline.start_conversation_capture(
+        duration_sec=payload.duration_sec,
+        clear_existing=payload.clear_existing,
+    )
+
+
+@app.post("/api/conversation/capture/stop")
+async def api_conversation_capture_stop(payload: CaptureWindowStopRequest):
+    """Finaliza la ventana de captura, filtra ruido innecesario e interpreta la intención para el oyente."""
+    return pipeline.stop_conversation_capture(auto_commit=payload.auto_commit)
+
+
 # ==========================================
 # CRUD de Historial de Conversaciones (SQLite)
 # ==========================================
@@ -1017,6 +1041,15 @@ async def ws_hud_endpoint(websocket: WebSocket):
                         pipeline.backspace_conversation_token()
                     elif cmd == "CONVERSATION_CLEAR":
                         pipeline.clear_conversation_tokens()
+                    elif cmd == "CONVERSATION_CAPTURE_START":
+                        pipeline.start_conversation_capture(
+                            duration_sec=float(data.get("duration_sec", 10.0)),
+                            clear_existing=bool(data.get("clear_existing", True)),
+                        )
+                    elif cmd == "CONVERSATION_CAPTURE_STOP":
+                        pipeline.stop_conversation_capture(
+                            auto_commit=bool(data.get("auto_commit", True)),
+                        )
                     elif cmd == "HEARING_SPEECH":
                         pipeline.add_hearing_spoken_text(data.get("text", ""))
                     elif cmd == "SET_SIGN_SUBMODE":
